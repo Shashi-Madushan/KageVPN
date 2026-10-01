@@ -3,6 +3,7 @@
 	--fg-muted: #6e6e73;
 	--surface: rgb(255 255 255 / 0.62);
 	--surface-strong: rgb(255 255 255 / 0.9);
+	--content-bg: rgb(255 255 255 / 0.5);
 	--hairline: rgb(0 0 0 / 0.09);
 	--accent: #0a84ff;
 	--ok: #28b463;
@@ -22,6 +23,7 @@
 		--fg-muted: #98989f;
 		--surface: rgb(255 255 255 / 0.07);
 		--surface-strong: rgb(60 60 64 / 0.92);
+		--content-bg: rgb(28 28 30 / 0.55);
 		--hairline: rgb(255 255 255 / 0.1);
 		--ok: #30d158;
 		--warn: #ff9f0a;
@@ -41,6 +43,7 @@ body {
 	height: 100%;
 	margin: 0;
 	background: transparent;
+	overflow: hidden;
 }
 
 body {

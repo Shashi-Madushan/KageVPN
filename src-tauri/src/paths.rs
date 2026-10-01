@@ -17,6 +17,18 @@ impl AppPaths {
         self.data_dir.join("data.json")
     }
 
+    pub fn core_dir(&self) -> PathBuf {
+        self.data_dir.join("core")
+    }
+
+    pub fn usage_db(&self) -> PathBuf {
+        self.data_dir.join("usage.db")
+    }
+
+    pub fn cache_file(&self) -> PathBuf {
+        self.data_dir.join("cache.db")
+    }
+
     pub fn config_file(&self) -> PathBuf {
         self.data_dir.join("config.json")
     }

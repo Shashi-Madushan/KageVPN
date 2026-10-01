@@ -4,17 +4,61 @@ export type Mode = 'tun' | 'proxy';
 export type ConnState = 'disconnected' | 'connecting' | 'connected';
 export type Level = 'debug' | 'info' | 'warn' | 'error';
 
+export type Security = 'tls' | 'reality';
+export type TransportKind = 'tcp' | 'ws' | 'grpc' | 'httpupgrade';
+
+export interface Transport {
+	kind: TransportKind;
+	path: string | null;
+	host: string | null;
+	serviceName: string | null;
+}
+
+export interface Reality {
+	publicKey: string;
+	shortId: string;
+}
+
 export interface Profile {
 	id: string;
 	name: string;
 	server: string;
 	port: number;
 	uuid: string;
+	security: Security;
 	sni: string | null;
 	fingerprint: string | null;
 	alpn: string[];
 	flow: string | null;
 	pinnedKey: string | null;
+	transport: Transport;
+	reality: Reality | null;
+	packetEncoding: string | null;
+	group: string | null;
+	favorite: boolean;
+	subscriptionId: string | null;
+}
+
+export function blankProfile(): Profile {
+	return {
+		id: '',
+		name: '',
+		server: '',
+		port: 443,
+		uuid: '',
+		security: 'tls',
+		sni: null,
+		fingerprint: 'chrome',
+		alpn: [],
+		flow: null,
+		pinnedKey: null,
+		transport: { kind: 'tcp', path: null, host: null, serviceName: null },
+		reality: null,
+		packetEncoding: null,
+		group: null,
+		favorite: false,
+		subscriptionId: null
+	};
 }
 
 export interface Status {
@@ -49,6 +93,166 @@ export interface Settings {
 	autoConnect: boolean;
 }
 
+export interface AutoSettings {
+	enabled: boolean;
+	group: string | null;
+}
+
+export interface UserInfo {
+	upload: number;
+	download: number;
+	total: number;
+	expire: number;
+}
+
+export interface Subscription {
+	id: string;
+	name: string;
+	url: string;
+	intervalHours: number;
+	lastUpdated: number;
+	lastError: string | null;
+	userInfo: UserInfo | null;
+}
+
+export type RouteMode = 'global' | 'rule' | 'direct';
+export type RouteAction = 'proxy' | 'direct' | 'block';
+export type RuleKind = 'domain' | 'domainSuffix' | 'domainKeyword' | 'ipCidr' | 'processName';
+export type RuleSetKind = 'geoip' | 'geosite';
+export type DnsProvider = 'cloudflare' | 'google' | 'quad9' | 'custom' | 'system';
+
+export interface Rule {
+	id: string;
+	enabled: boolean;
+	kind: RuleKind;
+	value: string;
+	action: RouteAction;
+}
+
+export interface RuleSetRef {
+	id: string;
+	enabled: boolean;
+	kind: RuleSetKind;
+	country: string;
+	action: RouteAction;
+}
+
+export interface RoutingSettings {
+	mode: RouteMode;
+	bypassLan: boolean;
+	finalAction: RouteAction;
+	rules: Rule[];
+	ruleSets: RuleSetRef[];
+	dns: { provider: DnsProvider; custom: string };
+}
+
+export interface ReliabilitySettings {
+	autoReconnect: boolean;
+	watchdog: boolean;
+	killSwitch: boolean;
+	hotkey: boolean;
+}
+
+export interface UsageSettings {
+	paused: boolean;
+	recordApps: boolean;
+	recordDomains: boolean;
+	detailRetentionDays: number;
+	quotaBytes: number | null;
+	cycleDay: number;
+	quotaAction: 'notify' | 'disconnect';
+	alertCycle: number;
+	alertLevel: number;
+}
+
+export type Bucket = 'hour' | 'day' | 'week' | 'month';
+
+export interface Filters {
+	profileId?: string | null;
+	mode?: string | null;
+	app?: string | null;
+	domain?: string | null;
+}
+
+export interface Point {
+	start: number;
+	up: number;
+	down: number;
+}
+
+export interface UsageReport {
+	series: Point[];
+	total: { up: number; down: number };
+	previous: { up: number; down: number } | null;
+	peak: Point | null;
+	connectedSecs: number;
+}
+
+export interface TopRow {
+	key: string;
+	up: number;
+	down: number;
+}
+
+export interface QuotaStatus {
+	limit: number | null;
+	used: number;
+	up: number;
+	down: number;
+	cycleStart: number;
+	cycleEnd: number;
+	percent: number;
+}
+
+export interface ImportSummary {
+	added: number;
+	failed: string[];
+}
+
+export interface RefreshSummary {
+	added: number;
+	removed: number;
+	total: number;
+	skipped: number;
+}
+
+export interface NodeLatency {
+	id: string;
+	ms: number | null;
+}
+
+export interface LiveConnection {
+	id: string;
+	host: string;
+	destinationIp: string;
+	destinationPort: string;
+	process: string;
+	network: string;
+	up: number;
+	down: number;
+	start: string;
+	chain: string;
+	rule: string;
+}
+
+export interface IpInfo {
+	ip: string;
+	country: string;
+	city: string;
+	org: string;
+}
+
+export interface Diagnostics {
+	system: IpInfo | null;
+	tunnel: IpInfo | null;
+	dns: { ip: string; geo: string } | null;
+}
+
+export interface SpeedResult {
+	downMbps: number;
+	upMbps: number;
+}
+
 export interface Snapshot {
 	profiles: Profile[];
 	activeId: string | null;
@@ -59,11 +263,37 @@ export interface Snapshot {
 	history: Sample[];
 	settings: Settings;
 	launchAtLogin: boolean;
+	auto: AutoSettings;
+	subscriptions: Subscription[];
+	routing: RoutingSettings;
+	reliability: ReliabilitySettings;
+	hotkey: string;
 }
 
 export const api = {
 	snapshot: () => invoke<Snapshot>('snapshot'),
-	importProfile: (link: string) => invoke<Profile>('import_profile', { link }),
+	importText: (text: string) => invoke<ImportSummary>('import_text', { text }),
+	saveProfile: (profile: Profile) => invoke<Profile>('save_profile', { profile }),
+	duplicateProfile: (id: string) => invoke<Profile>('duplicate_profile', { id }),
+	setFavorite: (id: string, favorite: boolean) => invoke<void>('set_favorite', { id, favorite }),
+	setGroup: (id: string, group: string | null) => invoke<void>('set_group', { id, group }),
+	reorderProfiles: (ids: string[]) => invoke<void>('reorder_profiles', { ids }),
+	profileLink: (id: string) => invoke<string>('profile_link', { id }),
+	profileQr: (id: string) => invoke<string>('profile_qr', { id }),
+	setAuto: (settings: AutoSettings) => invoke<void>('set_auto', { settings }),
+	testAll: () => invoke<NodeLatency[]>('test_all'),
+	setRouting: (settings: RoutingSettings) => invoke<void>('set_routing', { settings }),
+	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
+	restoreNetwork: () => invoke<void>('restore_network'),
+	addSubscription: (name: string, url: string) => invoke<RefreshSummary>('add_subscription', { name, url }),
+	refreshSubscription: (id: string) => invoke<RefreshSummary>('refresh_subscription', { id }),
+	removeSubscription: (id: string) => invoke<void>('remove_subscription', { id }),
+	runDiagnostics: () => invoke<Diagnostics>('run_diagnostics'),
+	runSpeedTest: () => invoke<SpeedResult>('run_speed_test'),
+	connections: () => invoke<LiveConnection[]>('connections_list'),
+	closeConnection: (id: string) => invoke<void>('close_connection', { id }),
+	closeAllConnections: () => invoke<void>('close_all_connections'),
+	latencyHistory: () => invoke<Record<string, (number | null)[]>>('latency_history'),
 	deleteProfile: (id: string) => invoke<void>('delete_profile', { id }),
 	selectProfile: (id: string) => invoke<void>('select_profile', { id }),
 	setMode: (mode: Mode) => invoke<void>('set_mode', { mode }),
@@ -79,4 +309,80 @@ export const api = {
 	setLaunchAtLogin: (enabled: boolean) => invoke<void>('set_launch_at_login', { enabled }),
 	openMainWindow: () => invoke<void>('open_main_window'),
 	quitApp: () => invoke<void>('quit_app')
+};
+
+export type Channel = 'stable' | 'prerelease';
+
+export interface CoreInfo {
+	path: string;
+	version: string;
+	tags: string[];
+	source: 'system' | 'managed';
+	missingTags: string[];
+	outdated: boolean;
+}
+
+export interface InstalledCore {
+	version: string;
+	path: string;
+	installedAt: number | null;
+}
+
+export interface CoreSettings {
+	managedVersion: string | null;
+	channel: Channel;
+	autoCheck: boolean;
+	lastCheck: number;
+}
+
+export interface CoreStatus {
+	active: CoreInfo | null;
+	error: string | null;
+	system: CoreInfo | null;
+	installed: InstalledCore[];
+	settings: CoreSettings;
+	busy: boolean;
+}
+
+export interface Release {
+	version: string;
+	prerelease: boolean;
+	publishedAt: string | null;
+	notes: string;
+	size: number;
+	url: string;
+	sha256: string | null;
+}
+
+export interface CoreProgress {
+	version: string;
+	stage: 'download' | 'verify' | 'extract' | 'check' | 'done';
+	received: number;
+	total: number;
+}
+
+export const coreApi = {
+	status: () => invoke<CoreStatus>('core_status'),
+	check: () => invoke<Release[]>('core_check'),
+	install: (version: string, allowUnverified = false) =>
+		invoke<void>('core_install', { version, allowUnverified }),
+	use: (version: string | null) => invoke<void>('core_use', { version }),
+	remove: (version: string) => invoke<void>('core_remove', { version }),
+	updateSettings: (channel: Channel, autoCheck: boolean) =>
+		invoke<void>('update_core_settings', { channel, autoCheck }),
+	brewUpgrade: () => invoke<string>('core_brew_upgrade')
+};
+
+export const usageApi = {
+	report: (args: { from: number; to: number; bucket: Bucket; filters: Filters; compare: boolean }) =>
+		invoke<UsageReport>('usage_report', { args }),
+	top: (args: { kind: 'app' | 'domain' | 'profile'; from: number; to: number; limit: number; filters: Filters }) =>
+		invoke<TopRow[]>('usage_top', { args }),
+	exportCsv: (args: { from: number; to: number; bucket: Bucket; filters: Filters; compare: boolean }) =>
+		invoke<string>('usage_export', { args }),
+	settings: () => invoke<UsageSettings>('usage_get_settings'),
+	setSettings: (settings: UsageSettings) => invoke<void>('usage_set_settings', { settings }),
+	quota: () => invoke<QuotaStatus>('usage_quota'),
+	reset: () => invoke<void>('usage_reset'),
+	clearDetails: () => invoke<void>('usage_clear_details')
 };

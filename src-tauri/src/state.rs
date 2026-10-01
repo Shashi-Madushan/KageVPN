@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 
 use crate::logs::LogBuffer;
@@ -5,6 +6,7 @@ use crate::paths::AppPaths;
 use crate::session::Status;
 use crate::store::Store;
 use crate::traffic::TrafficState;
+use crate::usage::collector::UsageState;
 
 pub struct AppState {
     pub paths: AppPaths,
@@ -13,10 +15,16 @@ pub struct AppState {
     pub pid: Mutex<Option<u32>>,
     pub logs: LogBuffer,
     pub traffic: Mutex<TrafficState>,
+    pub core_busy: AtomicBool,
+    pub stopping: AtomicBool,
+    pub reconnecting: AtomicBool,
+    pub clash_secret: Mutex<Option<String>>,
+    pub usage: UsageState,
 }
 
 impl AppState {
     pub fn new(paths: AppPaths) -> Self {
+        let paths_for_usage = paths.clone();
         let store = Store::load(paths.store_file());
         let status = Status::disconnected(store.mode());
         Self {
@@ -26,6 +34,11 @@ impl AppState {
             pid: Mutex::new(None),
             logs: LogBuffer::default(),
             traffic: Mutex::new(TrafficState::default()),
+            core_busy: AtomicBool::new(false),
+            stopping: AtomicBool::new(false),
+            reconnecting: AtomicBool::new(false),
+            clash_secret: Mutex::new(None),
+            usage: UsageState::open(&paths_for_usage),
         }
     }
 }

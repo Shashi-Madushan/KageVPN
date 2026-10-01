@@ -8,7 +8,7 @@ use tokio::time::sleep;
 use crate::config::CLASH_PORT;
 use crate::error::Result;
 use crate::state::AppState;
-use crate::tray;
+use crate::{session, tray, usage};
 
 const HISTORY_LEN: usize = 60;
 const CONNECT_ATTEMPTS: u32 = 10;
@@ -57,9 +57,15 @@ impl TrafficState {
 
 pub fn spawn(app: AppHandle, pid: u32, secret: String) {
     tauri::async_runtime::spawn(async move {
-        let _ = stream(&app, pid, &secret).await;
-        if app.state::<AppState>().pid.lock().unwrap().is_none_or(|current| current != pid) {
-            reset(&app);
+        let streamed = stream(&app, pid, &secret).await.unwrap_or(false);
+        let current = *app.state::<AppState>().pid.lock().unwrap();
+        match current {
+            Some(active) if active == pid => {
+                if streamed {
+                    session::tunnel_lost(&app, pid).await;
+                }
+            }
+            _ => reset(&app),
         }
     });
 }
@@ -67,11 +73,12 @@ pub fn spawn(app: AppHandle, pid: u32, secret: String) {
 pub fn reset(app: &AppHandle) {
     let state = app.state::<AppState>();
     *state.traffic.lock().unwrap() = TrafficState::default();
+    state.usage.flush();
     let _ = app.emit("traffic", Traffic::default());
     tray::set_speed(app, None);
 }
 
-async fn stream(app: &AppHandle, pid: u32, secret: &str) -> Result<()> {
+async fn stream(app: &AppHandle, pid: u32, secret: &str) -> Result<bool> {
     let client = reqwest::Client::builder().no_proxy().build()?;
     let url = format!("http://127.0.0.1:{CLASH_PORT}/traffic");
 
@@ -85,7 +92,7 @@ async fn stream(app: &AppHandle, pid: u32, secret: &str) -> Result<()> {
             _ => sleep(RETRY_DELAY).await,
         }
     }
-    let Some(mut response) = response else { return Ok(()) };
+    let Some(mut response) = response else { return Ok(false) };
 
     let state = app.state::<AppState>();
     let mut buffer = String::new();
@@ -101,14 +108,28 @@ async fn stream(app: &AppHandle, pid: u32, secret: &str) -> Result<()> {
             }
         }
     }
-    Ok(())
+    Ok(true)
 }
 
 fn publish(app: &AppHandle, sample: Sample) {
     let state = app.state::<AppState>();
+    record_usage(app, &sample);
     let traffic = state.traffic.lock().unwrap().record(sample);
     let _ = app.emit("traffic", traffic);
     tray::set_speed(app, Some(traffic));
+}
+
+fn record_usage(app: &AppHandle, sample: &Sample) {
+    let state = app.state::<AppState>();
+    if state.store.lock().unwrap().usage_settings().paused {
+        return;
+    }
+    let mode = state.status.lock().unwrap().mode;
+    state.usage.record_sample(&usage::collector::current_profile(app), mode.as_str(), sample.up, sample.down);
+    if state.usage.flush_due() {
+        state.usage.flush();
+        usage::quota::check(app);
+    }
 }
 
 #[cfg(test)]

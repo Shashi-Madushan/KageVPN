@@ -1,52 +1,61 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
 
-	let { open = $bindable() }: { open: boolean } = $props();
-	let link = $state('');
+	let { open = $bindable(), initial = '' }: { open: boolean; initial?: string } = $props();
+	let text = $state('');
 	let error = $state<string | null>(null);
 	let dialog: HTMLDialogElement;
+
+	const found = $derived(text.split(/\s+/).filter((t) => t.startsWith('vless://')).length);
 
 	$effect(() => {
 		if (open && !dialog.open) {
 			error = null;
+			text = initial;
 			dialog.showModal();
-			pasteFromClipboard();
+			if (!initial) pasteFromClipboard();
 		}
 		if (!open && dialog.open) dialog.close();
 	});
 
 	async function pasteFromClipboard() {
 		try {
-			const text = (await navigator.clipboard.readText()).trim();
-			if (text.startsWith('vless://')) link = text;
+			const clip = (await navigator.clipboard.readText()).trim();
+			if (clip.includes('vless://')) text = clip;
 		} catch {
 			// clipboard access can be denied; the user can paste manually
 		}
 	}
 
 	async function save() {
-		error = await app.importLink(link);
-		if (!error) {
-			link = '';
+		const { summary, error: failure } = await app.importText(text);
+		error = failure;
+		if (summary) {
+			app.notify(
+				summary.failed.length ? `Imported ${summary.added}, skipped ${summary.failed.length}.` : `Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}.`,
+				'info'
+			);
+			text = '';
 			open = false;
 		}
 	}
 </script>
 
 <dialog bind:this={dialog} onclose={() => (open = false)}>
-	<h3>Import profile</h3>
-	<p class="hint">Paste a <span class="mono">vless://</span> share link.</p>
-	<textarea bind:value={link} placeholder="vless://…" rows="5" spellcheck="false" class="mono"></textarea>
+	<h3>Import profiles</h3>
+	<p class="hint">Paste one or many <span class="mono">vless://</span> links, one per line.</p>
+	<textarea bind:value={text} placeholder="vless://…" rows="7" spellcheck="false" class="mono"></textarea>
+	{#if text}<p class="hint">{found} link{found === 1 ? '' : 's'} detected</p>{/if}
 	{#if error}<p class="error">{error}</p>{/if}
 	<div class="actions">
 		<button onclick={() => (open = false)}>Cancel</button>
-		<button class="primary" disabled={!link.trim()} onclick={save}>Save</button>
+		<button class="primary" disabled={found === 0} onclick={save}>Import {found > 1 ? `${found} profiles` : ''}</button>
 	</div>
 </dialog>
 
 <style>
 	dialog {
-		width: min(380px, 92vw);
+		width: min(420px, 92vw);
 		border: 1px solid var(--hairline);
 		border-radius: var(--radius);
 		background: var(--surface-strong);
@@ -62,8 +71,9 @@
 		font-size: 15px;
 	}
 	.hint {
-		margin: 2px 0 10px;
+		margin: 4px 0 10px;
 		color: var(--fg-muted);
+		font-size: 12px;
 	}
 	textarea {
 		width: 100%;

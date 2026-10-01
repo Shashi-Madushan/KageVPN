@@ -22,6 +22,8 @@ pub enum AppError {
     Json(#[from] serde_json::Error),
     #[error(transparent)]
     Http(#[from] reqwest::Error),
+    #[error("database error: {0}")]
+    Db(#[from] rusqlite::Error),
 }
 
 impl Serialize for AppError {

@@ -7,6 +7,9 @@
     "tray"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "notification:default",
+    "clipboard-manager:allow-read-text",
+    "deep-link:default"
   ]
 }

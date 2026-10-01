@@ -1,157 +1,157 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { app } from '$lib/app.svelte';
-	import { formatBytes, formatDuration, formatRate } from '$lib/format';
-	import HintBanner from '$lib/components/HintBanner.svelte';
-	import ImportDialog from '$lib/components/ImportDialog.svelte';
+	import { core } from '$lib/core.svelte';
+	import { clipboardWatch } from '$lib/clipboard.svelte';
+	import ConnectionsPage from '$lib/components/ConnectionsPage.svelte';
+	import CorePage from '$lib/components/CorePage.svelte';
+	import DiagnosticsPage from '$lib/components/DiagnosticsPage.svelte';
+	import HomePage from '$lib/components/HomePage.svelte';
 	import LogView from '$lib/components/LogView.svelte';
-	import PowerButton from '$lib/components/PowerButton.svelte';
-	import ProfileList from '$lib/components/ProfileList.svelte';
-	import Segmented from '$lib/components/Segmented.svelte';
+	import ProfilesPage from '$lib/components/ProfilesPage.svelte';
+	import RoutingPage from '$lib/components/RoutingPage.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
-	import Sparkline from '$lib/components/Sparkline.svelte';
-	import StatTile from '$lib/components/StatTile.svelte';
+	import Sidebar, { type Page } from '$lib/components/Sidebar.svelte';
+	import UsagePage from '$lib/components/UsagePage.svelte';
 
-	type Tab = 'home' | 'logs' | 'settings';
-	const tabs: { value: Tab; label: string }[] = [
-		{ value: 'home', label: 'Home' },
-		{ value: 'logs', label: 'Logs' },
-		{ value: 'settings', label: 'Settings' }
-	];
-	const modes = [
-		{ value: 'tun' as const, label: 'TUN (system-wide)' },
-		{ value: 'proxy' as const, label: 'Proxy only' }
-	];
+	const titles: Record<Page, string> = {
+		home: 'Home',
+		profiles: 'Profiles',
+		usage: 'Data usage',
+		routing: 'Routing',
+		connections: 'Connections',
+		diagnostics: 'Diagnostics',
+		core: 'sing-box core',
+		logs: 'Logs',
+		settings: 'Settings'
+	};
 
-	let tab = $state<Tab>('home');
-	let importing = $state(false);
-	let now = $state(Math.floor(Date.now() / 1000));
+	let page = $state<Page>('home');
 
 	onMount(() => {
 		app.init();
-		const timer = setInterval(() => (now = Math.floor(Date.now() / 1000)), 1000);
-		return () => clearInterval(timer);
+		core.init();
+		clipboardWatch.start();
+		return () => clipboardWatch.stop();
 	});
 
-	const statusText = $derived(
-		{ disconnected: 'Not connected', connecting: 'Connecting…', connected: 'Connected' }[app.status.state]
-	);
-	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
+	$effect(() => {
+		if (app.pendingImport) page = 'profiles';
+	});
+
+	async function importOffer() {
+		const text = clipboardWatch.offer;
+		if (!text) return;
+		clipboardWatch.dismiss();
+		const { summary, error } = await app.importText(text);
+		if (summary) app.notify(`Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}.`, 'info');
+		else if (error) app.notify(error);
+	}
+
+	const badges = $derived<Partial<Record<Page, string>>>(core.updateAvailable ? { core: '1' } : {});
 </script>
 
-<div class="shell">
-	<header data-tauri-drag-region>
-		<Segmented options={tabs} value={tab} label="Section" onchange={(t) => (tab = t)} />
-	</header>
+<div class="app">
+	<aside data-tauri-drag-region>
+		<Sidebar {page} {badges} onselect={(p) => (page = p)} />
+	</aside>
 
-	<main>
-		{#if tab === 'home'}
-			<section class="hero card" class:on={app.connected}>
-				<PowerButton state={app.status.state} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
-				<div class="status">
-					<strong class={app.status.state}>{statusText}</strong>
-					<span>
-						{app.activeProfile?.name ?? 'No profile selected'}{#if elapsed}{' · '}<span class="tabular">{elapsed}</span>{/if}
-					</span>
-				</div>
-				{#if app.connected}
-					<div class="chips">
-						{#if app.exitIp}<span class="chip mono">{app.exitIp}</span>{/if}
-						{#if app.delayMs !== null}<span class="chip tabular">{app.delayMs} ms</span>{/if}
-						<span class="chip">{app.status.mode === 'tun' ? 'TUN' : 'Proxy'}</span>
-					</div>
-				{/if}
-			</section>
-
-			<section class="speed card">
-				<div class="tiles">
-					<StatTile label="Download" value={formatRate(app.traffic.down)} sub="{formatBytes(app.traffic.totalDown)} total" tone="down" />
-					<StatTile label="Upload" value={formatRate(app.traffic.up)} sub="{formatBytes(app.traffic.totalUp)} total" tone="up" />
-				</div>
-				<Sparkline samples={app.history} />
-			</section>
-
-			<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
-			<HintBanner />
-			<ProfileList onadd={() => (importing = true)} />
-		{:else if tab === 'logs'}
-			<div class="logs-root"><LogView /></div>
-		{:else}
-			<SettingsView />
+	<section class="content">
+		<header data-tauri-drag-region><h1>{titles[page]}</h1></header>
+		{#if clipboardWatch.offer}
+			<div class="offer card">
+				<span>A <span class="mono">vless://</span> link was copied.</span>
+				<span class="spacer"></span>
+				<button onclick={() => clipboardWatch.dismiss()}>Dismiss</button>
+				<button class="primary" onclick={importOffer}>Import</button>
+			</div>
 		{/if}
-	</main>
+		<main class:fill={page === 'logs'}>
+			{#if page === 'home'}
+				<HomePage onnavigate={(p) => (page = p)} />
+			{:else if page === 'profiles'}
+				<ProfilesPage />
+			{:else if page === 'usage'}
+				<UsagePage />
+			{:else if page === 'routing'}
+				<RoutingPage />
+			{:else if page === 'connections'}
+				<ConnectionsPage />
+			{:else if page === 'diagnostics'}
+				<DiagnosticsPage />
+			{:else if page === 'core'}
+				<CorePage />
+			{:else if page === 'logs'}
+				<LogView />
+			{:else}
+				<SettingsView />
+			{/if}
+		</main>
+	</section>
 </div>
 
-<ImportDialog bind:open={importing} />
-
 <style>
-	.shell {
+	.app {
 		height: 100vh;
+		overflow: hidden;
+		display: grid;
+		grid-template-columns: 188px minmax(0, 1fr);
+		grid-template-rows: minmax(0, 1fr);
+	}
+	aside {
+		padding-top: 52px;
+		overflow: hidden;
+	}
+	.content {
 		display: flex;
 		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+		background: var(--content-bg);
+		border-left: 1px solid var(--hairline);
 	}
 	header {
-		padding: 10px 92px 8px;
+		padding: 14px 20px 6px;
 		flex: none;
+	}
+	h1 {
+		margin: 0;
+		font-size: 18px;
+		font-weight: 650;
+	}
+	.offer {
+		margin: 0 20px 6px;
+		padding: 8px 12px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		border-color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+	}
+	.offer .spacer {
+		flex: 1;
+	}
+	.offer button {
+		border: 1px solid var(--hairline);
+		background: var(--surface-strong);
+		border-radius: 8px;
+		padding: 4px 12px;
+	}
+	.offer .primary {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: white;
+		font-weight: 600;
 	}
 	main {
 		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
-		padding: 6px 16px 18px;
-		display: flex;
-		flex-direction: column;
-		gap: 14px;
+		overscroll-behavior: contain;
+		padding: 8px 20px 20px;
 	}
-	.hero {
-		display: grid;
-		justify-items: center;
-		gap: 12px;
-		padding: 22px 16px 18px;
-		transition: background 0.3s;
-	}
-	.hero.on {
-		background: linear-gradient(180deg, color-mix(in srgb, var(--ok) 12%, var(--surface)), var(--surface));
-	}
-	.status {
-		display: grid;
-		justify-items: center;
-		color: var(--fg-muted);
-	}
-	.status strong {
-		font-size: 16px;
-		color: var(--fg);
-	}
-	.status .connected {
-		color: var(--ok);
-	}
-	.status .connecting {
-		color: var(--warn);
-	}
-	.chips {
-		display: flex;
-		gap: 6px;
-		flex-wrap: wrap;
-		justify-content: center;
-	}
-	.chip {
-		font-size: 11px;
-		padding: 2px 8px;
-		border-radius: 999px;
-		background: var(--hairline);
-		user-select: text;
-	}
-	.speed {
-		padding: 14px 14px 8px;
-		display: grid;
-		gap: 10px;
-	}
-	.tiles {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 12px;
-	}
-	.logs-root {
-		flex: 1;
+	main.fill {
 		display: flex;
 		flex-direction: column;
 		min-height: 0;

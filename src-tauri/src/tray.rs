@@ -7,7 +7,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Listener, Manager, PhysicalPosition, Rect, Window, WindowEvent};
 
 use crate::session::{self, State, Status};
-use crate::speed_icon;
+use crate::{notify, speed_icon};
 use crate::state::AppState;
 use crate::traffic::Traffic;
 
@@ -178,7 +178,7 @@ fn place_below(app: &AppHandle, window: &tauri::WebviewWindow, anchor: Rect) {
     let _ = window.set_position(PhysicalPosition::new(x as i32, y as i32));
 }
 
-fn toggle_connection(app: &AppHandle) {
+pub fn toggle_connection(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>().status.lock().unwrap().state;
@@ -187,7 +187,8 @@ fn toggle_connection(app: &AppHandle) {
             State::Connected => session::disconnect(&app).await,
             State::Connecting => Ok(()),
         };
-        if result.is_err() {
+        if let Err(error) = result {
+            notify::send(&app, "Connection failed", &error.to_string());
             show_main_window(&app);
         }
     });

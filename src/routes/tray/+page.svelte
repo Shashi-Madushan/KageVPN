@@ -2,7 +2,8 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
-	import { formatDuration, formatRate } from '$lib/format';
+	import { formatBytes, formatDuration, formatRate } from '$lib/format';
+	import { usage } from '$lib/usage.svelte';
 	import PowerButton from '$lib/components/PowerButton.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
 	import Sparkline from '$lib/components/Sparkline.svelte';
@@ -16,6 +17,7 @@
 
 	onMount(() => {
 		app.init();
+		usage.loadToday();
 		const timer = setInterval(() => (now = Math.floor(Date.now() / 1000)), 1000);
 		return () => clearInterval(timer);
 	});
@@ -50,6 +52,10 @@
 		<div><span class="caption">Upload</span><strong class="tabular up">{formatRate(app.traffic.up)}</strong></div>
 	</div>
 	<Sparkline samples={app.history} height={64} />
+	<div class="today">
+		<span>Today <strong class="tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong></span>
+		{#if usage.quota?.limit}<span class="tabular">{usage.quota.percent.toFixed(0)}% of cap</span>{/if}
+	</div>
 
 	<div class="controls">
 		{#if app.profiles.length > 1}
@@ -136,6 +142,15 @@
 	}
 	.up {
 		color: var(--up);
+	}
+	.today {
+		display: flex;
+		justify-content: space-between;
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
+	.today strong {
+		color: var(--fg);
 	}
 	.controls {
 		display: grid;

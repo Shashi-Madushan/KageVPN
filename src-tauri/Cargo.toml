@@ -23,7 +23,17 @@ percent-encoding = "2"
 base64 = "0.22"
 uuid = { version = "1", features = ["v4"] }
 tokio = { version = "1", features = ["net", "time"] }
-reqwest = { version = "0.12", default-features = false, features = ["socks", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["socks", "rustls-tls", "json"] }
+sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
+tauri-plugin-notification = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 
 [profile.release]
 codegen-units = 1

@@ -2,11 +2,42 @@
 
 | | |
 |---|---|
-| Status | Plan, not started |
+| Status | Implemented (compiled, not yet tested live), see Section 0 |
 | Date | 2026-10-01 |
 | Builds on | [PRD.md](PRD.md) (v1 MVP, milestones M0–M10 done) |
 | Scope rule | **VLESS only.** Other protocols stay out of v2. |
 | Platform | macOS, Apple Silicon first |
+
+## 0. Implementation status (2026-10-01)
+
+Built in this pass. The Rust side passes `cargo clippy`, the Svelte side passes `svelte-check`, and a debug app builds. **Only core management (V2) and the V1 foundations were run live.** Everything marked "not tested" below was written and compiled but not exercised, by request.
+
+| Milestone | State |
+|---|---|
+| V0 carry-over | Icons and plan committed. Release `.app` builds (4.6 MB). `.dmg` via the stock bundler fails in this environment, build it with `hdiutil` |
+| V1 foundations | Done: schema versioning with backup, notifications, sidebar layout with a fixed sidebar and scrolling content, SQLite, `LSUIElement` so the Dock icon never appears. Verified live |
+| V2 core management | Done and **verified live**: releases API, SHA-256 verified install, switch, roll back, remove, update notification |
+| V3 usage collector | Built, not tested: per-minute store, hourly roll-up, per-app and per-domain estimates, quota alerts at 80 and 100 percent, optional disconnect |
+| V4 usage UI | Built, not tested: range presets and custom dates, group by hour/day/week/month, profile, mode, app and domain filters, previous-period comparison, interactive chart with drill-down, top tables, CSV export, cap and cycle settings |
+| V5 VLESS in full | Built, not tested: edit form, Reality, WebSocket, gRPC, HTTPUpgrade, groups, favorites, search, duplicate, bulk import, share link and QR code |
+| V6 subscriptions | Built, not tested: plain and base64 lists, scheduled refresh, quota and expiry from `subscription-userinfo`, clipboard watcher (opt-in), `singboxgui://` deep links |
+| V7 smart connect | Built, not tested: test all (real delay when connected, TCP otherwise), latency history sparklines, live profile switching without reconnect, auto-fastest mode with failover |
+| V8 routing | Built, not tested: global, rule and direct modes, rule editor with reorder, country lists, DNS provider choice, rule tester |
+| V9 connections and diagnostics | Built, not tested: live connection table with close, leak check, speed test, support report |
+| V10 reliability | Built, not tested: auto-reconnect with backoff, watchdog, kill switch (experimental, uses the macOS firewall), global hotkey |
+| V11 helper, signing | **Not done.** Needs an Apple Developer account and cannot be verified here |
+
+### Deliberately deferred
+- **Keychain storage** of UUIDs: unsigned development builds trigger a prompt on every access. Do it together with signing.
+- **Privileged helper, signing, notarization, app auto-update** (V11).
+- **QR import from an image**: needs image decoding crates that add size.
+- **Trusted Wi-Fi rules**: macOS no longer exposes the Wi-Fi name without a Location permission, so there is no reliable way to read it.
+- **Onboarding wizard** and **FakeIP**.
+
+### Known risks in untested code
+- The **kill switch** edits firewall rules as root. It is off by default and has a "Restore internet access" button, but it has never been run.
+- Rule lists make sing-box download from GitHub at connect time; if GitHub is unreachable a connect with lists enabled may fail.
+- Per-app usage depends on sing-box resolving the process name and is labelled an estimate.
 
 ## 1. What v2 is about
 

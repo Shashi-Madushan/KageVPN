@@ -13,10 +13,9 @@
     "windows": [
       {
         "title": "SingBox GUI",
-        "width": 420,
-        "height": 660,
-        "minWidth": 380,
-        "minHeight": 560,
+        "width": 780,
+        "height": 580,
+        "minWidth": 680,
         "visible": false,
         "label": "main",
         "transparent": true,
@@ -27,13 +26,14 @@
             "sidebar"
           ],
           "state": "active"
-        }
+        },
+        "minHeight": 480
       },
       {
         "label": "tray",
         "url": "/tray",
         "width": 320,
-        "height": 410,
+        "height": 440,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
@@ -69,5 +69,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "singboxgui"
+        ]
+      }
+    }
   }
 }

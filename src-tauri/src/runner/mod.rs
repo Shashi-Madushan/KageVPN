@@ -11,17 +11,20 @@ const USER_CANCELED: &str = "-128";
 /// Starts the supervisor script and returns its pid. TUN mode needs root, so the
 /// script is launched through one administrator prompt; stopping is done with a
 /// stop file so disconnecting never prompts again.
-pub async fn start(paths: &AppPaths, binary: &Path, mode: Mode) -> Result<u32> {
+pub async fn start(paths: &AppPaths, binary: &Path, mode: Mode, kill_switch_ips: Option<String>) -> Result<u32> {
     let script = paths.supervisor_script();
     std::fs::write(&script, SUPERVISOR)?;
 
-    let args = vec![
+    let mut args = vec![
         script.display().to_string(),
         binary.display().to_string(),
         paths.config_file().display().to_string(),
         paths.stop_file().display().to_string(),
         std::process::id().to_string(),
     ];
+    if let (Mode::Tun, Some(ips)) = (mode, kill_switch_ips) {
+        args.push(if ips.is_empty() { "-".to_string() } else { ips });
+    }
 
     match mode {
         Mode::Proxy => spawn_plain(&args),
