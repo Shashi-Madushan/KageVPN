@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | v0.2: MVP built, tray/background and UI redesign planned |
+| Status | v1 MVP built (M0–M10). Next: [PRD-v2.md](PRD-v2.md) |
 | Date | 2026-09-30 |
 | Platform | macOS (Apple Silicon first, Intel later) |
 | Stack | **Tauri 2** (Rust backend) + Svelte/Vite + plain CSS |
