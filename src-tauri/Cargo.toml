@@ -1,0 +1,33 @@
+[package]
+name = "singbox-gui"
+version = "0.1.0"
+description = "Minimal sing-box VPN manager"
+authors = ["shashi"]
+edition = "2021"
+
+[lib]
+name = "singbox_gui_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-autostart = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+url = "2"
+percent-encoding = "2"
+base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
+tokio = { version = "1", features = ["net", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["socks", "rustls-tls"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

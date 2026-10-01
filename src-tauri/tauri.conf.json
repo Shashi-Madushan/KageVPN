@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SingBox GUI",
+  "version": "0.1.0",
+  "identifier": "com.shashi.singboxgui",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SingBox GUI",
+        "width": 420,
+        "height": 660,
+        "minWidth": 380,
+        "minHeight": 560,
+        "visible": false,
+        "label": "main",
+        "transparent": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "windowEffects": {
+          "effects": [
+            "sidebar"
+          ],
+          "state": "active"
+        }
+      },
+      {
+        "label": "tray",
+        "url": "/tray",
+        "width": 320,
+        "height": 410,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "shadow": true,
+        "focus": false,
+        "windowEffects": {
+          "effects": [
+            "popover"
+          ],
+          "state": "active",
+          "radius": 12
+        }
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
