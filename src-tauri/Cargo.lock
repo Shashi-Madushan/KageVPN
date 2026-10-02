@@ -3788,6 +3788,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "flate2",
+ "mac-notification-sys",
  "percent-encoding",
  "qrcode",
  "reqwest 0.12.28",

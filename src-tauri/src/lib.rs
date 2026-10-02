@@ -51,6 +51,7 @@ pub fn run() {
         .setup(|app| {
             let paths = AppPaths::new(app.path().app_data_dir()?)?;
             app.manage(AppState::new(paths));
+            notify::setup(app.handle());
             logs::spawn_tailer(app.handle().clone());
             tray::setup(app.handle())?;
             auto_connect(app.handle());
