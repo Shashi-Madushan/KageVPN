@@ -301,7 +301,7 @@ fn dns(settings: &DnsSettings) -> Value {
 mod tests {
     use super::*;
 
-    const PIN: &str = "4AJ7t5dYu7LHkpjhv6iBfFJQohf2f2+8QvpDJ3S8nBI=";
+    const PIN: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
     fn profile() -> Profile {
         Profile {
@@ -310,7 +310,7 @@ mod tests {
             server: "example.com".into(),
             port: 443,
             uuid: "11111111-2222-4333-8444-555555555555".into(),
-            sni: Some("aka.ms".into()),
+            sni: Some("sni.example.com".into()),
             fingerprint: Some("chrome".into()),
             alpn: vec!["h2".into()],
             pinned_key: Some(PIN.into()),

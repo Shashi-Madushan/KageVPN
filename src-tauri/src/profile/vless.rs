@@ -159,14 +159,14 @@ fn invalid(message: impl Into<String>) -> AppError {
 mod tests {
     use super::*;
 
-    const LINK: &str = "vless://11111111-2222-4333-8444-555555555555@vpn.example.com:443?encryption=none&security=tls&sni=aka.ms&fp=chrome&alpn=h2%2Chttp%2F1.1&pcs=0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF&type=tcp&headerType=none#me-me";
+    const LINK: &str = "vless://11111111-2222-4333-8444-555555555555@vpn.example.com:443?encryption=none&security=tls&sni=sni.example.com&fp=chrome&alpn=h2%2Chttp%2F1.1&pcs=0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF&type=tcp&headerType=none#demo";
 
     #[test]
     fn parses_full_link() {
         let p = parse_vless(LINK).unwrap();
-        assert_eq!(p.name, "me-me");
+        assert_eq!(p.name, "demo");
         assert_eq!(p.server, "vpn.example.com");
-        assert_eq!(p.sni.as_deref(), Some("aka.ms"));
+        assert_eq!(p.sni.as_deref(), Some("sni.example.com"));
         assert_eq!(p.alpn, ["h2", "http/1.1"]);
     }
 

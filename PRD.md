@@ -144,12 +144,12 @@ Design principles: one primary action, nothing hidden behind modals, status visi
 │           ┌──────────────┐           │
 │           │   ⏻  (big)   │           │  Connect / Disconnect
 │           └──────────────┘           │
-│      me-me · 203.0.113.10           │  profile + exit IP
+│      Frankfurt · 203.0.113.10        │  profile + exit IP
 │      ↓ 1.2 MB/s   ↑ 80 KB/s          │
 │      Mode:  [ TUN | Proxy ]          │
 │                                      │
 │ ─ Profiles ────────────────  + Add ─ │
-│ ● me-me      vless·tls   142 ms  ⋯   │  row: select, latency, menu
+│ ● Frankfurt   vless·tls   142 ms  ⋯   │  row: select, latency, menu
 │ ○ work       vless·reality  —    ⋯   │
 │                                      │
 │ [ Profiles ]  [ Logs ]  [ Settings ] │  tab bar
