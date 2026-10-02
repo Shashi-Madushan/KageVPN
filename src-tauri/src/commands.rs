@@ -13,7 +13,7 @@ use crate::state::AppState;
 use crate::store::Settings;
 use crate::subscriptions::{self, RefreshSummary};
 use crate::traffic::{Sample, Traffic};
-use crate::{clash, net, reliability, tray};
+use crate::{clash, net, notify, reliability, tray};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -355,6 +355,11 @@ pub fn open_main_window(app: AppHandle) {
 #[tauri::command]
 pub fn hide_tray(app: AppHandle) {
     tray::hide_popover(&app);
+}
+
+#[tauri::command]
+pub fn notify_os(app: AppHandle, title: String, body: String) {
+    notify::send(&app, &title, &body);
 }
 
 #[tauri::command]

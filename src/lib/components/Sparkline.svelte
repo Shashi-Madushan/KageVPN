@@ -3,7 +3,6 @@
 
 	let {
 		samples,
-		length = 60,
 		height = 56
 	}: { samples: Sample[]; length?: number; height?: number } = $props();
 
@@ -11,12 +10,13 @@
 	const PAD = 3;
 
 	const peak = $derived(Math.max(1024, ...samples.map((s) => Math.max(s.up, s.down))));
-	const offset = $derived(length - samples.length);
 
 	function points(pick: (s: Sample) => number): string {
+		if (samples.length <= 1) return `0,${height - PAD} ${WIDTH},${height - PAD}`;
+		const denom = Math.max(1, samples.length - 1);
 		return samples
 			.map((s, i) => {
-				const x = ((offset + i) / (length - 1)) * WIDTH;
+				const x = (i / denom) * WIDTH;
 				const y = height - PAD - (pick(s) / peak) * (height - PAD * 2);
 				return `${x.toFixed(1)},${y.toFixed(1)}`;
 			})
@@ -27,7 +27,7 @@
 	const up = $derived(points((s) => s.up));
 	const area = $derived(
 		samples.length > 1
-			? `${((offset / (length - 1)) * WIDTH).toFixed(1)},${height} ${down} ${WIDTH},${height}`
+			? `0,${height} ${down} ${WIDTH},${height}`
 			: ''
 	);
 </script>

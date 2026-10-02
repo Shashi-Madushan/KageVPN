@@ -13,7 +13,7 @@
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
 
 	const modes = [
-		{ value: 'tun' as const, label: 'TUN (Full System)' },
+		{ value: 'tun' as const, label: 'Full System (TUN)' },
 		{ value: 'proxy' as const, label: 'Proxy Only' }
 	];
 
@@ -33,14 +33,7 @@
 	const isProtected = $derived(app.status.state === 'connected');
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const statusText = $derived(
-		isProtected ? 'Protected' : isConnecting ? 'Connecting…' : 'Unprotected'
-	);
-	const statusSub = $derived(
-		isProtected
-			? `${app.status.mode === 'tun' ? 'System traffic encrypted' : 'Local proxy active'}`
-			: isConnecting
-				? 'Negotiating handshake…'
-				: 'Your traffic is unencrypted'
+		isProtected ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
 	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
 	const activeFlag = $derived(
@@ -70,16 +63,6 @@
 				<small>A newer release is available from the sing-box repository.</small>
 			</div>
 			<button onclick={() => onnavigate('core')}>Update</button>
-		</div>
-	{/if}
-
-	{#if app.status.error}
-		<div class="banner card error-box">
-			<div class="banner-text">
-				<strong>Connection failed</strong>
-				<small>{app.status.error}</small>
-			</div>
-			<button class="primary" onclick={() => app.toggle()}>Retry</button>
 		</div>
 	{/if}
 
@@ -121,70 +104,72 @@
 	{/if}
 
 	<div class="grid">
+		<!-- Left Card: Connection Hero -->
 		<section class="hero card" class:on={app.connected}>
-			<!-- Protection State Badge -->
-			<div class="protection-badge {app.status.state}">
-				<span class="dot"></span>
-				<span>{statusText.toUpperCase()}</span>
+			<div class="card-header">
+				<div class="status-indicator {app.status.state}">
+					<span class="dot"></span>
+					<strong>{statusText}</strong>
+					{#if elapsed}
+						<span class="elapsed tabular">· {elapsed}</span>
+					{/if}
+				</div>
 				{#if app.reliability.killSwitch}
-					<span class="ks-pill" title="Kill switch is active">🛡️ Kill Switch</span>
+					<span class="ks-badge" title="Kill switch is armed">🛡️ Kill Switch</span>
 				{/if}
 			</div>
 
-			<PowerButton state={app.status.state} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
-
-			<div class="status">
-				<strong class="state-title {app.status.state}">{statusText}</strong>
-				<span class="state-sub">{statusSub}{#if elapsed}{' · '}<span class="tabular">{elapsed}</span>{/if}</span>
+			<div class="power-center">
+				<PowerButton state={app.status.state} size={82} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
+				<div class="ip-row">
+					{#if app.connected}
+						{#if app.exitIp}
+							<button class="ip-chip mono" onclick={copyExitIp} title="Click to copy IP">
+								{app.exitIp} 📋
+							</button>
+						{/if}
+						{#if app.delayMs !== null}
+							<span class="delay-chip ok tabular">{app.delayMs} ms</span>
+						{/if}
+					{:else}
+						<span class="ready-sub">{app.profiles.length ? 'Tap button to connect' : 'Add a profile to connect'}</span>
+					{/if}
+				</div>
 			</div>
 
-			{#if app.connected}
-				<div class="chips">
-					{#if app.exitIp}
-						<button class="chip mono click-chip" onclick={copyExitIp} title="Click to copy IP">
-							{app.exitIp} 📋
-						</button>
-					{/if}
-					{#if app.delayMs !== null}
-						<span class="chip ok tabular">{app.delayMs} ms</span>
-					{/if}
-					<span class="chip">{app.status.mode === 'tun' ? 'TUN (System)' : 'Proxy Mode'}</span>
-				</div>
-			{/if}
-
-			<!-- Interactive Server Card -->
+			<!-- Server Card -->
 			<div class="server-card">
-				<div class="server-info">
+				<div class="server-main">
 					<span class="server-flag">{activeFlag}</span>
-					<div class="server-details">
-						<strong class="server-title">{app.auto.enabled ? '⚡ Auto (fastest)' : (app.activeProfile?.name ?? 'No profile selected')}</strong>
+					<div class="server-meta">
+						<strong class="server-name">{app.auto.enabled ? '⚡ Auto (fastest server)' : (app.activeProfile?.name ?? 'No profile selected')}</strong>
 						<small class="server-sub mono">
 							{#if app.activeProfile}
 								{app.activeProfile.server}:{app.activeProfile.port} · {app.activeProfile.security}
 							{:else}
-								Add or select a server to begin
+								Select a profile to get started
 							{/if}
 						</small>
 					</div>
 				</div>
 
-				<div class="server-actions">
+				<div class="server-foot">
 					{#if app.activeProfile && app.latency[app.activeProfile.id]}
-						<span class="ping-pill {latencyTone(app.latency[app.activeProfile.id])}">
+						<span class="ping-badge {latencyTone(app.latency[app.activeProfile.id])}">
 							{latencyLabel(app.latency[app.activeProfile.id])}
 						</span>
 					{/if}
 					{#if app.profiles.length > 1}
-						<button class="change-btn" disabled={app.locked} onclick={() => (showQuickPicker = !showQuickPicker)}>
-							{showQuickPicker ? 'Close' : 'Change'}
+						<button class="switch-btn" disabled={app.locked} onclick={() => (showQuickPicker = !showQuickPicker)}>
+							{showQuickPicker ? 'Close' : 'Switch Server'}
 						</button>
 					{:else}
-						<button class="change-btn" onclick={() => onnavigate('profiles')}>Servers</button>
+						<button class="switch-btn" onclick={() => onnavigate('profiles')}>Servers</button>
 					{/if}
 				</div>
 
 				{#if showQuickPicker}
-					<div class="quick-picker">
+					<div class="picker-panel">
 						<label class="auto-opt">
 							<input
 								type="checkbox"
@@ -194,13 +179,13 @@
 									showQuickPicker = false;
 								}}
 							/>
-							<span>⚡ Auto: Always use lowest latency server</span>
+							<span>⚡ Auto: Always use lowest ping server</span>
 						</label>
-						<div class="picker-list">
+						<div class="picker-items">
 							{#each app.profiles as profile (profile.id)}
 								<button
-									class="picker-item"
-									class:active={profile.id === app.activeId && !app.auto.enabled}
+									class="picker-row"
+									class:selected={profile.id === app.activeId && !app.auto.enabled}
 									onclick={() => {
 										if (app.auto.enabled) app.setAuto({ ...app.auto, enabled: false });
 										app.select(profile.id);
@@ -219,28 +204,37 @@
 				{/if}
 			</div>
 
-			<div class="controls">
+			<div class="mode-container">
 				<Segmented options={modes} value={app.mode} label="Connection Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
 			</div>
 		</section>
 
-		<section class="speed card">
-			<div class="tiles">
+		<!-- Right Card: Traffic, Stats & Quick Actions -->
+		<section class="traffic card">
+			<div class="stat-tiles">
 				<StatTile label="Download" value={formatRate(app.traffic.down)} sub="{formatBytes(app.traffic.totalDown)} this session" tone="down" />
 				<StatTile label="Upload" value={formatRate(app.traffic.up)} sub="{formatBytes(app.traffic.totalUp)} this session" tone="up" />
 			</div>
-			<Sparkline samples={app.history} height={72} />
-			<div class="today">
-				<span>Today <strong class="tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong></span>
+
+			<div class="chart-container">
+				<Sparkline samples={app.history} height={70} />
+			</div>
+
+			<div class="today-block">
+				<div class="today-header">
+					<span>Today: <strong class="tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong></span>
+					{#if usage.quota?.limit}
+						<span class="tabular">{usage.quota.percent.toFixed(0)}% of cap</span>
+					{/if}
+				</div>
 				{#if usage.quota?.limit}
-					<span class="tabular">{usage.quota.percent.toFixed(0)}% of cap</span>
+					<div class="meter" class:warn={usage.quota.percent >= 80}>
+						<div style:width="{Math.min(100, usage.quota.percent)}%"></div>
+					</div>
 				{/if}
 			</div>
-			{#if usage.quota?.limit}
-				<div class="meter" class:warn={usage.quota.percent >= 80}><div style:width="{Math.min(100, usage.quota.percent)}%"></div></div>
-			{/if}
 
-			<!-- Quick Actions Toolbar -->
+			<!-- Quick Actions Bar -->
 			<div class="quick-tools">
 				<button class="tool-btn" onclick={() => onnavigate('diagnostics')}>
 					<span>⚡</span> Speed Test
@@ -249,7 +243,7 @@
 					<span>🛡️</span> Leak Check
 				</button>
 				<button class="tool-btn" onclick={() => onnavigate('routing')}>
-					<span>🔀</span> Routing Rules
+					<span>🔀</span> Split Rules
 				</button>
 			</div>
 		</section>
@@ -268,6 +262,7 @@
 		display: grid;
 		grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
 		gap: 14px;
+		align-items: stretch;
 	}
 	@media (max-width: 720px) {
 		.grid {
@@ -289,11 +284,6 @@
 	.banner.info {
 		border-color: var(--accent);
 		background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-	}
-	.banner.error-box {
-		border-color: var(--danger);
-		background: color-mix(in srgb, var(--danger) 14%, var(--surface));
-		color: var(--danger);
 	}
 	.banner-text {
 		display: grid;
@@ -396,131 +386,124 @@
 		background: var(--accent);
 		color: white;
 	}
-	/* Hero */
+	/* Hero Left Column */
 	.hero {
-		display: grid;
-		justify-items: center;
-		align-content: start;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		padding: 14px 16px;
 		gap: 12px;
-		padding: 18px 18px 16px;
 		transition: background 0.3s;
 	}
 	.hero.on {
-		background: linear-gradient(180deg, color-mix(in srgb, var(--ok) 12%, var(--surface)), var(--surface));
+		background: linear-gradient(180deg, color-mix(in srgb, var(--ok) 10%, var(--surface)), var(--surface));
 	}
-	.protection-badge {
+	.card-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.status-indicator {
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-		font-size: 10.5px;
-		font-weight: 750;
-		letter-spacing: 0.05em;
-		padding: 3px 10px;
-		border-radius: 999px;
-		background: var(--hairline);
+		font-size: 12px;
 		color: var(--fg-muted);
 	}
-	.protection-badge.connected {
-		background: color-mix(in srgb, var(--ok) 18%, transparent);
+	.status-indicator.connected {
 		color: var(--ok);
 	}
-	.protection-badge.connecting {
-		background: color-mix(in srgb, var(--warn) 18%, transparent);
+	.status-indicator.connecting {
 		color: var(--warn);
 	}
-	.protection-badge .dot {
-		width: 6px;
-		height: 6px;
+	.status-indicator .dot {
+		width: 7px;
+		height: 7px;
 		border-radius: 50%;
 		background: currentColor;
 	}
-	.ks-pill {
-		margin-left: 4px;
-		padding: 1px 6px;
+	.status-indicator strong {
+		font-size: 12px;
+	}
+	.elapsed {
+		color: var(--fg-muted);
+		font-size: 11.5px;
+	}
+	.ks-badge {
+		padding: 2px 7px;
 		border-radius: 4px;
 		background: var(--surface-strong);
-		font-size: 9.5px;
+		border: 1px solid var(--hairline);
+		font-size: 10.5px;
 		font-weight: 600;
 		color: var(--fg);
 	}
-	.status {
-		display: grid;
-		justify-items: center;
-		gap: 2px;
+	.power-center {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+		padding: 4px 0;
 	}
-	.state-title {
-		font-size: 18px;
-		font-weight: 700;
-		color: var(--fg);
+	.ip-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 11.5px;
 	}
-	.state-title.connected {
+	.ip-chip {
+		border: 1px solid var(--hairline);
+		background: var(--surface-strong);
+		padding: 3px 8px;
+		border-radius: 6px;
+		font-size: 11px;
+		cursor: pointer;
+	}
+	.ip-chip:hover {
+		border-color: var(--accent);
+	}
+	.delay-chip {
+		padding: 2px 6px;
+		border-radius: 4px;
+		font-size: 10.5px;
+		font-weight: 600;
+	}
+	.delay-chip.ok {
+		background: color-mix(in srgb, var(--ok) 18%, transparent);
 		color: var(--ok);
 	}
-	.state-title.connecting {
-		color: var(--warn);
-	}
-	.state-sub {
+	.ready-sub {
 		color: var(--fg-muted);
 		font-size: 12px;
 	}
-	.chips {
-		display: flex;
-		gap: 6px;
-		flex-wrap: wrap;
-		justify-content: center;
-	}
-	.chip {
-		font-size: 11px;
-		padding: 2px 8px;
-		border-radius: 999px;
-		background: var(--hairline);
-		color: var(--fg);
-		border: 0;
-	}
-	.chip.click-chip {
-		cursor: pointer;
-		background: var(--surface-strong);
-		border: 1px solid var(--hairline);
-	}
-	.chip.click-chip:hover {
-		border-color: var(--accent);
-	}
-	.chip.ok {
-		background: color-mix(in srgb, var(--ok) 18%, transparent);
-		color: var(--ok);
-		font-weight: 600;
-	}
-	/* Server card */
+	/* Server Card */
 	.server-card {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
 		background: var(--surface-strong);
 		border: 1px solid var(--hairline);
 		border-radius: var(--radius-sm);
 		padding: 10px 12px;
-		gap: 8px;
-		position: relative;
+		gap: 6px;
 	}
-	.server-info {
+	.server-main {
 		display: flex;
 		align-items: center;
 		gap: 10px;
 		min-width: 0;
-		flex: 1;
 	}
 	.server-flag {
-		font-size: 22px;
+		font-size: 20px;
 		flex: none;
 	}
-	.server-details {
+	.server-meta {
 		display: grid;
 		gap: 1px;
 		min-width: 0;
 		flex: 1;
 	}
-	.server-title {
-		font-size: 13.5px;
+	.server-name {
+		font-size: 13px;
 		font-weight: 650;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -533,86 +516,91 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.server-actions {
+	.server-foot {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		border-top: 1px solid var(--hairline);
 		padding-top: 6px;
 	}
-	.ping-pill {
-		font-size: 11px;
-		padding: 2px 6px;
+	.ping-badge {
+		font-size: 10.5px;
+		padding: 1px 6px;
 		border-radius: 4px;
-		font-variant-numeric: tabular-nums;
 		font-weight: 600;
 	}
-	.ping-pill.ok {
+	.ping-badge.ok {
 		color: var(--ok);
 		background: color-mix(in srgb, var(--ok) 14%, transparent);
 	}
-	.ping-pill.warn {
+	.ping-badge.warn {
 		color: var(--warn);
 		background: color-mix(in srgb, var(--warn) 14%, transparent);
 	}
-	.ping-pill.bad {
+	.ping-badge.bad {
 		color: var(--danger);
 		background: color-mix(in srgb, var(--danger) 14%, transparent);
 	}
-	.change-btn {
+	.switch-btn {
 		margin-left: auto;
 		border: 1px solid var(--hairline);
 		background: var(--surface);
 		border-radius: 6px;
-		padding: 3px 10px;
-		font-size: 11px;
-		font-weight: 600;
-		color: var(--accent);
-	}
-	.quick-picker {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		border-top: 1px solid var(--hairline);
-		padding-top: 8px;
-	}
-	.auto-opt {
-		display: flex;
-		align-items: center;
-		gap: 8px;
+		padding: 3px 9px;
 		font-size: 11px;
 		font-weight: 600;
 		color: var(--accent);
 		cursor: pointer;
 	}
-	.picker-list {
-		max-height: 120px;
+	.switch-btn:hover:not(:disabled) {
+		border-color: var(--accent);
+	}
+	.picker-panel {
+		border-top: 1px solid var(--hairline);
+		padding-top: 6px;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.auto-opt {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--accent);
+		cursor: pointer;
+		padding: 2px 4px;
+	}
+	.picker-items {
+		max-height: 110px;
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
 	}
-	.picker-item {
+	.picker-row {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		padding: 5px 8px;
+		padding: 4px 6px;
 		border-radius: 6px;
 		border: 0;
 		background: none;
 		text-align: left;
-		font-size: 12px;
+		font-size: 11.5px;
+		cursor: pointer;
 	}
-	.picker-item:hover {
+	.picker-row:hover {
 		background: var(--hairline);
 	}
-	.picker-item.active {
+	.picker-row.selected {
 		background: color-mix(in srgb, var(--accent) 15%, transparent);
 		color: var(--accent);
 		font-weight: 600;
 	}
 	.p-flag {
-		font-size: 14px;
+		font-size: 13px;
 	}
 	.p-name {
 		flex: 1;
@@ -632,34 +620,42 @@
 	.p-ping.bad {
 		color: var(--danger);
 	}
-	.controls {
+	.mode-container {
 		width: 100%;
 	}
-	/* Speed */
-	.speed {
-		padding: 16px 14px 12px;
-		display: grid;
+	/* Right Column: Traffic & Stats */
+	.traffic {
+		padding: 14px 16px;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
 		gap: 12px;
-		align-content: start;
 	}
-	.tiles {
+	.stat-tiles {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 12px;
 	}
-	.today {
+	.chart-container {
+		margin: 2px 0;
+	}
+	.today-block {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.today-header {
 		display: flex;
 		justify-content: space-between;
 		color: var(--fg-muted);
-		font-size: 12px;
-		padding: 0 2px;
+		font-size: 11.5px;
 	}
-	.today strong {
+	.today-header strong {
 		color: var(--fg);
 	}
 	.meter {
-		height: 5px;
-		border-radius: 3px;
+		height: 4px;
+		border-radius: 2px;
 		background: var(--hairline);
 		overflow: hidden;
 	}
@@ -674,21 +670,21 @@
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 6px;
-		margin-top: 4px;
-		padding-top: 8px;
 		border-top: 1px solid var(--hairline);
+		padding-top: 8px;
 	}
 	.tool-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: 4px;
-		padding: 6px 4px;
+		padding: 7px 4px;
 		border-radius: 6px;
 		border: 1px solid var(--hairline);
 		background: var(--surface-strong);
 		font-size: 11px;
 		font-weight: 500;
+		cursor: pointer;
 	}
 	.tool-btn:hover {
 		background: var(--hairline);

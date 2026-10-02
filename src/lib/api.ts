@@ -309,6 +309,7 @@ export const api = {
 	setLaunchAtLogin: (enabled: boolean) => invoke<void>('set_launch_at_login', { enabled }),
 	openMainWindow: () => invoke<void>('open_main_window'),
 	hideTray: () => invoke<void>('hide_tray'),
+	notifyOs: (title: string, body: string) => invoke<void>('notify_os', { title, body }),
 	quitApp: () => invoke<void>('quit_app')
 };
 

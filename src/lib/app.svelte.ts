@@ -112,6 +112,8 @@ class AppStore {
 	}
 
 	notify(message: string, kind: Toast['kind'] = 'error') {
+		const title = kind === 'error' ? 'SingBox Error' : 'SingBox GUI';
+		api.notifyOs(title, message).catch(() => null);
 		const id = ++this.toastId;
 		this.toasts = [...this.toasts, { id, message, kind }];
 		setTimeout(() => this.dismiss(id), TOAST_MS);
