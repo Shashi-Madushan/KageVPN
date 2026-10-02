@@ -280,3 +280,55 @@ impl Store {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::profile::{Profile, Security};
+
+    fn profile(id: &str) -> Profile {
+        Profile {
+            id: id.into(),
+            name: id.into(),
+            server: "h.example.com".into(),
+            port: 443,
+            uuid: "11111111-2222-4333-8444-555555555555".into(),
+            security: Security::Tls,
+            ..Profile::default()
+        }
+    }
+
+    fn temp_path(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("sbg-{label}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir.join("data.json")
+    }
+
+    #[test]
+    fn profiles_and_selection_survive_a_restart() {
+        let path = temp_path("restart");
+        let mut store = Store::load(path.clone());
+        store.add(profile("a")).unwrap();
+        store.add(profile("b")).unwrap();
+        store.select("b").unwrap();
+        store.set_mode(Mode::Proxy).unwrap();
+
+        let reloaded = Store::load(path.clone());
+        assert_eq!(reloaded.profiles().len(), 2);
+        assert_eq!(reloaded.active_id(), Some("b"));
+        assert_eq!(reloaded.mode(), Mode::Proxy);
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn removing_the_active_profile_selects_another() {
+        let path = temp_path("remove");
+        let mut store = Store::load(path.clone());
+        store.add(profile("a")).unwrap();
+        store.add(profile("b")).unwrap();
+        store.remove("a").unwrap();
+        assert_eq!(store.active_id(), Some("b"));
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+}
