@@ -136,7 +136,6 @@
 					{#if app.reliability.autoReconnect}
 						<span class="chip" title="Reconnects automatically if the tunnel drops"><Icon name="refresh" size={12} /> Auto-reconnect</span>
 					{/if}
-					<span class="chip" title="Connection mode">{app.mode === 'tun' ? 'Full system' : 'Proxy only'}</span>
 				</div>
 			</div>
 
@@ -322,7 +321,7 @@
 		grid-template-columns: repeat(3, 1fr);
 		gap: 10px;
 	}
-	@container (max-width: 520px) {
+	@container (max-width: 720px) {
 		.steps-grid {
 			grid-template-columns: 1fr;
 		}
