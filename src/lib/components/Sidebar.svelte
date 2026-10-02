@@ -5,34 +5,69 @@
 
 	let { page, badges = {}, onselect }: { page: Page; badges?: Partial<Record<Page, string>>; onselect: (page: Page) => void } = $props();
 
-	const items: { page: Page; label: string; icon: IconName }[] = [
-		{ page: 'home', label: 'Home', icon: 'home' },
-		{ page: 'profiles', label: 'Profiles', icon: 'profiles' },
-		{ page: 'usage', label: 'Usage', icon: 'usage' },
-		{ page: 'routing', label: 'Routing', icon: 'routing' },
-		{ page: 'connections', label: 'Connections', icon: 'connections' },
-		{ page: 'diagnostics', label: 'Diagnostics', icon: 'diagnostics' },
-		{ page: 'logs', label: 'Logs', icon: 'logs' },
-		{ page: 'core', label: 'Core', icon: 'core' },
-		{ page: 'settings', label: 'Settings', icon: 'settings' }
+	const sections: {
+		title: string;
+		items: { page: Page; label: string; icon: IconName }[];
+	}[] = [
+		{
+			title: 'VPN',
+			items: [
+				{ page: 'home', label: 'Home', icon: 'home' },
+				{ page: 'profiles', label: 'Servers', icon: 'profiles' },
+				{ page: 'usage', label: 'Data Usage', icon: 'usage' }
+			]
+		},
+		{
+			title: 'Protection',
+			items: [
+				{ page: 'routing', label: 'Routing', icon: 'routing' },
+				{ page: 'connections', label: 'Connections', icon: 'connections' },
+				{ page: 'diagnostics', label: 'Diagnostics', icon: 'diagnostics' }
+			]
+		},
+		{
+			title: 'System',
+			items: [
+				{ page: 'core', label: 'Core Engine', icon: 'core' },
+				{ page: 'logs', label: 'Logs', icon: 'logs' },
+				{ page: 'settings', label: 'Settings', icon: 'settings' }
+			]
+		}
 	];
 </script>
 
-<nav aria-label="Sections">
-	{#each items as item (item.page)}
-		<button class:active={page === item.page} onclick={() => onselect(item.page)}>
-			<Icon name={item.icon} />
-			<span>{item.label}</span>
-			{#if badges[item.page]}<em>{badges[item.page]}</em>{/if}
-		</button>
+<nav aria-label="Main Navigation">
+	{#each sections as section (section.title)}
+		<div class="section-group">
+			<span class="section-title">{section.title}</span>
+			{#each section.items as item (item.page)}
+				<button class:active={page === item.page} onclick={() => onselect(item.page)}>
+					<Icon name={item.icon} />
+					<span>{item.label}</span>
+					{#if badges[item.page]}<em>{badges[item.page]}</em>{/if}
+				</button>
+			{/each}
+		</div>
 	{/each}
 </nav>
 
 <style>
 	nav {
 		display: grid;
-		gap: 2px;
+		gap: 12px;
 		padding: 0 10px;
+	}
+	.section-group {
+		display: grid;
+		gap: 2px;
+	}
+	.section-title {
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--fg-muted);
+		padding: 0 10px 4px;
 	}
 	button {
 		display: flex;
@@ -40,10 +75,12 @@
 		gap: 9px;
 		border: 0;
 		background: none;
-		padding: 7px 10px;
+		padding: 6px 10px;
 		border-radius: 8px;
 		color: var(--fg);
 		text-align: left;
+		font-size: 13px;
+		transition: background 0.1s;
 	}
 	button:hover {
 		background: var(--hairline);

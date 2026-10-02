@@ -67,7 +67,17 @@
 				<div class="cell"><span class="caption">System route</span><strong class="mono">{result.system?.ip ?? '—'}</strong><small>{place(result.system)}</small><small>{result.system?.org}</small></div>
 				<div class="cell"><span class="caption">DNS resolver</span><strong class="mono">{result.dns?.ip ?? '—'}</strong><small>{result.dns?.geo}</small></div>
 			</div>
-			{#if verdict}<p class="verdict {verdict.tone}">{verdict.text}</p>{/if}
+			{#if verdict}
+				<div class="verdict-box {verdict.tone}">
+					<p class="verdict {verdict.tone}">{verdict.text}</p>
+					{#if app.status.mode === 'proxy'}
+						<div class="remediation">
+							<small>Want all apps protected?</small>
+							<button class="fix-btn" onclick={() => app.setMode('tun')}>Switch to TUN Mode</button>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	</section>
 
@@ -160,6 +170,26 @@
 	.verdict.idle {
 		background: var(--hairline);
 		color: var(--fg-muted);
+	}
+	.verdict-box {
+		display: grid;
+		gap: 6px;
+	}
+	.remediation {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 2px 4px;
+	}
+	.fix-btn {
+		font-size: 11px;
+		padding: 3px 10px;
+		border-radius: 6px;
+		background: var(--accent);
+		color: white;
+		border: 0;
+		font-weight: 600;
+		cursor: pointer;
 	}
 	button {
 		border: 1px solid var(--hairline);

@@ -57,6 +57,37 @@
 		[draft.rules[index], draft.rules[target]] = [draft.rules[target], draft.rules[index]];
 	}
 
+	function applyPreset(presetType: 'streaming' | 'ai' | 'ads') {
+		if (!draft) return;
+		const rulesToAdd: { kind: RuleKind; value: string; action: RouteAction }[] = [];
+		if (presetType === 'streaming') {
+			rulesToAdd.push(
+				{ kind: 'domainSuffix', value: 'netflix.com', action: 'direct' },
+				{ kind: 'domainSuffix', value: 'youtube.com', action: 'direct' },
+				{ kind: 'domainSuffix', value: 'disneyplus.com', action: 'direct' },
+				{ kind: 'domainSuffix', value: 'primevideo.com', action: 'direct' }
+			);
+		} else if (presetType === 'ai') {
+			rulesToAdd.push(
+				{ kind: 'domainSuffix', value: 'openai.com', action: 'proxy' },
+				{ kind: 'domainSuffix', value: 'anthropic.com', action: 'proxy' },
+				{ kind: 'domainSuffix', value: 'chatgpt.com', action: 'proxy' },
+				{ kind: 'domainSuffix', value: 'claude.ai', action: 'proxy' }
+			);
+		} else if (presetType === 'ads') {
+			rulesToAdd.push(
+				{ kind: 'domainSuffix', value: 'doubleclick.net', action: 'block' },
+				{ kind: 'domainSuffix', value: 'googleadservices.com', action: 'block' },
+				{ kind: 'domainSuffix', value: 'adnxs.com', action: 'block' }
+			);
+		}
+		for (const r of rulesToAdd) {
+			if (!draft.rules.some((x) => x.value === r.value)) {
+				draft.rules.push({ id: crypto.randomUUID(), enabled: true, ...r });
+			}
+		}
+	}
+
 	function addSet() {
 		const code = country.trim().toLowerCase();
 		if (!draft || !/^[a-z0-9-]+$/.test(code)) return;
@@ -127,6 +158,12 @@
 				{:else}
 					<small class="muted">No rules yet.</small>
 				{/each}
+				<div class="presets-row">
+					<span class="preset-label">Quick presets:</span>
+					<button type="button" class="preset-btn" onclick={() => applyPreset('streaming')}>📺 Bypass Streaming</button>
+					<button type="button" class="preset-btn" onclick={() => applyPreset('ai')}>🤖 Force AI Services</button>
+					<button type="button" class="preset-btn" onclick={() => applyPreset('ads')}>🚫 Block Common Ads</button>
+				</div>
 				<form class="add" onsubmit={(e) => (e.preventDefault(), addRule())}>
 					<select bind:value={kind}>{#each kinds as k (k.value)}<option value={k.value}>{k.label}</option>{/each}</select>
 					<input class="grow" bind:value placeholder={kind === 'ipCidr' ? '10.0.0.0/8' : kind === 'processName' ? 'Slack' : 'example.com'} spellcheck="false" />
@@ -149,6 +186,12 @@
 						<button class="danger" onclick={() => draft?.ruleSets.splice(i, 1)} aria-label="Delete list">✕</button>
 					</div>
 				{/each}
+				<div class="quick-countries">
+					<span class="preset-label">Popular lists:</span>
+					{#each ['cn', 'ru', 'ir', 'lk', 'us', 'hk', 'jp'] as code (code)}
+						<button type="button" class="preset-btn" onclick={() => (country = code)}>{code.toUpperCase()}</button>
+					{/each}
+				</div>
 				<form class="add" onsubmit={(e) => (e.preventDefault(), addSet())}>
 					<select bind:value={setKind}><option value="geoip">IP list (geoip)</option><option value="geosite">Site list (geosite)</option></select>
 					<input class="grow" bind:value={country} placeholder="Country or list, e.g. cn, ru, lk" maxlength="32" />
@@ -343,5 +386,30 @@
 	}
 	.savebar span {
 		flex: 1;
+	}
+	.presets-row,
+	.quick-countries {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: wrap;
+		margin: 4px 0;
+	}
+	.preset-label {
+		font-size: 11px;
+		color: var(--fg-muted);
+		font-weight: 600;
+	}
+	.preset-btn {
+		font-size: 11px;
+		padding: 3px 8px;
+		border-radius: 6px;
+		border: 1px solid var(--hairline);
+		background: var(--surface);
+		cursor: pointer;
+	}
+	.preset-btn:hover {
+		border-color: var(--accent);
+		color: var(--accent);
 	}
 </style>
