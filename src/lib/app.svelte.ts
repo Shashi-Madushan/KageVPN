@@ -44,6 +44,8 @@ class AppStore {
 	exitIp = $state<string | null>(null);
 	delayMs = $state<number | null>(null);
 	pendingImport = $state<string | null>(null);
+	/** True once the first snapshot from the backend has been applied. */
+	loaded = $state(false);
 
 	activeProfile = $derived(this.profiles.find((p) => p.id === this.activeId) ?? null);
 	busy = $derived(this.status.state === 'connecting');
@@ -68,6 +70,7 @@ class AppStore {
 		this.routing = snap.routing;
 		this.reliability = snap.reliability;
 		this.hotkey = snap.hotkey;
+		this.loaded = true;
 		if (snap.status.state === 'connected') this.verify();
 		this.loadLatencyHistory();
 

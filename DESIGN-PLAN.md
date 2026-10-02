@@ -129,6 +129,13 @@ Audit: server name and flag shown twice, picker boxed inside a card, dead blank 
 - ✅ Edit server: Connection / Security / Transport sections, Advanced options collapsed, inline UUID validation, Save disabled until valid
 - ✅ Fixed: segmented options inside a form submitted it (added `type="button"`)
 
+### Phase 3g — Onboarding tour
+- ✅ Removed the "Welcome" card from Home; Home keeps its engine banners and a small "Take the quick tour" link when there are no servers
+- ✅ 6-step tour dialog with live demos built from the real components (PowerButton, Select, Segmented, Sparkline): welcome, add a server, choose a mode, connect, menu bar/shortcut, setup checklist
+- ✅ Opens once on first launch with no servers; existing users are marked as seen; replay from Settings → Help
+- ✅ Last step adapts: "Install the engine first" when missing, primary becomes "Add a server" and opens that dialog on Servers
+- ✅ Arrow-key navigation, step dots, Skip; fixed dialog height between steps; opaque `--dialog-bg` for all dialogs
+
 ### Phase 5 — Validation (needs real users)
 - 🟡 Test script prepared below; sessions not run
   1. "Connect to the VPN" (target < 5 s, 0 misclicks)

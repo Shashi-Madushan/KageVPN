@@ -7,6 +7,7 @@
 		subtitle,
 		width = 440,
 		onclose,
+		bare = false,
 		children,
 		footer
 	}: {
@@ -15,6 +16,8 @@
 		subtitle?: string;
 		width?: number;
 		onclose: () => void;
+		/** Hides the title bar so the body can use the whole dialog (the title stays as its accessible name). */
+		bare?: boolean;
 		children: Snippet;
 		footer?: Snippet;
 	} = $props();
@@ -34,14 +37,19 @@
 </script>
 
 <dialog bind:this={dialog} style:--dialog-w="{width}px" aria-labelledby={titleId} {onclick} onclose={onclose}>
-	<header>
-		<div>
-			<h2 id={titleId}>{title}</h2>
-			{#if subtitle}<p>{subtitle}</p>{/if}
-		</div>
-		<button type="button" class="x" onclick={onclose} aria-label="Close">✕</button>
-	</header>
-	<div class="body">{@render children()}</div>
+	{#if bare}
+		<span id={titleId} class="sr-only">{title}</span>
+		<button type="button" class="x floating" onclick={onclose} aria-label="Close">✕</button>
+	{:else}
+		<header>
+			<div>
+				<h2 id={titleId}>{title}</h2>
+				{#if subtitle}<p>{subtitle}</p>{/if}
+			</div>
+			<button type="button" class="x" onclick={onclose} aria-label="Close">✕</button>
+		</header>
+	{/if}
+	<div class="body" class:bare>{@render children()}</div>
 	{#if footer}<footer>{@render footer()}</footer>{/if}
 </dialog>
 
@@ -52,7 +60,7 @@
 		padding: 0;
 		border: 1px solid var(--hairline);
 		border-radius: 12px;
-		background: var(--surface-strong);
+		background: var(--dialog-bg);
 		color: var(--fg);
 		box-shadow: 0 24px 64px rgb(0 0 0 / 0.4);
 		overflow: hidden;
@@ -102,6 +110,25 @@
 		display: grid;
 		gap: 14px;
 		align-content: start;
+	}
+	.body.bare {
+		padding: 0;
+		gap: 0;
+	}
+	.x.floating {
+		position: absolute;
+		z-index: 2;
+		top: 10px;
+		right: 10px;
+		margin: 0;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
 	}
 	.body > :global(*) {
 		min-width: 0;

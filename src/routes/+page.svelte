@@ -5,10 +5,12 @@
 	import { header } from '$lib/header.svelte';
 	import { core } from '$lib/core.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
+	import { onboarding } from '$lib/onboarding.svelte';
 	import ConnectionsPage from '$lib/components/ConnectionsPage.svelte';
 	import CorePage from '$lib/components/CorePage.svelte';
 	import DiagnosticsPage from '$lib/components/DiagnosticsPage.svelte';
 	import HomePage from '$lib/components/HomePage.svelte';
+	import OnboardingDialog from '$lib/components/OnboardingDialog.svelte';
 	import LogView from '$lib/components/LogView.svelte';
 	import ProfilesPage from '$lib/components/ProfilesPage.svelte';
 	import RoutingPage from '$lib/components/RoutingPage.svelte';
@@ -60,6 +62,13 @@
 
 	$effect(() => {
 		if (app.pendingImport) page = 'profiles';
+	});
+
+	// First launch with nothing set up: show the tour once. Existing users are marked as seen.
+	$effect(() => {
+		if (!app.loaded || onboarding.seen) return;
+		if (app.profiles.length === 0) onboarding.show();
+		else onboarding.markSeen();
 	});
 
 	async function importOffer() {
@@ -116,6 +125,8 @@
 		</main>
 	</section>
 </div>
+
+<OnboardingDialog onnavigate={(p) => (page = p)} />
 
 <style>
 	.app {

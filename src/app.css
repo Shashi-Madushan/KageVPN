@@ -6,6 +6,7 @@
 	--content-bg: rgb(255 255 255 / 0.5);
 	--hairline: rgb(0 0 0 / 0.09);
 	--accent: #0a84ff;
+	--dialog-bg: #ffffff;
 	--ok: #28b463;
 	--ok-text: #17803f;
 	--warn: #f29d0e;
@@ -40,6 +41,7 @@
 		--surface-strong: rgb(60 60 64 / 0.92);
 		--content-bg: rgb(28 28 30 / 0.55);
 		--hairline: rgb(255 255 255 / 0.1);
+		--dialog-bg: #2c2c2e;
 		--ok: #30d158;
 		--ok-text: #30d158;
 		--warn: #ff9f0a;

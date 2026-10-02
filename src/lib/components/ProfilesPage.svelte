@@ -3,6 +3,7 @@
 	import { api, blankProfile, type Profile, type Subscription } from '$lib/api';
 	import { clickOutside, focusOnMount } from '$lib/actions';
 	import { app } from '$lib/app.svelte';
+	import { onboarding } from '$lib/onboarding.svelte';
 	import { formatBytes, latencyLabel, latencyTone, profileFlag, stripFlag } from '$lib/format';
 	import HeaderActions from './HeaderActions.svelte';
 	import ConfirmDialog from './ConfirmDialog.svelte';
@@ -42,6 +43,13 @@
 	let subError = $state<string | null>(null);
 	let subBusy = $state(false);
 	let showSubForm = $state(false);
+
+	$effect(() => {
+		if (onboarding.addServerRequested) {
+			onboarding.addServerRequested = false;
+			openImport();
+		}
+	});
 
 	$effect(() => {
 		if (app.pendingImport) {

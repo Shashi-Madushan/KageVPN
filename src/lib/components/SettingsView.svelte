@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
+	import { onboarding } from '$lib/onboarding.svelte';
 
 	let restoring = $state(false);
 
@@ -63,6 +64,14 @@
 				<button class="btn" disabled={restoring} onclick={restore}>{restoring ? 'Working…' : 'Restore internet access'}</button>
 			</div>
 		{/if}
+	</div>
+
+	<span class="caption">Help</span>
+	<div class="settings card">
+		<div class="restore">
+			<span><strong>Welcome tour</strong><small>A quick walkthrough of adding a server and connecting.</small></span>
+			<button class="btn" onclick={() => onboarding.show()}>Show tour</button>
+		</div>
 	</div>
 
 	<button class="btn quit" onclick={() => app.quit()}>Quit SingBox GUI</button>

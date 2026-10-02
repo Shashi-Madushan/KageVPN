@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
+	import { onboarding } from '$lib/onboarding.svelte';
 	import { usage } from '$lib/usage.svelte';
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, profileFlag } from '$lib/format';
 	import Icon from './Icon.svelte';
@@ -83,43 +84,6 @@
 		</div>
 	{/if}
 
-	<!-- First-run onboarding banner when no profiles exist -->
-	{#if app.profiles.length === 0}
-		<section class="onboarding card">
-			<div class="onboard-header">
-				<h3>Welcome to SingBox GUI</h3>
-				<p>Get your private connection running in 3 simple steps:</p>
-			</div>
-			<div class="steps-grid">
-				<div class="step-card">
-					<span class="step-num">{core.missing ? '1' : '✓'}</span>
-					<div>
-						<strong>Core Engine</strong>
-						<small>{core.missing ? 'Install sing-box binary' : 'Core ready'}</small>
-					</div>
-					{#if core.missing}
-						<button onclick={() => onnavigate('core')}>Install</button>
-					{/if}
-				</div>
-				<div class="step-card active">
-					<span class="step-num">2</span>
-					<div>
-						<strong>Add Server Profile</strong>
-						<small>Paste a vless:// link or subscription URL</small>
-					</div>
-					<button class="primary" onclick={() => onnavigate('profiles')}>Add Profile</button>
-				</div>
-				<div class="step-card">
-					<span class="step-num">3</span>
-					<div>
-						<strong>Connect</strong>
-						<small>Click Power button to secure traffic</small>
-					</div>
-				</div>
-			</div>
-		</section>
-	{/if}
-
 	<div class="grid">
 		<!-- Connection -->
 		<section class="hero card" class:on={app.connected}>
@@ -151,7 +115,8 @@
 							<span class="delay-chip tabular">{app.delayMs} ms</span>
 						{/if}
 					{:else}
-						<span class="ready-sub">{app.profiles.length ? (isConnecting ? 'Establishing secure tunnel…' : 'Tap to connect') : 'Add a profile to connect'}</span>
+						<span class="ready-sub">{app.profiles.length ? (isConnecting ? 'Establishing secure tunnel…' : 'Tap to connect') : 'Add a server to connect'}</span>
+						{#if !app.profiles.length}<button class="linkbtn" onclick={() => onboarding.show()}>New here? Take the quick tour</button>{/if}
 					{/if}
 				</div>
 			</div>
@@ -282,84 +247,6 @@
 	.banner button.primary {
 		background: var(--accent);
 		border-color: var(--accent);
-		color: white;
-	}
-	/* Onboarding card */
-	.onboarding {
-		padding: 16px;
-		display: grid;
-		gap: 12px;
-		background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, var(--surface)), var(--surface));
-		border-color: var(--accent);
-	}
-	.onboard-header h3 {
-		margin: 0;
-		font-size: 15px;
-	}
-	.onboard-header p {
-		margin: 2px 0 0;
-		color: var(--fg-muted);
-		font-size: 12px;
-	}
-	.steps-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 10px;
-	}
-	@container (max-width: 720px) {
-		.steps-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-	.step-card {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 10px 12px;
-		border-radius: var(--radius-sm);
-		background: var(--surface-strong);
-		border: 1px solid var(--hairline);
-	}
-	.step-card.active {
-		border-color: var(--accent);
-	}
-	.step-num {
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		background: var(--hairline);
-		display: grid;
-		place-items: center;
-		font-size: 11px;
-		font-weight: 700;
-		flex: none;
-	}
-	.step-card.active .step-num {
-		background: var(--accent);
-		color: white;
-	}
-	.step-card div {
-		display: grid;
-		flex: 1;
-		min-width: 0;
-	}
-	.step-card strong {
-		font-size: 12px;
-	}
-	.step-card small {
-		font-size: 11px;
-		color: var(--fg-muted);
-	}
-	.step-card button {
-		border: 0;
-		padding: 4px 8px;
-		border-radius: 6px;
-		font-size: 11px;
-		font-weight: 600;
-		background: var(--surface);
-	}
-	.step-card button.primary {
-		background: var(--accent);
 		color: white;
 	}
 	/* Connection card */
