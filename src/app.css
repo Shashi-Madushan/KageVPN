@@ -44,6 +44,7 @@ body {
 	margin: 0;
 	background: transparent;
 	overflow: hidden;
+	accent-color: var(--accent);
 }
 
 body {

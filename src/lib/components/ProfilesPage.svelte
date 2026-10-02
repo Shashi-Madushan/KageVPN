@@ -13,6 +13,7 @@
 	let editing = $state<Profile | null>(null);
 	let sharing = $state<Profile | null>(null);
 	let menuFor = $state<string | null>(null);
+	let menuPos = $state({ top: 0, right: 0 });
 	let renaming = $state<string | null>(null);
 	let query = $state('');
 	let sortBy = $state<'default' | 'latency' | 'name'>('default');
@@ -190,9 +191,27 @@
 							{profile.favorite ? '★' : '☆'}
 						</button>
 						<span class="menu-wrap" use:clickOutside={() => menuFor === profile.id && (menuFor = null)}>
-							<button class="more" onclick={() => (menuFor = menuFor === profile.id ? null : profile.id)} aria-label="More actions">⋯</button>
+							<button
+								class="more"
+								onclick={(e) => {
+									if (menuFor === profile.id) {
+										menuFor = null;
+									} else {
+										const rect = e.currentTarget.getBoundingClientRect();
+										const spaceBelow = window.innerHeight - rect.bottom;
+										menuPos = {
+											top: spaceBelow > 190 ? rect.bottom + 4 : Math.max(10, rect.top - 190),
+											right: Math.max(10, window.innerWidth - rect.right)
+										};
+										menuFor = profile.id;
+									}
+								}}
+								aria-label="More actions"
+							>
+								⋯
+							</button>
 							{#if menuFor === profile.id}
-								<div class="menu">
+								<div class="menu" style="position: fixed; top: {menuPos.top}px; right: {menuPos.right}px; z-index: 999;">
 									<button onclick={() => ((renaming = profile.id), (menuFor = null))}>Rename</button>
 									<button onclick={() => ((editing = profile), (menuFor = null))}>Edit…</button>
 									<button onclick={() => (app.duplicate(profile.id), (menuFor = null))}>Duplicate</button>

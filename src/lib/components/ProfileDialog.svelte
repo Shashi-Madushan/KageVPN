@@ -68,68 +68,73 @@
 	}
 </script>
 
-<dialog bind:this={dialog} onclose={onclose}>
-	<h3>{creating ? 'New profile' : 'Edit profile'}</h3>
+<dialog bind:this={dialog} onclose={onclose} aria-labelledby="dialog-title">
+	<h3 id="dialog-title">{creating ? 'New Profile' : 'Edit Profile'}</h3>
 	<form onsubmit={(e) => (e.preventDefault(), save())}>
 		<div class="grid">
-			<label class="wide">Name<input bind:value={draft.name} required /></label>
-			<label>Server<input bind:value={draft.server} class="mono" required /></label>
-			<label>Port<input type="number" min="1" max="65535" bind:value={draft.port} /></label>
-			<label class="wide">UUID<input bind:value={draft.uuid} class="mono" spellcheck="false" required /></label>
-
-			<div class="wide field">
-				<span>Security</span>
-				<Segmented options={securities} value={draft.security} label="Security" onchange={setSecurity} />
-			</div>
-
-			<label>SNI<input value={text(draft.sni)} oninput={(e) => (draft.sni = e.currentTarget.value)} placeholder={draft.server || 'server name'} /></label>
-			<label>
-				Fingerprint
-				<select bind:value={draft.fingerprint}>
-					{#each fingerprints as fp (fp)}<option value={fp}>{fp}</option>{/each}
-				</select>
-			</label>
-
-			{#if draft.security === 'reality' && draft.reality}
-				<label class="wide">Reality public key<input bind:value={draft.reality.publicKey} class="mono" spellcheck="false" /></label>
-				<label>Short ID<input bind:value={draft.reality.shortId} class="mono" /></label>
-			{:else}
-				<label>ALPN<input bind:value={alpn} placeholder="h2,http/1.1" /></label>
-			{/if}
-
-			<label>
-				Flow
-				<select value={draft.flow ?? ''} onchange={(e) => (draft.flow = e.currentTarget.value || null)}>
-					<option value="">None</option>
-					<option value="xtls-rprx-vision">xtls-rprx-vision</option>
-				</select>
-			</label>
-
-			<div class="wide field">
-				<span>Transport</span>
-				<Segmented options={transports} value={draft.transport.kind} label="Transport" onchange={(k) => (draft.transport.kind = k)} />
-			</div>
-
-			{#if draft.transport.kind === 'ws' || draft.transport.kind === 'httpupgrade'}
-				<label>Path<input value={text(draft.transport.path)} oninput={(e) => (draft.transport.path = e.currentTarget.value)} placeholder="/" /></label>
-				<label>Host header<input value={text(draft.transport.host)} oninput={(e) => (draft.transport.host = e.currentTarget.value)} /></label>
-			{:else if draft.transport.kind === 'grpc'}
-				<label class="wide">Service name<input value={text(draft.transport.serviceName)} oninput={(e) => (draft.transport.serviceName = e.currentTarget.value)} /></label>
-			{/if}
-
-			<label>
-				Packet encoding
-				<select value={draft.packetEncoding ?? ''} onchange={(e) => (draft.packetEncoding = e.currentTarget.value || null)}>
-					<option value="">Default</option>
-					<option value="xudp">xudp</option>
-					<option value="packetaddr">packetaddr</option>
-				</select>
-			</label>
-			<label>
-				Group
-				<input list="group-options" value={text(draft.group)} oninput={(e) => (draft.group = e.currentTarget.value)} placeholder="None" />
+			<label class="wide">Name <input bind:value={draft.name} required aria-label="Profile name" placeholder="e.g. US West" /></label>
+			<label>Server Host/IP <input bind:value={draft.server} class="mono" required aria-label="Server address" placeholder="example.com" /></label>
+			<label>Port <input type="number" min="1" max="65535" bind:value={draft.port} aria-label="Port number" /></label>
+			<label class="wide">UUID <input bind:value={draft.uuid} class="mono" spellcheck="false" required aria-label="Client UUID" /></label>
+			<label class="wide">
+				Group / Folder
+				<input list="group-options" value={text(draft.group)} oninput={(e) => (draft.group = e.currentTarget.value)} placeholder="None" aria-label="Profile group" />
 				<datalist id="group-options">{#each app.groups as group (group)}<option value={group}></option>{/each}</datalist>
 			</label>
+
+			<details class="wide advanced-box" open={draft.security === 'reality'}>
+				<summary>Advanced VLESS Parameters (Reality, Transport, Flow, ALPN)</summary>
+				<div class="grid adv-grid">
+					<div class="wide field">
+						<span>Security</span>
+						<Segmented options={securities} value={draft.security} label="Security protocol" onchange={setSecurity} />
+					</div>
+
+					<label>SNI <input value={text(draft.sni)} oninput={(e) => (draft.sni = e.currentTarget.value)} placeholder={draft.server || 'server name'} aria-label="Server Name Indication" /></label>
+					<label>
+						Fingerprint
+						<select bind:value={draft.fingerprint} aria-label="TLS Fingerprint">
+							{#each fingerprints as fp (fp)}<option value={fp}>{fp}</option>{/each}
+						</select>
+					</label>
+
+					{#if draft.security === 'reality' && draft.reality}
+						<label class="wide">Reality Public Key <input bind:value={draft.reality.publicKey} class="mono" spellcheck="false" aria-label="Reality public key" /></label>
+						<label>Short ID <input bind:value={draft.reality.shortId} class="mono" aria-label="Short ID" /></label>
+					{:else}
+						<label>ALPN <input bind:value={alpn} placeholder="h2,http/1.1" aria-label="Application-Layer Protocol Negotiation" /></label>
+					{/if}
+
+					<label>
+						Flow
+						<select value={draft.flow ?? ''} onchange={(e) => (draft.flow = e.currentTarget.value || null)} aria-label="Flow control">
+							<option value="">None</option>
+							<option value="xtls-rprx-vision">xtls-rprx-vision</option>
+						</select>
+					</label>
+
+					<div class="wide field">
+						<span>Transport</span>
+						<Segmented options={transports} value={draft.transport.kind} label="Transport protocol" onchange={(k) => (draft.transport.kind = k)} />
+					</div>
+
+					{#if draft.transport.kind === 'ws' || draft.transport.kind === 'httpupgrade'}
+						<label>Path <input value={text(draft.transport.path)} oninput={(e) => (draft.transport.path = e.currentTarget.value)} placeholder="/" aria-label="WebSocket Path" /></label>
+						<label>Host Header <input value={text(draft.transport.host)} oninput={(e) => (draft.transport.host = e.currentTarget.value)} aria-label="Host header" /></label>
+					{:else if draft.transport.kind === 'grpc'}
+						<label class="wide">Service Name <input value={text(draft.transport.serviceName)} oninput={(e) => (draft.transport.serviceName = e.currentTarget.value)} aria-label="gRPC Service name" /></label>
+					{/if}
+
+					<label class="wide">
+						Packet Encoding
+						<select value={draft.packetEncoding ?? ''} onchange={(e) => (draft.packetEncoding = e.currentTarget.value || null)} aria-label="Packet encoding">
+							<option value="">Default</option>
+							<option value="xudp">xudp</option>
+							<option value="packetaddr">packetaddr</option>
+						</select>
+					</label>
+				</div>
+			</details>
 		</div>
 
 		{#if error}<p class="error">{error}</p>{/if}
@@ -164,6 +169,9 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 10px 12px;
 	}
+	.adv-grid {
+		margin-top: 10px;
+	}
 	.wide {
 		grid-column: 1 / -1;
 	}
@@ -185,6 +193,19 @@
 		background: var(--surface);
 		user-select: text;
 		min-width: 0;
+	}
+	.advanced-box {
+		border: 1px solid var(--hairline);
+		border-radius: 8px;
+		padding: 8px 10px;
+		background: color-mix(in srgb, var(--hairline) 50%, transparent);
+	}
+	.advanced-box summary {
+		cursor: pointer;
+		font-weight: 600;
+		font-size: 11.5px;
+		color: var(--accent);
+		user-select: none;
 	}
 	.actions {
 		display: flex;
