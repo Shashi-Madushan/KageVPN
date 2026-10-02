@@ -118,6 +118,7 @@ pub fn run() {
             commands::update_settings,
             commands::set_launch_at_login,
             commands::open_main_window,
+            commands::hide_tray,
             commands::quit_app,
             core::commands::core_status,
             core::commands::core_check,

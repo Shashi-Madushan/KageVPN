@@ -36,3 +36,65 @@ export function latencyLabel(latency: Latency | undefined): string {
 	if ('failed' in latency) return 'Timeout';
 	return `${latency.ms} ms`;
 }
+
+const COUNTRY_MAP: Record<string, string> = {
+	us: 'US',
+	usa: 'US',
+	'united states': 'US',
+	uk: 'GB',
+	gb: 'GB',
+	'united kingdom': 'GB',
+	jp: 'JP',
+	japan: 'JP',
+	sg: 'SG',
+	singapore: 'SG',
+	hk: 'HK',
+	'hong kong': 'HK',
+	de: 'DE',
+	germany: 'DE',
+	fr: 'FR',
+	france: 'FR',
+	ca: 'CA',
+	canada: 'CA',
+	au: 'AU',
+	australia: 'AU',
+	nl: 'NL',
+	netherlands: 'NL',
+	kr: 'KR',
+	korea: 'KR',
+	tw: 'TW',
+	taiwan: 'TW',
+	in: 'IN',
+	india: 'IN',
+	ru: 'RU',
+	russia: 'RU',
+	tr: 'TR',
+	turkey: 'TR',
+	br: 'BR',
+	brazil: 'BR',
+	it: 'IT',
+	italy: 'IT',
+	es: 'ES',
+	spain: 'ES',
+	se: 'SE',
+	sweden: 'SE',
+	ch: 'CH',
+	switzerland: 'CH'
+};
+
+export function countryCodeToFlag(code: string): string {
+	if (!code || code.length !== 2) return '🌐';
+	const base = 127397;
+	return String.fromCodePoint(...[...code.toUpperCase()].map((c) => base + c.charCodeAt(0)));
+}
+
+export function profileFlag(name: string, server: string = ''): string {
+	const text = `${name} ${server}`.toLowerCase();
+	for (const [key, iso] of Object.entries(COUNTRY_MAP)) {
+		const regex = new RegExp(`(^|[^a-z0-9])${key}([^a-z0-9]|$)`, 'i');
+		if (regex.test(text)) {
+			return countryCodeToFlag(iso);
+		}
+	}
+	return '🌐';
+}

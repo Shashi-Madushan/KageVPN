@@ -353,6 +353,11 @@ pub fn open_main_window(app: AppHandle) {
 }
 
 #[tauri::command]
+pub fn hide_tray(app: AppHandle) {
+    tray::hide_popover(&app);
+}
+
+#[tauri::command]
 pub fn quit_app(app: AppHandle) {
     tray::quit_app(&app);
 }

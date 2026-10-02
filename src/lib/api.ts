@@ -308,6 +308,7 @@ export const api = {
 	updateSettings: (settings: Settings) => invoke<void>('update_settings', { settings }),
 	setLaunchAtLogin: (enabled: boolean) => invoke<void>('set_launch_at_login', { enabled }),
 	openMainWindow: () => invoke<void>('open_main_window'),
+	hideTray: () => invoke<void>('hide_tray'),
 	quitApp: () => invoke<void>('quit_app')
 };
 

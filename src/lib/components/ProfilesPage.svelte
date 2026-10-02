@@ -2,7 +2,7 @@
 	import { api, blankProfile, type Profile, type Subscription } from '$lib/api';
 	import { clickOutside, focusOnMount } from '$lib/actions';
 	import { app } from '$lib/app.svelte';
-	import { formatBytes, latencyLabel, latencyTone } from '$lib/format';
+	import { formatBytes, latencyLabel, latencyTone, profileFlag } from '$lib/format';
 	import ImportDialog from './ImportDialog.svelte';
 	import MiniSpark from './MiniSpark.svelte';
 	import ProfileDialog from './ProfileDialog.svelte';
@@ -15,6 +15,9 @@
 	let menuFor = $state<string | null>(null);
 	let renaming = $state<string | null>(null);
 	let query = $state('');
+	let sortBy = $state<'default' | 'latency' | 'name'>('default');
+	let deleteTarget = $state<Profile | null>(null);
+	let deleteSubTarget = $state<Subscription | null>(null);
 	let subName = $state('');
 	let subUrl = $state('');
 	let subError = $state<string | null>(null);
@@ -40,9 +43,26 @@
 			const key = profile.group ?? '';
 			byGroup.set(key, [...(byGroup.get(key) ?? []), profile]);
 		}
+		const getMs = (id: string) => {
+			const l = app.latency[id];
+			if (!l || 'pending' in l) return 999998;
+			if ('failed' in l) return 999999;
+			return l.ms;
+		};
+
 		return [...byGroup.entries()]
 			.sort(([a], [b]) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)))
-			.map(([group, items]) => ({ group, items: [...items].sort((a, b) => Number(b.favorite) - Number(a.favorite)) }));
+			.map(([group, items]) => {
+				let sorted = [...items];
+				if (sortBy === 'latency') {
+					sorted.sort((a, b) => getMs(a.id) - getMs(b.id));
+				} else if (sortBy === 'name') {
+					sorted.sort((a, b) => a.name.localeCompare(b.name));
+				} else {
+					sorted.sort((a, b) => Number(b.favorite) - Number(a.favorite));
+				}
+				return { group, items: sorted };
+			});
 	});
 	const testing = $derived(Object.values(app.latency).some((l) => 'pending' in l));
 
@@ -96,6 +116,11 @@
 <div class="page">
 	<div class="toolbar">
 		<input type="search" placeholder="Search profiles" bind:value={query} aria-label="Search profiles" />
+		<select bind:value={sortBy} aria-label="Sort profiles" class="sort-select">
+			<option value="default">Default</option>
+			<option value="latency">⚡ Lowest Ping</option>
+			<option value="name">Name</option>
+		</select>
 		<button disabled={app.profiles.length === 0 || testing} onclick={() => app.testAll()}>{testing ? 'Testing…' : 'Test all'}</button>
 		<button onclick={openImport}>Import</button>
 		<button class="primary" onclick={() => (editing = blankProfile())}>New</button>
@@ -136,6 +161,7 @@
 					<li class="card" class:active={profile.id === app.activeId && !app.auto.enabled}>
 						<button class="pick" onclick={() => app.select(profile.id)} title={app.connected ? 'Switch live' : 'Select'}>
 							<span class="radio"></span>
+							<span class="item-flag">{profileFlag(profile.name, profile.server)}</span>
 							<span class="text">
 								{#if renaming === profile.id}
 									<input
@@ -167,11 +193,12 @@
 							<button class="more" onclick={() => (menuFor = menuFor === profile.id ? null : profile.id)} aria-label="More actions">⋯</button>
 							{#if menuFor === profile.id}
 								<div class="menu">
+									<button onclick={() => ((renaming = profile.id), (menuFor = null))}>Rename</button>
 									<button onclick={() => ((editing = profile), (menuFor = null))}>Edit…</button>
 									<button onclick={() => (app.duplicate(profile.id), (menuFor = null))}>Duplicate</button>
 									<button onclick={() => copyLink(profile)}>Copy link</button>
 									<button onclick={() => ((sharing = profile), (menuFor = null))}>Show QR code</button>
-									<button class="danger" onclick={() => (app.remove(profile.id), (menuFor = null))}>Delete</button>
+									<button class="danger" onclick={() => { deleteTarget = profile; menuFor = null; }}>Delete</button>
 								</div>
 							{/if}
 						</span>
@@ -191,7 +218,7 @@
 					<small class="muted">{app.profiles.filter((p) => p.subscriptionId === sub.id).length} profiles · updated {ago(sub.lastUpdated)}</small>
 					<span class="spacer"></span>
 					<button onclick={() => app.refreshSubscription(sub.id)}>Refresh</button>
-					<button class="danger" onclick={() => app.removeSubscription(sub.id)}>Remove</button>
+					<button class="danger" onclick={() => (deleteSubTarget = sub)}>Remove</button>
 				</div>
 				{#if sub.lastError}<small class="error">{sub.lastError}</small>{/if}
 				{#if q}
@@ -203,13 +230,39 @@
 			</div>
 		{/each}
 		<form class="sub-form" onsubmit={(e) => (e.preventDefault(), addSubscription())}>
-			<input placeholder="Name" bind:value={subName} />
-			<input class="url" placeholder="https://…/subscription" bind:value={subUrl} spellcheck="false" />
+			<input placeholder="Name" bind:value={subName} aria-label="Subscription name" />
+			<input class="url" placeholder="https://…/subscription" bind:value={subUrl} aria-label="Subscription URL" spellcheck="false" />
 			<button class="primary" disabled={!subUrl.trim() || subBusy}>{subBusy ? 'Adding…' : 'Add'}</button>
 		</form>
 		{#if subError}<small class="error">{subError}</small>{/if}
 	</section>
 </div>
+
+{#if deleteTarget}
+	<dialog class="confirm-dialog" open>
+		<div class="confirm-content">
+			<h3>Delete Profile</h3>
+			<p>Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This cannot be undone.</p>
+			<div class="confirm-actions">
+				<button onclick={() => (deleteTarget = null)}>Cancel</button>
+				<button class="primary danger-btn" onclick={() => { app.remove(deleteTarget!.id); deleteTarget = null; }}>Delete</button>
+			</div>
+		</div>
+	</dialog>
+{/if}
+
+{#if deleteSubTarget}
+	<dialog class="confirm-dialog" open>
+		<div class="confirm-content">
+			<h3>Remove Subscription</h3>
+			<p>Are you sure you want to remove <strong>{deleteSubTarget.name}</strong>? All profiles from this subscription will also be removed.</p>
+			<div class="confirm-actions">
+				<button onclick={() => (deleteSubTarget = null)}>Cancel</button>
+				<button class="primary danger-btn" onclick={() => { app.removeSubscription(deleteSubTarget!.id); deleteSubTarget = null; }}>Remove</button>
+			</div>
+		</div>
+	</dialog>
+{/if}
 
 <ImportDialog bind:open={importing} initial={importText} />
 <ProfileDialog profile={editing} onclose={() => (editing = null)} />
@@ -485,5 +538,55 @@
 		flex: 1;
 		width: auto;
 		min-width: 0;
+	}
+	.sort-select {
+		padding: 5px 8px;
+		font-size: 12px;
+		border-radius: 8px;
+		border: 1px solid var(--hairline);
+		background: var(--surface-strong);
+	}
+	.item-flag {
+		font-size: 15px;
+		margin-right: 2px;
+		flex: none;
+	}
+	.confirm-dialog {
+		width: min(380px, 92vw);
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius);
+		background: var(--surface-strong);
+		color: var(--fg);
+		padding: 18px;
+		box-shadow: 0 20px 60px rgb(0 0 0 / 0.4);
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 100;
+	}
+	.confirm-content {
+		display: grid;
+		gap: 8px;
+	}
+	.confirm-content h3 {
+		margin: 0;
+		font-size: 15px;
+	}
+	.confirm-content p {
+		margin: 0;
+		color: var(--fg-muted);
+		font-size: 12px;
+	}
+	.confirm-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
+		margin-top: 10px;
+	}
+	.danger-btn {
+		background: var(--danger) !important;
+		border-color: var(--danger) !important;
+		color: white !important;
 	}
 </style>
