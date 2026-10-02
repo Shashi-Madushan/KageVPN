@@ -97,6 +97,10 @@ Legend: ✅ done · 🟡 partial / needs humans · ⬜ not started
 - ✅ ⌘1–⌘9 page switching, shown in rail tooltips
 - ✅ Arrow-key navigation inside sidebar and server list
 
+### Phase 3b — Page redesigns (Logs, Data usage)
+- ✅ Logs: level tags (not colour-only), error row tint, Copy/Clear in header, level segmented filter, line counts, Following/Paused status with "Jump to latest", contextual empty states
+- ✅ Data usage: one summary card (total, delta, download/upload split, avg/peak/connected, cap), range as one dropdown, filters tucked in a popover, group-by and compare moved to the chart, single tabbed breakdown (Apps / Sites / Servers), settings collapsed under "Limits and privacy" with destructive actions separated
+
 ### Phase 5 — Validation (needs real users)
 - 🟡 Test script prepared below; sessions not run
   1. "Connect to the VPN" (target < 5 s, 0 misclicks)
