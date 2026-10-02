@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::image::Image;
@@ -21,6 +22,21 @@ const SCREEN_MARGIN: f64 = 8.0;
 const REOPEN_GUARD_MS: u64 = 250;
 
 static LAST_BLUR_MS: AtomicU64 = AtomicU64::new(0);
+
+/// Smoothing factor for the menu bar rates: higher reacts faster, lower is calmer.
+const RATE_SMOOTHING: f64 = 0.45;
+/// Below this the displayed rate snaps to zero instead of trailing off ("3B", "1B", ...).
+const RATE_FLOOR: f64 = 512.0;
+
+/// What the menu bar icon currently shows, so identical frames are never redrawn.
+#[derive(PartialEq)]
+enum Frame {
+    Plain(State),
+    Speed { up: String, down: String },
+}
+
+static SHOWN: Mutex<Option<Frame>> = Mutex::new(None);
+static SMOOTHED: Mutex<Option<(f64, f64)>> = Mutex::new(None);
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, OPEN, "Open SingBox GUI", true, None::<&str>)?;
@@ -72,12 +88,7 @@ fn apply_status(app: &AppHandle, toggle: &MenuItem<tauri::Wry>, state: State) {
     let _ = toggle.set_text(label);
     let _ = toggle.set_enabled(state != State::Connecting);
 
-    if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        if let Ok(image) = icon(state) {
-            let _ = tray.set_icon(Some(image));
-            let _ = tray.set_icon_as_template(true);
-        }
-    }
+    refresh(app, state, None);
 }
 
 fn icon(state: State) -> tauri::Result<Image<'static>> {
@@ -90,16 +101,62 @@ fn icon(state: State) -> tauri::Result<Image<'static>> {
 }
 
 pub fn set_speed(app: &AppHandle, traffic: Option<Traffic>) {
+    refresh(app, state_of(app), traffic);
+}
+
+/// One smoothing step: eases the shown rates toward the new sample and snaps tiny tails to zero.
+fn smooth_step(previous: Option<(f64, f64)>, up: u64, down: u64) -> (f64, f64) {
+    let ease = |shown: f64, raw: u64| {
+        let value = shown + (raw as f64 - shown) * RATE_SMOOTHING;
+        if raw == 0 && value < RATE_FLOOR { 0.0 } else { value }
+    };
+    match previous {
+        Some((shown_up, shown_down)) => (ease(shown_up, up), ease(shown_down, down)),
+        None => (up as f64, down as f64),
+    }
+}
+
+/// Smooths the raw per-second rates so the digits do not jitter.
+fn smooth(traffic: Option<Traffic>) -> Option<(u64, u64)> {
+    let mut previous = SMOOTHED.lock().unwrap();
+    let Some(t) = traffic else {
+        *previous = None;
+        return None;
+    };
+    let next = smooth_step(*previous, t.up, t.down);
+    *previous = Some(next);
+    Some((next.0 as u64, next.1 as u64))
+}
+
+/// Draws the menu bar icon for `state`, adding the speed readout while connected.
+///
+/// The icon and its template flag are applied in one call (`set_icon` followed by
+/// `set_icon_as_template` renders twice on macOS, which shows up as flicker), and a frame
+/// identical to the one on screen is skipped. While connected with the readout enabled the
+/// icon always has the readout's full width, so the menu bar never shifts.
+fn refresh(app: &AppHandle, state: State, traffic: Option<Traffic>) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
     let show = app.state::<AppState>().store.lock().unwrap().settings().show_speed;
-    let image = match traffic.filter(|_| show) {
-        Some(t) => icon(State::Connected)
-            .map(|base| speed_icon::compose(&base, &format_rate(t.up), &format_rate(t.down))),
-        None => icon(state_of(app)),
+    let rates = smooth(traffic.filter(|_| show && state == State::Connected));
+
+    let (frame, image) = if show && state == State::Connected {
+        let (up, down) = rates.unwrap_or((0, 0));
+        let (up, down) = (format_rate(up), format_rate(down));
+        let image = icon(State::Connected)
+            .map(|base| speed_icon::compose(&base, &up, &down));
+        (Frame::Speed { up, down }, image)
+    } else {
+        (Frame::Plain(state), icon(state))
     };
+
+    let mut shown = SHOWN.lock().unwrap();
+    if shown.as_ref() == Some(&frame) {
+        return;
+    }
     if let Ok(image) = image {
-        let _ = tray.set_icon(Some(image));
-        let _ = tray.set_icon_as_template(true);
+        if tray.set_icon_with_as_template(Some(image), true).is_ok() {
+            *shown = Some(frame);
+        }
     }
 }
 
@@ -216,5 +273,30 @@ mod tests {
         assert_eq!(format_rate(900), "900B");
         assert_eq!(format_rate(2048), "2K");
         assert_eq!(format_rate(1_572_864), "1.5M");
+    }
+
+    #[test]
+    fn first_sample_is_shown_as_is() {
+        assert_eq!(smooth_step(None, 4000, 9000), (4000.0, 9000.0));
+    }
+
+    #[test]
+    fn rates_ease_toward_new_samples() {
+        let (up, down) = smooth_step(Some((1000.0, 1000.0)), 3000, 0);
+        assert!(up > 1000.0 && up < 3000.0);
+        assert!(down < 1000.0 && down > 0.0);
+    }
+
+    #[test]
+    fn small_tails_snap_to_zero() {
+        let (up, _) = smooth_step(Some((300.0, 0.0)), 0, 0);
+        assert_eq!(up, 0.0);
+    }
+
+    #[test]
+    fn rate_text_always_fits_the_readout() {
+        for value in [0, 900, 1023, 1024, 999 * 1024, 5 * 1024 * 1024, 99 * 1024 * 1024] {
+            assert!(format_rate(value).chars().count() <= 5, "{value}");
+        }
     }
 }
