@@ -224,21 +224,6 @@
 		</section>
 	</div>
 
-	<div class="quick-tools">
-		<button class="tool-btn" onclick={() => onnavigate('diagnostics')}>
-			<span class="tool-icon"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 2L4 11.5h5L8 18l8-9.5h-5.2L11 2z" fill="currentColor" /></svg></span>
-			<span class="tool-text"><strong>Speed Test</strong><small>Measure throughput</small></span>
-		</button>
-		<button class="tool-btn" onclick={() => onnavigate('diagnostics')}>
-			<span class="tool-icon"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2l6 2.2v5c0 4-2.6 7-6 8.8-3.4-1.8-6-4.8-6-8.8v-5L10 2z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /><path d="M7.2 10l2 2 3.6-3.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-			<span class="tool-text"><strong>Leak Check</strong><small>Verify DNS &amp; IP</small></span>
-		</button>
-		<button class="tool-btn" onclick={() => onnavigate('routing')}>
-			<span class="tool-icon"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h3.5c2.5 0 3 5 5.5 5H17m0 0l-2.5-2.5M17 10l-2.5 2.5M3 15h3.5c1.3 0 2.1-1.3 2.9-2.7M12 7.3c.6-1.3 1.4-2.3 2.5-2.3H17m0 0l-2.5-2.5M17 5l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
-			<span class="tool-text"><strong>Split Rules</strong><small>Choose what is tunneled</small></span>
-		</button>
-	</div>
-
 	<HintBanner />
 </div>
 
@@ -652,65 +637,5 @@
 	}
 	.meter.warn div {
 		background: var(--warn);
-	}
-	/* Quick actions */
-	.quick-tools {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 12px;
-	}
-	@container (max-width: 600px) {
-		.quick-tools {
-			grid-template-columns: 1fr;
-		}
-	}
-	.tool-btn {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 8px 12px;
-		border-radius: 10px;
-		border: 1px solid var(--hairline);
-		background: transparent;
-		text-align: left;
-		transition: border-color 0.15s, background 0.15s;
-	}
-	.tool-btn:hover {
-		background: var(--surface-strong);
-		border-color: var(--accent);
-	}
-	.tool-icon {
-		display: grid;
-		place-items: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 8px;
-		flex: none;
-		color: var(--accent);
-		background: color-mix(in srgb, var(--accent) 12%, transparent);
-	}
-	.tool-icon svg {
-		width: 17px;
-		height: 17px;
-	}
-	.tool-text {
-		display: grid;
-		min-width: 0;
-	}
-	.tool-text strong {
-		font-size: 12.5px;
-		font-weight: 600;
-	}
-	@container (max-width: 760px) {
-		.tool-text small {
-			display: none;
-		}
-	}
-	.tool-text small {
-		font-size: 11px;
-		color: var(--fg-muted);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 </style>
