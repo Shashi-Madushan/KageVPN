@@ -2,6 +2,7 @@
 	import Select from './Select.svelte';
 	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
 	import { app } from '$lib/app.svelte';
+	import Icon from './Icon.svelte';
 
 	let draft = $state<RoutingSettings | null>(null);
 	let kind = $state<RuleKind>('domainSuffix');
@@ -17,10 +18,10 @@
 	});
 
 	const dirty = $derived(draft !== null && JSON.stringify(draft) !== JSON.stringify(app.routing));
-	const modes: { value: RouteMode; title: string; text: string }[] = [
-		{ value: 'global', title: 'Global', text: 'Everything goes through the VPN.' },
-		{ value: 'rule', title: 'Rules', text: 'Use your rules, send the rest to the default below.' },
-		{ value: 'direct', title: 'Direct', text: 'VPN stays on but nothing is routed. For testing.' }
+	const modes: { value: RouteMode; title: string; text: string; icon: 'shield' | 'routing' | 'bolt' }[] = [
+		{ value: 'global', title: 'Global', text: 'Everything goes through the VPN.', icon: 'shield' },
+		{ value: 'rule', title: 'Rules', text: 'Use your rules; the rest follows the default.', icon: 'routing' },
+		{ value: 'direct', title: 'Direct', text: 'VPN stays on but nothing is routed. For testing.', icon: 'bolt' }
 	];
 	const kinds: { value: RuleKind; label: string }[] = [
 		{ value: 'domain', label: 'Domain' },
@@ -116,124 +117,140 @@
 
 {#if draft}
 	<div class="page">
-		<section class="modes">
+		<div class="modes" role="radiogroup" aria-label="Routing mode">
 			{#each modes as mode (mode.value)}
-				<button class="card mode" class:active={draft.mode === mode.value} onclick={() => draft && (draft.mode = mode.value)}>
+				<button
+					class="card mode"
+					class:active={draft.mode === mode.value}
+					role="radio"
+					aria-checked={draft.mode === mode.value}
+					onclick={() => draft && (draft.mode = mode.value)}
+				>
+					<span class="mode-icon"><Icon name={mode.icon} size={18} /></span>
 					<strong>{mode.title}</strong>
 					<small>{mode.text}</small>
 				</button>
 			{/each}
-		</section>
+		</div>
 
-		<section class="card block">
-			<label class="toggle">
-				<span><strong>Bypass local network</strong><small>Keep printers, routers and other LAN devices reachable.</small></span>
+		<section class="card list">
+			<label class="row">
+				<span class="text"><strong>Bypass local network</strong><small>Keep printers, routers and other LAN devices reachable.</small></span>
 				<input type="checkbox" bind:checked={draft.bypassLan} />
 			</label>
 			{#if draft.mode === 'rule'}
-				<label class="toggle">
-					<span><strong>Everything else goes through</strong><small>Used when no rule matches.</small></span>
+				<label class="row">
+					<span class="text"><strong>Everything else goes through</strong><small>Used when no rule matches.</small></span>
 					<Select
 						bind:value={draft.finalAction}
 						label="Everything else goes through"
 						options={[
 							{ value: 'proxy', label: 'The VPN' },
-							{ value: 'direct', label: 'Direct (only listed traffic uses the VPN)' }
+							{ value: 'direct', label: 'Direct' }
 						]}
 					/>
 				</label>
 			{/if}
-		</section>
-
-		{#if draft.mode === 'rule'}
-			<section class="card block">
-				<span class="caption">Rules, first match wins</span>
-				{#each draft.rules as rule, i (rule.id)}
-					<div class="rule" class:off={!rule.enabled}>
-						<input type="checkbox" bind:checked={rule.enabled} aria-label="Enable rule" />
-						<span class="kind">{kindLabel(rule.kind)}</span>
-						<span class="mono val">{rule.value}</span>
-						<Select bind:value={rule.action} label="Action" options={actions} />
-						<button onclick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-						<button onclick={() => move(i, 1)} disabled={i === draft.rules.length - 1} aria-label="Move down">↓</button>
-						<button class="danger" onclick={() => draft?.rules.splice(i, 1)} aria-label="Delete rule">✕</button>
-					</div>
-				{:else}
-					<small class="muted">No rules yet.</small>
-				{/each}
-				<div class="presets-row">
-					<span class="preset-label">Quick presets:</span>
-					<button type="button" class="preset-btn" onclick={() => applyPreset('streaming')}>📺 Bypass Streaming</button>
-					<button type="button" class="preset-btn" onclick={() => applyPreset('ai')}>🤖 Force AI Services</button>
-					<button type="button" class="preset-btn" onclick={() => applyPreset('ads')}>🚫 Block Common Ads</button>
-				</div>
-				<form class="add" onsubmit={(e) => (e.preventDefault(), addRule())}>
-					<Select bind:value={kind} label="Rule type" options={kinds} />
-					<input class="grow" bind:value placeholder={kind === 'ipCidr' ? '10.0.0.0/8' : kind === 'processName' ? 'Slack' : 'example.com'} spellcheck="false" />
-					<Select bind:value={action} label="Action" options={actions} />
-					<button class="primary" disabled={!value.trim()}>Add</button>
-				</form>
-			</section>
-
-			<section class="card block">
-				<span class="caption">Country lists</span>
-				<small class="muted">sing-box downloads these lists when it connects. Needs internet access to GitHub at that moment.</small>
-				{#each draft.ruleSets as set, i (set.id)}
-					<div class="rule" class:off={!set.enabled}>
-						<input type="checkbox" bind:checked={set.enabled} aria-label="Enable list" />
-						<span class="kind">{set.kind === 'geoip' ? 'IP list' : 'Site list'}</span>
-						<span class="mono val">{set.country}</span>
-						<Select bind:value={set.action} label="Action" options={actions} />
-						<button class="danger" onclick={() => draft?.ruleSets.splice(i, 1)} aria-label="Delete list">✕</button>
-					</div>
-				{/each}
-				<div class="quick-countries">
-					<span class="preset-label">Popular lists:</span>
-					{#each ['cn', 'ru', 'ir', 'lk', 'us', 'hk', 'jp'] as code (code)}
-						<button type="button" class="preset-btn" onclick={() => (country = code)}>{code.toUpperCase()}</button>
-					{/each}
-				</div>
-				<form class="add" onsubmit={(e) => (e.preventDefault(), addSet())}>
-					<Select bind:value={setKind} label="List type" options={[{ value: 'geoip', label: 'IP list (geoip)' }, { value: 'geosite', label: 'Site list (geosite)' }]} />
-					<input class="grow" bind:value={country} placeholder="Country or list, e.g. cn, ru, lk" maxlength="32" />
-					<Select bind:value={setAction} label="Action" options={actions} />
-					<button class="primary" disabled={!country.trim()}>Add</button>
-				</form>
-			</section>
-
-			<section class="card block">
-				<span class="caption">Try a domain</span>
-				<input bind:value={probe} placeholder="Which rule matches example.com?" spellcheck="false" />
-				{#if verdict}<p class="verdict">{verdict}</p>{/if}
-			</section>
-		{/if}
-
-		<section class="card block">
-			<span class="caption">DNS</span>
-			<label class="toggle">
-				<span><strong>Resolver</strong><small>Queries go through the tunnel unless you pick the system resolver.</small></span>
+			<label class="row">
+				<span class="text"><strong>DNS resolver</strong><small>Queries go through the tunnel unless you pick the system resolver.</small></span>
 				<Select bind:value={draft.dns.provider} label="Resolver" options={providers} />
 			</label>
 			{#if draft.dns.provider === 'custom'}
-				<input bind:value={draft.dns.custom} placeholder="dns.example.com" spellcheck="false" />
+				<div class="row"><input class="input grow" bind:value={draft.dns.custom} placeholder="dns.example.com" aria-label="Custom DoH server" spellcheck="false" /></div>
 			{/if}
-			{#if draft.dns.provider === 'system'}<small class="warn">The system resolver can reveal the sites you visit to your ISP.</small>{/if}
+			{#if draft.dns.provider === 'system'}
+				<div class="row"><small class="warn">The system resolver can reveal the sites you visit to your ISP.</small></div>
+			{/if}
 		</section>
 
-		<div class="savebar" class:show={dirty}>
-			<span>Unsaved changes. They apply the next time you connect.</span>
-			<button onclick={() => (draft = structuredClone($state.snapshot(app.routing!)))}>Revert</button>
-			<button class="primary" onclick={() => draft && app.saveRouting($state.snapshot(draft) as RoutingSettings)}>Save</button>
-		</div>
+		{#if draft.mode === 'rule'}
+			<section class="card list">
+				<div class="section-head">
+					<div><strong>Rules</strong><small>First match wins · {draft.rules.length} rule{draft.rules.length === 1 ? '' : 's'}</small></div>
+					<div class="chips" aria-label="Quick presets">
+						<button type="button" class="chip" onclick={() => applyPreset('streaming')}>+ Streaming direct</button>
+						<button type="button" class="chip" onclick={() => applyPreset('ai')}>+ AI via VPN</button>
+						<button type="button" class="chip" onclick={() => applyPreset('ads')}>+ Block ads</button>
+					</div>
+				</div>
+				{#each draft.rules as rule, i (rule.id)}
+					<div class="rule" class:off={!rule.enabled}>
+						<input type="checkbox" bind:checked={rule.enabled} aria-label="Enable rule" />
+						<span class="rule-text"><span class="mono val">{rule.value}</span><small>{kindLabel(rule.kind)}</small></span>
+						<Select bind:value={rule.action} label="Action" options={actions} />
+						<span class="tools">
+							<button class="icon-btn" onclick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+							<button class="icon-btn" onclick={() => move(i, 1)} disabled={i === draft.rules.length - 1} aria-label="Move down">↓</button>
+							<button class="icon-btn danger" onclick={() => draft?.rules.splice(i, 1)} aria-label="Delete rule">✕</button>
+						</span>
+					</div>
+				{:else}
+					<div class="empty"><strong>No rules yet</strong><small>Add one below, or start from a preset above.</small></div>
+				{/each}
+				<form class="add" onsubmit={(e) => (e.preventDefault(), addRule())}>
+					<Select bind:value={kind} label="Rule type" options={kinds} />
+					<input class="input grow" bind:value placeholder={kind === 'ipCidr' ? '10.0.0.0/8' : kind === 'processName' ? 'Slack' : 'example.com'} aria-label="Rule value" spellcheck="false" />
+					<Select bind:value={action} label="Action" options={actions} />
+					<button class="btn primary" disabled={!value.trim()}>Add rule</button>
+				</form>
+			</section>
+
+			<section class="card list">
+				<div class="section-head">
+					<div><strong>Country lists</strong><small>sing-box downloads these when it connects (needs access to GitHub).</small></div>
+					<div class="chips" aria-label="Popular lists">
+						{#each ['cn', 'ru', 'ir', 'lk', 'us', 'hk', 'jp'] as code (code)}
+							<button type="button" class="chip" onclick={() => (country = code)}>{code.toUpperCase()}</button>
+						{/each}
+					</div>
+				</div>
+				{#each draft.ruleSets as set, i (set.id)}
+					<div class="rule" class:off={!set.enabled}>
+						<input type="checkbox" bind:checked={set.enabled} aria-label="Enable list" />
+						<span class="rule-text"><span class="mono val">{set.country.toUpperCase()}</span><small>{set.kind === 'geoip' ? 'IP list' : 'Site list'}</small></span>
+						<Select bind:value={set.action} label="Action" options={actions} />
+						<span class="tools"><button class="icon-btn danger" onclick={() => draft?.ruleSets.splice(i, 1)} aria-label="Delete list">✕</button></span>
+					</div>
+				{/each}
+				<form class="add" onsubmit={(e) => (e.preventDefault(), addSet())}>
+					<Select bind:value={setKind} label="List type" options={[{ value: 'geoip', label: 'IP list' }, { value: 'geosite', label: 'Site list' }]} />
+					<input class="input grow" bind:value={country} placeholder="Country code, e.g. cn, ru, lk" aria-label="Country or list" maxlength="32" />
+					<Select bind:value={setAction} label="Action" options={actions} />
+					<button class="btn primary" disabled={!country.trim()}>Add list</button>
+				</form>
+			</section>
+
+			<section class="card list">
+				<div class="section-head"><div><strong>Test a domain</strong><small>See which rule would handle it.</small></div></div>
+				<div class="row">
+					<input class="input grow" bind:value={probe} placeholder="example.com" aria-label="Domain to test" spellcheck="false" />
+					{#if verdict}<span class="verdict">{verdict}</span>{/if}
+				</div>
+			</section>
+		{/if}
+
+		{#if dirty}
+			<div class="savebar" role="status">
+				<span>Unsaved changes. They apply the next time you connect.</span>
+				<button class="btn" onclick={() => (draft = structuredClone($state.snapshot(app.routing!)))}>Revert</button>
+				<button class="btn primary" onclick={() => draft && app.saveRouting($state.snapshot(draft) as RoutingSettings)}>Save</button>
+			</div>
+		{/if}
 	</div>
 {/if}
 
 <style>
 	.page {
 		display: grid;
-		gap: 14px;
+		gap: 12px;
 		align-content: start;
-		padding-bottom: 56px;
+		padding-bottom: 8px;
+	}
+	small {
+		color: var(--fg-muted);
+	}
+	.warn {
+		color: var(--warn);
 	}
 	.modes {
 		display: grid;
@@ -242,99 +259,146 @@
 	}
 	.mode {
 		text-align: left;
-		padding: 12px 14px;
+		padding: 14px;
 		display: grid;
 		gap: 3px;
 		color: var(--fg);
+		transition: border-color 0.15s, background 0.15s;
+	}
+	.mode:hover {
+		border-color: color-mix(in srgb, var(--accent) 50%, var(--hairline));
 	}
 	.mode.active {
 		border-color: var(--accent);
 		background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 	}
-	.mode small,
-	small {
+	.mode-icon {
+		display: grid;
+		place-items: center;
+		width: 30px;
+		height: 30px;
+		border-radius: 8px;
+		margin-bottom: 6px;
+		background: var(--hairline);
 		color: var(--fg-muted);
 	}
-	.block {
-		padding: 14px 16px;
+	.mode.active .mode-icon {
+		background: var(--accent);
+		color: white;
+	}
+	.list {
 		display: grid;
+	}
+	.row,
+	.rule,
+	.add,
+	.empty {
+		display: flex;
+		align-items: center;
 		gap: 10px;
+		padding: 10px 16px;
 	}
-	.toggle {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 16px;
-	}
-	.toggle span {
-		display: grid;
-	}
-	input,
-	.rule {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 6px 0;
+	.row + .row,
+	.section-head + .rule,
+	.rule + .rule,
+	.rule + .add,
+	.empty,
+	.section-head + .row {
 		border-top: 1px solid var(--hairline);
 	}
-	.rule.off .kind,
-	.rule.off .val {
+	.add {
+		border-top: 1px solid var(--hairline);
+		flex-wrap: wrap;
+		background: color-mix(in srgb, var(--hairline) 40%, transparent);
+		border-radius: 0 0 var(--radius) var(--radius);
+	}
+	.row {
+		justify-content: space-between;
+	}
+	.text {
+		display: grid;
+		min-width: 0;
+	}
+	.section-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 8px 12px;
+		padding: 12px 16px;
+	}
+	.section-head div:first-child {
+		display: grid;
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.chip {
+		border: 1px solid var(--hairline);
+		background: var(--surface);
+		border-radius: 999px;
+		padding: 3px 10px;
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--fg-muted);
+	}
+	.chip:hover {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.rule.off .rule-text {
 		opacity: 0.45;
 	}
-	.kind {
-		font-size: 11px;
-		color: var(--fg-muted);
-		min-width: 110px;
-	}
-	.val {
+	.rule-text {
 		flex: 1;
 		min-width: 0;
+		display: grid;
+	}
+	.val {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		user-select: text;
 	}
-	.add {
+	.tools {
 		display: flex;
-		gap: 8px;
-		padding-top: 10px;
-		border-top: 1px solid var(--hairline);
+		gap: 2px;
+	}
+	.icon-btn {
+		min-width: 28px;
+		min-height: 28px;
+		border: 0;
+		background: none;
+		border-radius: 6px;
+		color: var(--fg-muted);
+	}
+	.icon-btn:hover:not(:disabled) {
+		background: var(--hairline);
+		color: var(--fg);
+	}
+	.icon-btn.danger:hover:not(:disabled) {
+		color: var(--danger);
+	}
+	.empty {
+		flex-direction: column;
+		padding: 22px 16px;
+		gap: 2px;
+		text-align: center;
 	}
 	.grow {
 		flex: 1;
-	}
-	button {
-		border: 1px solid var(--hairline);
-		background: var(--surface-strong);
-		border-radius: 8px;
-		padding: 4px 10px;
-	}
-	button:disabled {
-		opacity: 0.4;
-	}
-	button.primary {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: white;
-		font-weight: 600;
-	}
-	button.danger {
-		color: var(--danger);
+		min-width: 120px;
 	}
 	.verdict {
-		margin: 0;
 		font-weight: 600;
-	}
-	.warn {
-		color: var(--warn);
-	}
-	.muted {
-		color: var(--fg-muted);
+		font-size: 12px;
 	}
 	.savebar {
 		position: sticky;
 		bottom: 0;
-		display: none;
+		display: flex;
 		align-items: center;
 		gap: 8px;
 		padding: 10px 14px;
@@ -343,35 +407,7 @@
 		background: var(--surface-strong);
 		box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
 	}
-	.savebar.show {
-		display: flex;
-	}
 	.savebar span {
 		flex: 1;
-	}
-	.presets-row,
-	.quick-countries {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		flex-wrap: wrap;
-		margin: 4px 0;
-	}
-	.preset-label {
-		font-size: 11px;
-		color: var(--fg-muted);
-		font-weight: 600;
-	}
-	.preset-btn {
-		font-size: 11px;
-		padding: 3px 8px;
-		border-radius: 6px;
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		cursor: pointer;
-	}
-	.preset-btn:hover {
-		border-color: var(--accent);
-		color: var(--accent);
 	}
 </style>

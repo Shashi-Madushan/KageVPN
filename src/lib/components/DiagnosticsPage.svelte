@@ -2,16 +2,20 @@
 	import { api, type Diagnostics, type IpInfo, type SpeedResult } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
+	import HeaderActions from './HeaderActions.svelte';
+	import Icon from './Icon.svelte';
 
 	let result = $state<Diagnostics | null>(null);
 	let speed = $state<SpeedResult | null>(null);
 	let checking = $state(false);
 	let testing = $state(false);
+	let checkedAt = $state<Date | null>(null);
 
 	async function run() {
 		checking = true;
 		result = await api.runDiagnostics().catch((e) => (app.notify(String(e)), null));
 		checking = false;
+		checkedAt = new Date();
 	}
 
 	async function runSpeed() {
@@ -55,97 +59,183 @@
 	}
 </script>
 
+<HeaderActions>
+	<button class="btn" onclick={copyReport}>Copy report</button>
+</HeaderActions>
+
 <div class="page">
-	<section class="card block">
-		<div class="head">
-			<div><strong>Leak check</strong><small>Compares the tunnel IP, your system route and the DNS resolver the internet sees.</small></div>
-			<button class="primary" disabled={checking} onclick={run}>{checking ? 'Checking…' : 'Run checks'}</button>
-		</div>
-		{#if result}
-			<div class="grid">
-				<div class="cell"><span class="caption">Tunnel</span><strong class="mono">{result.tunnel?.ip ?? '—'}</strong><small>{place(result.tunnel)}</small><small>{result.tunnel?.org}</small></div>
-				<div class="cell"><span class="caption">System route</span><strong class="mono">{result.system?.ip ?? '—'}</strong><small>{place(result.system)}</small><small>{result.system?.org}</small></div>
-				<div class="cell"><span class="caption">DNS resolver</span><strong class="mono">{result.dns?.ip ?? '—'}</strong><small>{result.dns?.geo}</small></div>
+	<section class="card status {verdict?.tone ?? 'none'}" aria-live="polite">
+		<div class="status-main">
+			<span class="badge"><Icon name="shield" size={22} /></span>
+			<div class="status-text">
+				<strong>{verdict ? { ok: 'No leaks detected', bad: 'Needs attention', idle: 'Check complete' }[verdict.tone] : 'Leak check'}</strong>
+				<span>{verdict?.text ?? 'Compares the tunnel IP, your system route and the DNS resolver the internet sees.'}</span>
+				{#if checkedAt}<small>Last run {checkedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>{/if}
 			</div>
-			{#if verdict}
-				<div class="verdict-box {verdict.tone}">
-					<p class="verdict {verdict.tone}">{verdict.text}</p>
-					{#if app.status.mode === 'proxy'}
-						<div class="remediation">
-							<small>Want all apps protected?</small>
-							<button class="fix-btn" onclick={() => app.setMode('tun')}>Switch to TUN Mode</button>
-						</div>
-					{/if}
-				</div>
-			{/if}
+			<button class="btn primary" disabled={checking} onclick={run}>{checking ? 'Checking…' : result ? 'Run again' : 'Run checks'}</button>
+		</div>
+		{#if verdict && app.connected && app.status.mode === 'proxy'}
+			<div class="remediation">
+				<span>Want every app protected?</span>
+				<button class="btn" onclick={() => app.setMode('tun')}>Switch to full system (TUN)</button>
+			</div>
 		{/if}
 	</section>
 
-	<section class="card block">
-		<div class="head">
+	{#if result}
+		<section class="grid">
+			<div class="card cell"><span class="caption">Tunnel</span><strong class="mono">{result.tunnel?.ip ?? '—'}</strong><small>{place(result.tunnel) || 'Unknown location'}</small>{#if result.tunnel?.org}<small>{result.tunnel.org}</small>{/if}</div>
+			<div class="card cell"><span class="caption">System route</span><strong class="mono">{result.system?.ip ?? '—'}</strong><small>{place(result.system) || 'Unknown location'}</small>{#if result.system?.org}<small>{result.system.org}</small>{/if}</div>
+			<div class="card cell"><span class="caption">DNS resolver</span><strong class="mono">{result.dns?.ip ?? '—'}</strong><small>{result.dns?.geo || 'Unknown location'}</small></div>
+		</section>
+	{/if}
+
+	<section class="card speed">
+		<div class="speed-head">
 			<div><strong>Speed test</strong><small>Measured through the tunnel with Cloudflare. Uses about 30 MB.</small></div>
-			<button class="primary" disabled={testing || !app.connected} onclick={runSpeed}>{testing ? 'Testing…' : 'Start test'}</button>
+			<button class="btn primary" disabled={testing || !app.connected} onclick={runSpeed}>{testing ? 'Testing…' : speed ? 'Test again' : 'Start test'}</button>
 		</div>
-		{#if !app.connected}<small>Connect first.</small>{/if}
-		{#if speed}
-			<div class="grid two">
-				<div class="cell"><span class="caption">Download</span><strong class="big down tabular">{speed.downMbps.toFixed(1)} <small>Mbps</small></strong></div>
-				<div class="cell"><span class="caption">Upload</span><strong class="big up tabular">{speed.upMbps.toFixed(1)} <small>Mbps</small></strong></div>
+		{#if !app.connected}
+			<div class="hint"><small>Connect to the VPN to measure its speed.</small><button class="btn" disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()}>Connect</button></div>
+		{:else if testing}
+			<div class="progress" aria-label="Speed test running"><div class="bar"></div></div>
+		{:else if speed}
+			<div class="results">
+				<div><span class="caption">Download</span><strong class="big down tabular">{speed.downMbps.toFixed(1)}<small> Mbps</small></strong></div>
+				<div><span class="caption">Upload</span><strong class="big up tabular">{speed.upMbps.toFixed(1)}<small> Mbps</small></strong></div>
 			</div>
 		{/if}
-	</section>
-
-	<section class="card block">
-		<div class="head">
-			<div><strong>Support report</strong><small>Copies versions, results and recent errors. Review it before sharing.</small></div>
-			<button onclick={copyReport}>Copy diagnostics</button>
-		</div>
 	</section>
 </div>
 
 <style>
 	.page {
 		display: grid;
-		gap: 14px;
-		align-content: start;
-	}
-	.block {
-		padding: 14px 16px;
-		display: grid;
 		gap: 12px;
-	}
-	.head {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 16px;
-	}
-	.head div {
-		display: grid;
+		align-content: start;
 	}
 	small {
 		color: var(--fg-muted);
 	}
+	.status {
+		padding: 16px 18px;
+		display: grid;
+		gap: 12px;
+	}
+	.status.ok {
+		border-color: color-mix(in srgb, var(--ok) 50%, var(--hairline));
+		background: color-mix(in srgb, var(--ok) 8%, var(--surface));
+	}
+	.status.bad {
+		border-color: var(--danger);
+		background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+	}
+	.status-main {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		flex-wrap: wrap;
+	}
+	.badge {
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 12px;
+		flex: none;
+		background: var(--hairline);
+		color: var(--fg-muted);
+	}
+	.ok .badge {
+		background: color-mix(in srgb, var(--ok) 20%, transparent);
+		color: var(--ok);
+	}
+	.bad .badge {
+		background: color-mix(in srgb, var(--danger) 20%, transparent);
+		color: var(--danger);
+	}
+	.status-text {
+		flex: 1;
+		min-width: 200px;
+		display: grid;
+		gap: 2px;
+	}
+	.status-text strong {
+		font-size: 15px;
+	}
+	.status-text span {
+		color: var(--fg-muted);
+	}
+	.remediation {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 8px;
+		padding-top: 12px;
+		border-top: 1px solid var(--hairline);
+		color: var(--fg-muted);
+	}
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 		gap: 10px;
-	}
-	.grid.two {
-		grid-template-columns: 1fr 1fr;
 	}
 	.cell {
 		display: grid;
-		gap: 2px;
+		gap: 3px;
+		padding: 12px 14px;
+		align-content: start;
+	}
+	.cell strong {
+		font-size: 15px;
+		user-select: text;
+	}
+	.speed {
+		padding: 14px 16px;
+		display: grid;
+		gap: 12px;
+	}
+	.speed-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 10px 16px;
+	}
+	.speed-head div {
+		display: grid;
+	}
+	.hint {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
 		padding: 10px 12px;
 		border-radius: var(--radius-sm);
 		background: var(--hairline);
 	}
-	.cell strong {
-		user-select: text;
+	.results {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+	}
+	.results > div {
+		display: grid;
+		gap: 2px;
+		padding: 12px 14px;
+		border-radius: var(--radius-sm);
+		background: var(--hairline);
 	}
 	.big {
-		font-size: 22px;
+		font-size: 28px;
+		font-weight: 650;
+		letter-spacing: -0.01em;
+	}
+	.big small {
+		margin-left: 4px;
+		font-size: 13px;
+		font-weight: 400;
 	}
 	.down {
 		color: var(--down);
@@ -153,55 +243,22 @@
 	.up {
 		color: var(--up);
 	}
-	.verdict {
-		margin: 0;
-		padding: 9px 12px;
-		border-radius: var(--radius-sm);
-		font-weight: 600;
-	}
-	.verdict.ok {
-		background: color-mix(in srgb, var(--ok) 16%, transparent);
-		color: var(--ok);
-	}
-	.verdict.bad {
-		background: color-mix(in srgb, var(--danger) 16%, transparent);
-		color: var(--danger);
-	}
-	.verdict.idle {
+	.progress {
+		height: 5px;
+		border-radius: 3px;
 		background: var(--hairline);
-		color: var(--fg-muted);
+		overflow: hidden;
 	}
-	.verdict-box {
-		display: grid;
-		gap: 6px;
-	}
-	.remediation {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 2px 4px;
-	}
-	.fix-btn {
-		font-size: 11px;
-		padding: 3px 10px;
-		border-radius: 6px;
+	.bar {
+		height: 100%;
+		width: 100%;
 		background: var(--accent);
-		color: white;
-		border: 0;
-		font-weight: 600;
-		cursor: pointer;
+		transform-origin: left;
+		animation: slide 1.1s ease-in-out infinite;
 	}
-	button {
-		border: 1px solid var(--hairline);
-		background: var(--surface-strong);
-		border-radius: 8px;
-		padding: 6px 14px;
-		white-space: nowrap;
-	}
-	button.primary {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: white;
-		font-weight: 600;
+	@keyframes slide {
+		50% {
+			transform: scaleX(0.35);
+		}
 	}
 </style>

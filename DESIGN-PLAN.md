@@ -101,6 +101,11 @@ Legend: ✅ done · 🟡 partial / needs humans · ⬜ not started
 - ✅ Logs: level tags (not colour-only), error row tint, Copy/Clear in header, level segmented filter, line counts, Following/Paused status with "Jump to latest", contextual empty states
 - ✅ Data usage: one summary card (total, delta, download/upload split, avg/peak/connected, cap), range as one dropdown, filters tucked in a popover, group-by and compare moved to the chart, single tabbed breakdown (Apps / Sites / Servers), settings collapsed under "Limits and privacy" with destructive actions separated
 
+### Phase 3c — Page redesigns (Routing, Diagnostics, Engine)
+- ✅ Routing: icon mode cards (radiogroup), one settings list (LAN bypass, default action, DNS), rules as rows with value + kind, preset chips instead of emoji buttons, 28px row actions, empty state; fixed a stray `input { border-top }` rule that styled every input
+- ✅ Diagnostics: verdict-first status card with last-run time and inline TUN remediation, 3-up result cells, speed test with progress and inline Connect, Copy report moved to the header
+- ✅ Engine: active-engine hero with health colour, one unified Versions list (system, managed, available) with channel switch, "New" badge, inline progress, locked-while-connected notice, Check for updates in the header
+
 ### Phase 5 — Validation (needs real users)
 - 🟡 Test script prepared below; sessions not run
   1. "Connect to the VPN" (target < 5 s, 0 misclicks)
