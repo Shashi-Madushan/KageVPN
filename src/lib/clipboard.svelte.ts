@@ -37,7 +37,7 @@ class ClipboardWatch {
 		if (!this.enabled || !document.hasFocus() || this.offer) return;
 		try {
 			const text = ((await readText()) ?? '').trim();
-			if (text.startsWith('vless://') && !this.dismissed.has(text)) this.offer = text;
+			if (/^vless:\/\//i.test(text) && !this.dismissed.has(text)) this.offer = text;
 		} catch {
 			// reading can be refused by the system; ignore
 		}

@@ -63,6 +63,24 @@ pub struct Profile {
 }
 
 impl Profile {
+    /// True when both profiles would connect to the same place the same way, ignoring name,
+    /// group and favorite. Used to avoid importing the same link twice.
+    pub fn same_endpoint(&self, other: &Profile) -> bool {
+        let same_reality = self.reality.as_ref().map(|r| (&r.public_key, &r.short_id))
+            == other.reality.as_ref().map(|r| (&r.public_key, &r.short_id));
+        self.server.eq_ignore_ascii_case(&other.server)
+            && self.port == other.port
+            && self.uuid.eq_ignore_ascii_case(&other.uuid)
+            && self.security == other.security
+            && self.sni == other.sni
+            && self.flow == other.flow
+            && self.transport.kind == other.transport.kind
+            && self.transport.path == other.transport.path
+            && self.transport.host == other.transport.host
+            && self.transport.service_name == other.transport.service_name
+            && same_reality
+    }
+
     pub fn validate(&self) -> Result<()> {
         let invalid = |message: &str| Err(AppError::Invalid(message.into()));
         if self.name.trim().is_empty() {

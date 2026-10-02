@@ -38,6 +38,7 @@ pub struct Snapshot {
 #[serde(rename_all = "camelCase")]
 pub struct ImportSummary {
     added: usize,
+    duplicates: usize,
     failed: Vec<String>,
 }
 
@@ -76,8 +77,8 @@ pub fn import_text(state: State<AppState>, text: String) -> Result<ImportSummary
         let reason = failed.into_iter().next().unwrap_or_else(|| "no vless:// links were found".into());
         return Err(AppError::Invalid(reason));
     }
-    let added = state.store.lock().unwrap().add_many(profiles)?;
-    Ok(ImportSummary { added, failed })
+    let (added, duplicates) = state.store.lock().unwrap().import_unique(profiles)?;
+    Ok(ImportSummary { added, duplicates, failed })
 }
 
 #[tauri::command]

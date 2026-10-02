@@ -1,3 +1,4 @@
+import type { ImportSummary } from './api';
 import type { Latency } from './app.svelte';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -97,4 +98,13 @@ export function profileFlag(name: string, server: string = ''): string {
 		}
 	}
 	return '🌐';
+}
+
+/** One-line result of an import, covering duplicates and unreadable links. */
+export function importMessage(summary: ImportSummary): string {
+	const parts: string[] = [];
+	if (summary.added) parts.push(`Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}`);
+	if (summary.duplicates) parts.push(summary.added ? `${summary.duplicates} already saved` : 'Already imported');
+	if (summary.failed.length) parts.push(`${summary.failed.length} skipped`);
+	return (parts.join(', ') || 'Nothing to import') + '.';
 }

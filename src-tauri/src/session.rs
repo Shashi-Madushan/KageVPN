@@ -165,7 +165,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         cache_path: &paths.cache_file(),
         secret,
     })?;
-    std::fs::write(paths.config_file(), serde_json::to_vec_pretty(&config)?)?;
+    crate::fsutil::write_private_atomic(&paths.config_file(), &serde_json::to_vec_pretty(&config)?)?;
     crate::singbox::check(&binary, &paths.config_file())?;
 
     let kill_switch_ips = if reliability.kill_switch && mode == Mode::Tun {

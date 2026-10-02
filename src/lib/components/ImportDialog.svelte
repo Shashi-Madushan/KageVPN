@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
+	import { importMessage } from '$lib/format';
 
 	let { open = $bindable(), initial = '' }: { open: boolean; initial?: string } = $props();
 	let text = $state('');
@@ -8,7 +9,7 @@
 	let fileInput: HTMLInputElement;
 	let dialog: HTMLDialogElement;
 
-	const found = $derived(text.split(/\s+/).filter((t) => t.startsWith('vless://')).length);
+	const found = $derived(text.split(/\s+/).filter((t) => /^vless:\/\//i.test(t)).length);
 
 	$effect(() => {
 		if (open && !dialog.open) {
@@ -24,7 +25,7 @@
 	async function pasteFromClipboard() {
 		try {
 			const clip = (await navigator.clipboard.readText()).trim();
-			if (clip.includes('vless://')) text = clip;
+			if (/vless:\/\//i.test(clip)) text = clip;
 		} catch {
 			// clipboard access can be denied; the user can paste manually
 		}
@@ -61,10 +62,7 @@
 		const { summary, error: failure } = await app.importText(text);
 		error = failure;
 		if (summary) {
-			app.notify(
-				summary.failed.length ? `Imported ${summary.added}, skipped ${summary.failed.length}.` : `Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}.`,
-				'info'
-			);
+			app.notify(importMessage(summary), 'info');
 			text = '';
 			open = false;
 		}

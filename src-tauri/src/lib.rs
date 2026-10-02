@@ -4,6 +4,7 @@ mod config;
 mod core;
 mod diagnostics;
 mod error;
+mod fsutil;
 mod logs;
 mod net;
 mod notify;
@@ -52,6 +53,7 @@ pub fn run() {
             let paths = AppPaths::new(app.path().app_data_dir()?)?;
             app.manage(AppState::new(paths));
             notify::setup(app.handle());
+            warn_if_data_was_recovered(app.handle());
             logs::spawn_tailer(app.handle().clone());
             tray::setup(app.handle())?;
             auto_connect(app.handle());
@@ -191,5 +193,17 @@ fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
             }
         }
         _ => {}
+    }
+}
+
+/// Tells the user when the saved servers could not be read and were set aside.
+fn warn_if_data_was_recovered(app: &tauri::AppHandle) {
+    let recovered = app.state::<AppState>().store.lock().unwrap().take_recovery();
+    if let Some(path) = recovered {
+        notify::send(
+            app,
+            "Saved servers could not be read",
+            &format!("The file was kept as {} so it can be recovered.", path.display()),
+        );
     }
 }

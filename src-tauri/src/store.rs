@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::Mode;
 use crate::core::CoreSettings;
 use crate::error::{AppError, Result};
+use crate::fsutil;
 use crate::profile::Profile;
 use crate::settings::{AutoSettings, ReliabilitySettings, RoutingSettings, Subscription, UsageSettings};
 
@@ -43,17 +44,28 @@ struct Data {
 pub struct Store {
     path: PathBuf,
     data: Data,
+    /// Where an unreadable data file was moved so it can be recovered, if that happened at load.
+    recovered: Option<PathBuf>,
 }
 
 impl Store {
     pub fn load(path: PathBuf) -> Self {
-        let data: Data = fs::read(&path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-            .unwrap_or_default();
-        let mut store = Self { path, data };
+        let (data, recovered) = match fs::read(&path) {
+            Ok(bytes) => match serde_json::from_slice::<Data>(&bytes) {
+                Ok(data) => (data, None),
+                // Never start over silently: keep the unreadable file next to the new one.
+                Err(_) => (Data::default(), quarantine(&path)),
+            },
+            Err(_) => (Data::default(), None),
+        };
+        let mut store = Self { path, data, recovered };
         store.migrate();
         store
+    }
+
+    /// The saved copy of a data file that could not be read at startup, once.
+    pub fn take_recovery(&mut self) -> Option<PathBuf> {
+        self.recovered.take()
     }
 
     /// Upgrades older files in place, keeping a copy of the file as it was.
@@ -168,6 +180,24 @@ impl Store {
         Ok(count)
     }
 
+    /// Adds profiles that are not already saved (same server, port, credentials and transport).
+    /// Returns how many were added and how many were skipped as duplicates.
+    pub fn import_unique(&mut self, profiles: Vec<Profile>) -> Result<(usize, usize)> {
+        let total = profiles.len();
+        let mut fresh: Vec<Profile> = Vec::new();
+        for profile in profiles {
+            let known = self.data.profiles.iter().chain(fresh.iter()).any(|p| p.same_endpoint(&profile));
+            if !known {
+                fresh.push(profile);
+            }
+        }
+        let added = fresh.len();
+        if added > 0 {
+            self.add_many(fresh)?;
+        }
+        Ok((added, total - added))
+    }
+
     /// Replaces the profile with the same id, or appends it when new.
     pub fn upsert(&mut self, profile: Profile) -> Result<()> {
         match self.data.profiles.iter_mut().find(|p| p.id == profile.id) {
@@ -276,9 +306,21 @@ impl Store {
     }
 
     fn save(&self) -> Result<()> {
-        fs::write(&self.path, serde_json::to_vec_pretty(&self.data)?)?;
+        fsutil::write_private_atomic(&self.path, &serde_json::to_vec_pretty(&self.data)?)?;
         Ok(())
     }
+}
+
+/// Moves an unreadable data file aside as `data.corrupt.json` (or a numbered variant).
+fn quarantine(path: &std::path::Path) -> Option<PathBuf> {
+    let stem = path.file_stem()?.to_string_lossy().into_owned();
+    let mut target = path.with_file_name(format!("{stem}.corrupt.json"));
+    let mut n = 2;
+    while target.exists() {
+        target = path.with_file_name(format!("{stem}.corrupt-{n}.json"));
+        n += 1;
+    }
+    fs::rename(path, &target).ok().map(|()| target)
 }
 
 #[cfg(test)]
@@ -329,6 +371,66 @@ mod tests {
         store.add(profile("b")).unwrap();
         store.remove("a").unwrap();
         assert_eq!(store.active_id(), Some("b"));
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn unreadable_file_is_kept_aside_not_overwritten() {
+        let path = temp_path("corrupt");
+        let mut store = Store::load(path.clone());
+        store.add(profile("a")).unwrap();
+        let good = fs::read(&path).unwrap();
+        fs::write(&path, &good[..good.len() / 2]).unwrap();
+
+        let mut broken = Store::load(path.clone());
+        assert!(broken.profiles().is_empty());
+        let saved = broken.take_recovery().expect("recovery path");
+        assert_eq!(fs::read(&saved).unwrap(), &good[..good.len() / 2]);
+        assert!(broken.take_recovery().is_none(), "reported once");
+
+        // The next corruption must not clobber the first saved copy.
+        broken.add(profile("b")).unwrap();
+        fs::write(&path, b"{ nope").unwrap();
+        let mut again = Store::load(path.clone());
+        let second = again.take_recovery().unwrap();
+        assert_ne!(second, saved);
+        assert!(saved.exists());
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn missing_file_starts_empty_without_a_warning() {
+        let path = temp_path("missing");
+        let mut store = Store::load(path.clone());
+        assert!(store.profiles().is_empty());
+        assert!(store.take_recovery().is_none());
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn data_file_is_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = temp_path("mode");
+        Store::load(path.clone()).add(profile("a")).unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn import_skips_profiles_that_are_already_saved() {
+        let path = temp_path("dupes");
+        let mut store = Store::load(path.clone());
+        let mut again = profile("x");
+        again.name = "same server, other name".into();
+        let mut other_transport = profile("y");
+        other_transport.transport.path = Some("/ws".into());
+
+        let (added, skipped) = store.import_unique(vec![profile("a"), again.clone(), other_transport]).unwrap();
+        assert_eq!((added, skipped), (2, 1), "duplicate inside one paste");
+        let (added, skipped) = store.import_unique(vec![again]).unwrap();
+        assert_eq!((added, skipped), (0, 1), "duplicate of a saved profile");
+        assert_eq!(store.profiles().len(), 2);
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 }

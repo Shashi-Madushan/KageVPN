@@ -62,7 +62,7 @@ async fn fetch(url: &str) -> Result<(Vec<Profile>, Option<UserInfo>, usize)> {
 
 /// Subscriptions are either a plain list of links or the same list base64-encoded.
 fn decode_body(text: &str) -> String {
-    if text.contains("vless://") {
+    if text.to_ascii_lowercase().contains("vless://") {
         return text.to_string();
     }
     let compact: String = text.split_whitespace().collect();

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { app } from '$lib/app.svelte';
+	import { importMessage } from '$lib/format';
 	import { header } from '$lib/header.svelte';
 	import { core } from '$lib/core.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
@@ -66,7 +67,7 @@
 		if (!text) return;
 		clipboardWatch.dismiss();
 		const { summary, error } = await app.importText(text);
-		if (summary) app.notify(`Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}.`, 'info');
+		if (summary) app.notify(importMessage(summary), 'info');
 		else if (error) app.notify(error);
 	}
 

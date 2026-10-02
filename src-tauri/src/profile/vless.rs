@@ -23,6 +23,10 @@ pub fn parse_vless(link: &str) -> Result<Profile> {
     let params: HashMap<_, _> = url.query_pairs().collect();
     let param = |key: &str| params.get(key).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
+    if let Some(encryption) = param("encryption").filter(|e| e != "none") {
+        let shown: String = encryption.chars().take(24).collect();
+        return Err(invalid(format!("VLESS encryption '{shown}' is not supported, only encryption=none")));
+    }
     let security = match param("security").as_deref() {
         Some("tls") => Security::Tls,
         Some("reality") => Security::Reality,
@@ -83,13 +87,18 @@ pub fn parse_vless(link: &str) -> Result<Profile> {
 pub fn parse_many(text: &str) -> (Vec<Profile>, Vec<String>) {
     let mut profiles = Vec::new();
     let mut errors = Vec::new();
-    for token in text.split_whitespace().filter(|t| t.starts_with("vless://")) {
+    for token in text.split_whitespace().filter(|t| is_vless_link(t)) {
         match parse_vless(token) {
             Ok(profile) => profiles.push(profile),
             Err(error) => errors.push(error.to_string()),
         }
     }
     (profiles, errors)
+}
+
+/// Schemes are case-insensitive, so `VLESS://` counts too.
+pub fn is_vless_link(token: &str) -> bool {
+    token.get(..8).is_some_and(|scheme| scheme.eq_ignore_ascii_case("vless://"))
 }
 
 pub fn to_link(profile: &Profile) -> String {
@@ -217,5 +226,19 @@ mod tests {
         ] {
             assert!(parse_vless(&link).is_err(), "{link}");
         }
+    }
+
+    #[test]
+    fn rejects_vless_encryption_it_would_ignore() {
+        let link = format!("vless://{ID}@h.example.com:443?security=tls&encryption=mlkem768x25519plus.native.0rtt.abc");
+        let error = parse_vless(&link).unwrap_err().to_string();
+        assert!(error.contains("encryption"), "{error}");
+        assert!(parse_vless(&format!("vless://{ID}@h.example.com:443?security=tls&encryption=none")).is_ok());
+    }
+
+    #[test]
+    fn bulk_import_accepts_an_uppercase_scheme() {
+        let (profiles, errors) = parse_many(&format!("VLESS://{ID}@a.example.com:443?security=tls#A vless://{ID}@b.example.com:443?security=tls#B"));
+        assert_eq!((profiles.len(), errors.len()), (2, 0));
     }
 }

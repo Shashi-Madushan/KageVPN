@@ -206,6 +206,7 @@ export interface QuotaStatus {
 
 export interface ImportSummary {
 	added: number;
+	duplicates: number;
 	failed: string[];
 }
 
