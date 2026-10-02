@@ -106,6 +106,12 @@ Legend: ✅ done · 🟡 partial / needs humans · ⬜ not started
 - ✅ Diagnostics: verdict-first status card with last-run time and inline TUN remediation, 3-up result cells, speed test with progress and inline Connect, Copy report moved to the header
 - ✅ Engine: active-engine hero with health colour, one unified Versions list (system, managed, available) with channel switch, "New" badge, inline progress, locked-while-connected notice, Check for updates in the header
 
+### Phase 3d — De-templating Routing and Engine
+Critique: stacked identical translucent cards, icon-in-tinted-tile hero, pill badges on every row, card-style single-choice picker, controls inside cards, lists where tables belong.
+- ✅ New shared "grouped list" primitives in `app.css` (`.section`, `.section-head`, `.group`, `.item`, `.state` dot status, `.linkbtn`): section labels outside, key/value rows, hairline separators
+- ✅ Engine: key/value "Active engine" group, real table for Versions (Version / Released · size / Status / action), plain-text status with a dot instead of pills, container-query column hiding
+- ✅ Routing: segmented Mode control with one-line explanation, General settings group, rules as compact rows (type · match · action) with hover-revealed reorder/delete, text-link presets
+
 ### Phase 5 — Validation (needs real users)
 - 🟡 Test script prepared below; sessions not run
   1. "Connect to the VPN" (target < 5 s, 0 misclicks)

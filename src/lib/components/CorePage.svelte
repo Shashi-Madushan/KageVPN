@@ -4,7 +4,6 @@
 	import { formatBytes } from '$lib/format';
 	import { compareVersions } from '$lib/version';
 	import HeaderActions from './HeaderActions.svelte';
-	import Icon from './Icon.svelte';
 	import Segmented from './Segmented.svelte';
 	import type { Channel, Release } from '$lib/api';
 
@@ -49,327 +48,261 @@
 </script>
 
 <HeaderActions>
-	<button class="btn primary" disabled={busy} onclick={() => core.check()}>{core.checking ? 'Checking…' : 'Check for updates'}</button>
+	<button class="btn" disabled={busy} onclick={() => core.check()}>{core.checking ? 'Checking…' : 'Check for updates'}</button>
 </HeaderActions>
 
 <div class="page">
-	<section class="card hero {health}">
-		<span class="badge"><Icon name="core" size={22} /></span>
-		{#if status?.active}
-			{@const info = status.active}
-			<div class="hero-main">
-				<div class="line">
-					<strong class="version tabular">sing-box {info.version}</strong>
-					<span class="pill">{info.source === 'managed' ? 'Managed by app' : 'System install'}</span>
+	<div class="section">
+		<div class="section-head"><span class="caption">Active engine</span></div>
+		<div class="group">
+			{#if status?.active}
+				{@const info = status.active}
+				<div class="item">
+					<span class="label">Version</span>
+					<span class="grow mono tabular">sing-box {info.version}</span>
+					{#if info.missingTags.length || info.outdated}
+						<span class="state warn">Needs a newer build</span>
+					{:else if core.updateAvailable && core.newest}
+						<span class="state info">{core.newest.version} available</span>
+					{:else if core.checked}
+						<span class="state ok">Up to date</span>
+					{:else}
+						<span class="state ok">Ready</span>
+					{/if}
 				</div>
-				<span class="mono path">{info.path}</span>
-				<div class="tags">
-					{#each ['with_clash_api', 'with_utls'] as tag (tag)}
-						<span class="tag" class:bad={info.missingTags.includes(tag)}>{info.missingTags.includes(tag) ? '✕' : '✓'} {tag.replace('with_', '')}</span>
-					{/each}
+				<div class="item">
+					<span class="label">Source</span>
+					<span class="grow">{info.source === 'managed' ? 'Managed by this app' : 'System install'}</span>
+				</div>
+				<div class="item">
+					<span class="label">Location</span>
+					<span class="grow mono path" title={info.path}>{info.path}</span>
+				</div>
+				<div class="item">
+					<span class="label">Features</span>
+					<span class="grow features">
+						{#each ['with_clash_api', 'with_utls'] as tag (tag)}
+							{@const missing = info.missingTags.includes(tag)}
+							<span class="mono" class:missing>{missing ? '✕' : '✓'} {tag.replace('with_', '')}</span>
+						{/each}
+					</span>
 				</div>
 				{#if info.missingTags.length || info.outdated}
-					<p class="warn">This engine is missing required features or is older than 1.12. Install a managed version below.</p>
-				{:else if core.updateAvailable && core.newest}
-					<p class="note">Version {core.newest.version} is available.</p>
-				{:else if core.checked}
-					<p class="muted">You are up to date.</p>
+					<div class="item note"><span class="grow">This engine is missing required features or is older than 1.12. Install a managed version below.</span></div>
 				{/if}
-			</div>
-		{:else}
-			<div class="hero-main">
-				<strong class="version">{status ? 'No engine found' : 'Loading…'}</strong>
-				<p class="muted">{status?.error ?? 'The VPN needs the sing-box engine to connect.'}</p>
-				{#if status}
-					<button class="btn primary install" disabled={busy} onclick={() => (core.releases.length ? install(core.releases[0]) : core.check())}>
-						{core.releases.length ? `Install ${core.releases[0].version}` : 'Find latest version'}
-					</button>
-				{/if}
-			</div>
-		{/if}
-	</section>
-
-	<section class="card list">
-		<div class="section-head">
-			<div><strong>Versions</strong><small>Switch between installed engines or add a new one.</small></div>
-			<Segmented options={channels} value={status?.settings.channel ?? 'stable'} label="Channel" disabled={busy} onchange={(c: Channel) => core.setChannel(c)} />
-		</div>
-		{#if app.locked}<p class="locked">Disconnect before installing or switching engines.</p>{/if}
-
-		<div class="item">
-			<div class="item-main">
-				<strong>System{status?.system ? ` ${status.system.version}` : ''}</strong>
-				<small class="mono">{status?.system?.path ?? 'Not found'}</small>
-			</div>
-			{#if managedActive === null && status?.system}
-				<span class="pill okpill">Active</span>
 			{:else}
-				<button class="btn" disabled={!status?.system || app.locked} onclick={() => core.use(null)}>Use</button>
+				<div class="item">
+					<span class="grow">
+						<strong>{status ? 'No engine found' : 'Loading…'}</strong>
+						<span class="sub">{status?.error ?? 'The VPN needs the sing-box engine to connect.'}</span>
+					</span>
+					{#if status}
+						<button class="btn primary" disabled={busy} onclick={() => (core.releases.length ? install(core.releases[0]) : core.check())}>
+							{core.releases.length ? `Install ${core.releases[0].version}` : 'Find latest version'}
+						</button>
+					{/if}
+				</div>
 			{/if}
 		</div>
-		{#each status?.installed ?? [] as item (item.version)}
-			<div class="item">
-				<div class="item-main">
-					<strong class="tabular">Managed {item.version}</strong>
-					<small>{item.installedAt ? `Installed ${new Date(item.installedAt * 1000).toLocaleDateString()}` : 'Installed'}</small>
-				</div>
-				{#if managedActive === item.version}
-					<span class="pill okpill">Active</span>
-				{:else}
-					<span class="actions">
-						<button class="btn" disabled={app.locked} onclick={() => core.use(item.version)}>Use</button>
-						<button class="btn danger" onclick={() => core.remove(item.version)}>Remove</button>
-					</span>
-				{/if}
-			</div>
-		{/each}
+	</div>
 
-		{#if available.length}
-			<div class="subhead caption">Available to install</div>
+	<div class="section">
+		<div class="section-head">
+			<span class="caption">Versions</span>
+			<Segmented options={channels} value={status?.settings.channel ?? 'stable'} label="Channel" disabled={busy} onchange={(c: Channel) => core.setChannel(c)} />
+		</div>
+		<div class="group table" role="table" aria-label="Engine versions">
+			<div class="item th" role="row">
+				<span class="grow" role="columnheader">Version</span>
+				<span class="meta" role="columnheader">Released · size</span>
+				<span class="st" role="columnheader">Status</span>
+				<span class="act"></span>
+			</div>
+
+			<div class="item" role="row">
+				<span class="grow">
+					<span class="mono tabular">{status?.system ? status.system.version : 'System'}</span>
+					<span class="sub">System · {status?.system?.path ?? 'not found'}</span>
+				</span>
+				<span class="meta"></span>
+				<span class="st">{#if managedActive === null && status?.system}<span class="state ok">Active</span>{:else if !status?.system}<span class="muted">Not installed</span>{:else}<span class="muted">Installed</span>{/if}</span>
+				<span class="act">
+					{#if !(managedActive === null && status?.system)}
+						<button class="btn" disabled={!status?.system || app.locked} onclick={() => core.use(null)}>Use</button>
+					{/if}
+				</span>
+			</div>
+
+			{#each status?.installed ?? [] as item (item.version)}
+				<div class="item" role="row">
+					<span class="grow">
+						<span class="mono tabular">{item.version}</span>
+						<span class="sub">Managed</span>
+					</span>
+					<span class="meta">{item.installedAt ? `Installed ${new Date(item.installedAt * 1000).toLocaleDateString()}` : ''}</span>
+					<span class="st">{#if managedActive === item.version}<span class="state ok">Active</span>{:else}<span class="muted">Installed</span>{/if}</span>
+					<span class="act">
+						{#if managedActive !== item.version}
+							<button class="btn" disabled={app.locked} onclick={() => core.use(item.version)}>Use</button>
+							<button class="btn danger" onclick={() => core.remove(item.version)}>Remove</button>
+						{/if}
+					</span>
+				</div>
+			{/each}
+
 			{#each available as release (release.version)}
 				{@const rel = relation(release)}
-				<div class="item stack">
-					<div class="item-row">
-						<div class="item-main">
-							<span class="title">
-								<strong class="tabular">{release.version}</strong>
-								{#if release.prerelease}<span class="pill warnpill">pre-release</span>{/if}
-								{#if rel === 'newer'}<span class="pill newpill">New</span>{/if}
-							</span>
-							<small>{date(release.publishedAt)} · {formatBytes(release.size)}</small>
-						</div>
+				<div class="item avail" role="row">
+					<span class="grow">
+						<span class="mono tabular">{release.version}</span>
+						{#if release.prerelease}<span class="sub">Pre-release</span>{/if}
+					</span>
+					<span class="meta">{date(release.publishedAt)} · {formatBytes(release.size)}</span>
+					<span class="st">{#if rel === 'newer'}<span class="state info">Newer</span>{:else}<span class="muted">Older</span>{/if}</span>
+					<span class="act">
 						<button class="btn" class:primary={rel === 'newer'} disabled={core.installing !== null || app.locked} onclick={() => install(release)}>
-							{confirming === release.version ? 'Install anyway' : rel === 'older' ? 'Install older' : 'Install'}
+							{confirming === release.version ? 'Install anyway' : 'Install'}
 						</button>
-					</div>
-					{#if confirming === release.version}
-						<p class="warn small">This release has no published checksum, so its download cannot be verified.</p>
-					{/if}
-					{#if core.installing === release.version}
-						<div class="progress" aria-label="Install progress">
-							<div class="bar" style:width={percent === null ? '100%' : `${percent}%`} class:indeterminate={percent === null}></div>
+					</span>
+					{#if confirming === release.version || core.installing === release.version || release.notes}
+						<div class="extra">
+							{#if confirming === release.version}
+								<p class="warn">This release has no published checksum, so its download cannot be verified.</p>
+							{/if}
+							{#if core.installing === release.version}
+								<div class="progress" aria-label="Install progress">
+									<div class="bar" style:width={percent === null ? '100%' : `${percent}%`} class:indeterminate={percent === null}></div>
+								</div>
+								<span class="sub">{core.progress ? STAGES[core.progress.stage] : 'Starting…'}{percent !== null ? ` ${percent.toFixed(0)}%` : ''}</span>
+							{/if}
+							{#if release.notes}
+								<button class="linkbtn" onclick={() => (expanded = expanded === release.version ? null : release.version)}>
+									{expanded === release.version ? 'Hide release notes' : 'Release notes'}
+								</button>
+								{#if expanded === release.version}<pre class="notes">{release.notes.slice(0, 1500)}</pre>{/if}
+							{/if}
 						</div>
-						<small>{core.progress ? STAGES[core.progress.stage] : 'Starting…'}{percent !== null ? ` ${percent.toFixed(0)}%` : ''}</small>
-					{/if}
-					{#if release.notes}
-						<button class="link" onclick={() => (expanded = expanded === release.version ? null : release.version)}>
-							{expanded === release.version ? 'Hide notes' : 'Release notes'}
-						</button>
-						{#if expanded === release.version}<pre class="notes">{release.notes.slice(0, 1500)}</pre>{/if}
 					{/if}
 				</div>
 			{/each}
-		{:else if core.checked}
-			<div class="subhead muted">No other versions on this channel.</div>
-		{/if}
-	</section>
-
-	<section class="card list">
-		<label class="item">
-			<span class="item-main"><strong>Check automatically</strong><small>Look for a new release once a day and notify you. Nothing installs by itself.</small></span>
-			<input type="checkbox" checked={status?.settings.autoCheck ?? true} onchange={(e) => core.setAutoCheck(e.currentTarget.checked)} />
-		</label>
-		<div class="item">
-			<span class="item-main"><strong>Using Homebrew?</strong><small class="mono">brew upgrade sing-box</small></span>
-			<button class="btn" disabled={core.installing !== null || app.locked} onclick={() => core.brewUpgrade()}>
-				{core.installing === 'brew' ? 'Upgrading…' : 'Run upgrade'}
-			</button>
 		</div>
-	</section>
+		{#if app.locked}<p class="foot">Disconnect before installing or switching engines.</p>{:else if core.checked && !available.length}<p class="foot">No other versions on this channel.</p>{/if}
+	</div>
+
+	<div class="section">
+		<div class="section-head"><span class="caption">Updates</span></div>
+		<div class="group">
+			<label class="item">
+				<span class="grow">Check for updates automatically<span class="sub">Once a day. Nothing installs without you.</span></span>
+				<input type="checkbox" checked={status?.settings.autoCheck ?? true} onchange={(e) => core.setAutoCheck(e.currentTarget.checked)} />
+			</label>
+			<div class="item">
+				<span class="grow">Upgrade with Homebrew<span class="sub mono">brew upgrade sing-box</span></span>
+				<button class="btn" disabled={core.installing !== null || app.locked} onclick={() => core.brewUpgrade()}>
+					{core.installing === 'brew' ? 'Upgrading…' : 'Run'}
+				</button>
+			</div>
+		</div>
+	</div>
 </div>
 
 <style>
 	.page {
+		container-type: inline-size;
 		display: grid;
-		gap: 12px;
+		gap: 18px;
 		align-content: start;
 	}
-	small,
 	.muted {
 		color: var(--fg-muted);
 	}
 	p {
 		margin: 0;
 	}
-	.small {
-		font-size: 11px;
-	}
-	.hero {
-		display: flex;
-		gap: 16px;
-		padding: 18px 20px;
-		align-items: flex-start;
-	}
-	.hero.warn {
-		border-color: var(--warn);
-	}
-	.hero.bad {
-		border-color: var(--danger);
-	}
-	.badge {
-		display: grid;
-		place-items: center;
-		width: 44px;
-		height: 44px;
-		border-radius: 12px;
-		flex: none;
-		background: color-mix(in srgb, var(--ok) 18%, transparent);
-		color: var(--ok);
-	}
-	.hero.warn .badge {
-		background: color-mix(in srgb, var(--warn) 20%, transparent);
-		color: var(--warn);
-	}
-	.hero.bad .badge {
-		background: color-mix(in srgb, var(--danger) 18%, transparent);
-		color: var(--danger);
-	}
-	.hero-main {
-		display: grid;
-		gap: 6px;
-		min-width: 0;
-		flex: 1;
-	}
-	.line {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		flex-wrap: wrap;
-	}
-	.version {
-		font-size: 20px;
-		font-weight: 650;
-	}
 	.path {
-		font-size: 11px;
-		color: var(--fg-muted);
-		word-break: break-all;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		user-select: text;
 	}
-	.install {
-		justify-self: start;
-		margin-top: 4px;
-	}
-	.pill {
-		font-size: 11px;
-		padding: 2px 8px;
-		border-radius: 999px;
-		background: var(--hairline);
-		color: var(--fg-muted);
-		white-space: nowrap;
-	}
-	.okpill {
-		background: color-mix(in srgb, var(--ok) 20%, transparent);
-		color: var(--ok);
-		font-weight: 600;
-	}
-	.warnpill {
-		background: color-mix(in srgb, var(--warn) 22%, transparent);
-		color: var(--warn);
-	}
-	.newpill {
-		background: color-mix(in srgb, var(--accent) 20%, transparent);
-		color: var(--accent);
-		font-weight: 600;
-	}
-	.tags {
+	.features {
 		display: flex;
-		gap: 6px;
+		gap: 14px;
 		flex-wrap: wrap;
 	}
-	.tag {
-		font-size: 11px;
-		padding: 2px 8px;
-		border-radius: 6px;
-		background: color-mix(in srgb, var(--ok) 15%, transparent);
-		color: var(--ok);
-	}
-	.tag.bad {
-		background: color-mix(in srgb, var(--danger) 15%, transparent);
+	.features .missing {
 		color: var(--danger);
 	}
-	.warn {
-		color: var(--warn);
-	}
 	.note {
-		color: var(--accent);
-		font-weight: 600;
-	}
-	.list {
-		display: grid;
-	}
-	.section-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		flex-wrap: wrap;
-		gap: 8px 12px;
-		padding: 12px 16px;
-	}
-	.section-head div {
-		display: grid;
-	}
-	.locked {
-		padding: 8px 16px;
-		font-size: 12px;
 		color: var(--warn);
-		background: color-mix(in srgb, var(--warn) 10%, transparent);
+		background: color-mix(in srgb, var(--warn) 8%, transparent);
 	}
-	.item {
+	.table .th {
+		min-height: 30px;
+		padding-block: 4px;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--fg-muted);
+		background: color-mix(in srgb, var(--hairline) 50%, transparent);
+	}
+	.table .item {
+		flex-wrap: wrap;
+	}
+	.meta {
+		width: 150px;
+		flex: none;
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
+	.st {
+		width: 96px;
+		flex: none;
+		font-size: 12px;
+	}
+	.act {
+		width: 132px;
+		flex: none;
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 11px 16px;
-		border-top: 1px solid var(--hairline);
-	}
-	.item.stack {
-		display: grid;
+		justify-content: flex-end;
 		gap: 6px;
 	}
-	.item-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-	}
-	.item-main {
-		display: grid;
-		min-width: 0;
-	}
-	.item-main small {
+	.grow > .sub {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.title {
-		display: flex;
-		align-items: center;
-		gap: 8px;
+	.extra .linkbtn {
+		justify-self: start;
 	}
-	.subhead {
-		padding: 10px 16px 6px;
-		border-top: 1px solid var(--hairline);
-	}
-	.actions {
-		display: flex;
+	.extra {
+		flex-basis: 100%;
+		display: grid;
 		gap: 6px;
+		padding-bottom: 4px;
+	}
+	.warn {
+		color: var(--warn);
+		font-size: 12px;
+	}
+	.foot {
+		padding: 0 4px;
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
+	.btn {
+		min-height: 26px;
+		padding: 3px 10px;
+		font-size: 12px;
 	}
 	.btn:disabled {
 		opacity: 0.45;
 	}
-	button.link {
-		justify-self: start;
-		border: 0;
-		background: none;
-		padding: 0;
-		color: var(--accent);
-		font-size: 11px;
-	}
 	.notes {
 		margin: 0;
 		padding: 10px;
-		border-radius: var(--radius-sm);
+		border-radius: 8px;
 		background: var(--hairline);
 		font: 11px/1.45 ui-monospace, 'SF Mono', Menlo, monospace;
 		white-space: pre-wrap;
@@ -378,8 +311,8 @@
 		user-select: text;
 	}
 	.progress {
-		height: 5px;
-		border-radius: 3px;
+		height: 4px;
+		border-radius: 2px;
 		background: var(--hairline);
 		overflow: hidden;
 	}
@@ -395,6 +328,15 @@
 	@keyframes slide {
 		50% {
 			transform: scaleX(0.35);
+		}
+	}
+	@container (max-width: 500px) {
+		.meta,
+		.th .meta {
+			display: none;
+		}
+		.item .label {
+			width: 80px;
 		}
 	}
 </style>
