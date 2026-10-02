@@ -5,6 +5,7 @@
 	import { formatBytes, formatDuration, formatRate, profileFlag } from '$lib/format';
 	import { usage } from '$lib/usage.svelte';
 	import PowerButton from '$lib/components/PowerButton.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
 	import Sparkline from '$lib/components/Sparkline.svelte';
 
@@ -30,6 +31,12 @@
 			window.removeEventListener('keydown', handleKey);
 		};
 	});
+
+	const serverValue = $derived(app.auto.enabled ? 'auto' : (app.activeId ?? ''));
+	const serverOptions = $derived([
+		...(app.profiles.length > 1 ? [{ value: 'auto', label: 'Auto (fastest server)', icon: '⚡' }] : []),
+		...app.profiles.map((p) => ({ value: p.id, label: p.name.replace(/^\p{RI}{2}\s*/u, ''), icon: profileFlag(p.name, p.server) }))
+	]);
 
 	const isProtected = $derived(app.status.state === 'connected');
 	const isConnecting = $derived(app.status.state === 'connecting');
@@ -79,31 +86,20 @@
 	<!-- Clean server select that never overflows height -->
 	<div class="server-bar card">
 		<div class="server-pick-row">
-			<span class="flag-icon">{activeFlag}</span>
-			<select
-				value={app.activeId}
-				disabled={app.locked}
-				aria-label="Server Profile"
-				onchange={(e) => {
+			<Select
+				grow
+				value={serverValue}
+				options={serverOptions}
+				disabled={app.locked || app.profiles.length === 0}
+				label="Server Profile"
+				placeholder="No profiles"
+				onchange={(id) => {
+					if (id === 'auto') return app.setAuto({ ...app.auto, enabled: true });
 					if (app.auto.enabled) app.setAuto({ ...app.auto, enabled: false });
-					app.select(e.currentTarget.value);
+					app.select(id);
 				}}
-			>
-				{#each app.profiles as profile (profile.id)}
-					<option value={profile.id}>{profileFlag(profile.name, profile.server)} {profile.name}</option>
-				{/each}
-			</select>
+			/>
 		</div>
-		{#if app.profiles.length > 1}
-			<label class="auto-check">
-				<input
-					type="checkbox"
-					checked={app.auto.enabled}
-					onchange={(e) => app.setAuto({ ...app.auto, enabled: e.currentTarget.checked })}
-				/>
-				<span>⚡ Auto-select fastest server</span>
-			</label>
-		{/if}
 	</div>
 
 	<!-- Traffic stats -->
@@ -277,29 +273,6 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-	}
-	.flag-icon {
-		font-size: 14px;
-		flex: none;
-	}
-	.server-pick-row select {
-		flex: 1;
-		min-width: 0;
-		border: 1px solid var(--hairline);
-		background: var(--surface-strong);
-		padding: 4px 6px;
-		border-radius: 6px;
-		font-size: 11.5px;
-	}
-	.auto-check {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		font-size: 10.5px;
-		font-weight: 600;
-		color: var(--accent);
-		cursor: pointer;
-		padding-left: 2px;
 	}
 	.traffic-box {
 		padding: 8px 10px 6px;

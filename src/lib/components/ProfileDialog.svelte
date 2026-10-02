@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
 	import { blankProfile, type Profile, type TransportKind } from '$lib/api';
+	import Select from './Select.svelte';
 	import Segmented from './Segmented.svelte';
 
 	let { profile, onclose }: { profile: Profile | null; onclose: () => void } = $props();
@@ -93,9 +94,7 @@
 					<label>SNI <input value={text(draft.sni)} oninput={(e) => (draft.sni = e.currentTarget.value)} placeholder={draft.server || 'server name'} aria-label="Server Name Indication" /></label>
 					<label>
 						Fingerprint
-						<select bind:value={draft.fingerprint} aria-label="TLS Fingerprint">
-							{#each fingerprints as fp (fp)}<option value={fp}>{fp}</option>{/each}
-						</select>
+						<Select value={draft.fingerprint ?? ''} onchange={(v) => (draft.fingerprint = v)} label="TLS Fingerprint" options={fingerprints.map((f) => ({ value: f, label: f }))} />
 					</label>
 
 					{#if draft.security === 'reality' && draft.reality}
@@ -107,10 +106,12 @@
 
 					<label>
 						Flow
-						<select value={draft.flow ?? ''} onchange={(e) => (draft.flow = e.currentTarget.value || null)} aria-label="Flow control">
-							<option value="">None</option>
-							<option value="xtls-rprx-vision">xtls-rprx-vision</option>
-						</select>
+						<Select
+							value={draft.flow ?? ''}
+							label="Flow control"
+							options={[{ value: '', label: 'None' }, { value: 'xtls-rprx-vision', label: 'xtls-rprx-vision' }]}
+							onchange={(v) => (draft.flow = v || null)}
+						/>
 					</label>
 
 					<div class="wide field">
@@ -127,11 +128,16 @@
 
 					<label class="wide">
 						Packet Encoding
-						<select value={draft.packetEncoding ?? ''} onchange={(e) => (draft.packetEncoding = e.currentTarget.value || null)} aria-label="Packet encoding">
-							<option value="">Default</option>
-							<option value="xudp">xudp</option>
-							<option value="packetaddr">packetaddr</option>
-						</select>
+						<Select
+							value={draft.packetEncoding ?? ''}
+							label="Packet encoding"
+							options={[
+								{ value: '', label: 'Default' },
+								{ value: 'xudp', label: 'xudp' },
+								{ value: 'packetaddr', label: 'packetaddr' }
+							]}
+							onchange={(v) => (draft.packetEncoding = v || null)}
+						/>
 					</label>
 				</div>
 			</details>
@@ -184,16 +190,6 @@
 		font-weight: 600;
 	}
 	input,
-	select {
-		font-weight: 400;
-		font-size: 13px;
-		padding: 6px 8px;
-		border-radius: 8px;
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		user-select: text;
-		min-width: 0;
-	}
 	.advanced-box {
 		border: 1px solid var(--hairline);
 		border-radius: 8px;

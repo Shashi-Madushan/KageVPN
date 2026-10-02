@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Select from './Select.svelte';
 	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 
@@ -132,10 +133,14 @@
 			{#if draft.mode === 'rule'}
 				<label class="toggle">
 					<span><strong>Everything else goes through</strong><small>Used when no rule matches.</small></span>
-					<select bind:value={draft.finalAction}>
-						<option value="proxy">The VPN</option>
-						<option value="direct">Direct (only listed traffic uses the VPN)</option>
-					</select>
+					<Select
+						bind:value={draft.finalAction}
+						label="Everything else goes through"
+						options={[
+							{ value: 'proxy', label: 'The VPN' },
+							{ value: 'direct', label: 'Direct (only listed traffic uses the VPN)' }
+						]}
+					/>
 				</label>
 			{/if}
 		</section>
@@ -148,9 +153,7 @@
 						<input type="checkbox" bind:checked={rule.enabled} aria-label="Enable rule" />
 						<span class="kind">{kindLabel(rule.kind)}</span>
 						<span class="mono val">{rule.value}</span>
-						<select bind:value={rule.action} aria-label="Action">
-							{#each actions as a (a.value)}<option value={a.value}>{a.label}</option>{/each}
-						</select>
+						<Select bind:value={rule.action} label="Action" options={actions} />
 						<button onclick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
 						<button onclick={() => move(i, 1)} disabled={i === draft.rules.length - 1} aria-label="Move down">↓</button>
 						<button class="danger" onclick={() => draft?.rules.splice(i, 1)} aria-label="Delete rule">✕</button>
@@ -165,9 +168,9 @@
 					<button type="button" class="preset-btn" onclick={() => applyPreset('ads')}>🚫 Block Common Ads</button>
 				</div>
 				<form class="add" onsubmit={(e) => (e.preventDefault(), addRule())}>
-					<select bind:value={kind}>{#each kinds as k (k.value)}<option value={k.value}>{k.label}</option>{/each}</select>
+					<Select bind:value={kind} label="Rule type" options={kinds} />
 					<input class="grow" bind:value placeholder={kind === 'ipCidr' ? '10.0.0.0/8' : kind === 'processName' ? 'Slack' : 'example.com'} spellcheck="false" />
-					<select bind:value={action}>{#each actions as a (a.value)}<option value={a.value}>{a.label}</option>{/each}</select>
+					<Select bind:value={action} label="Action" options={actions} />
 					<button class="primary" disabled={!value.trim()}>Add</button>
 				</form>
 			</section>
@@ -180,9 +183,7 @@
 						<input type="checkbox" bind:checked={set.enabled} aria-label="Enable list" />
 						<span class="kind">{set.kind === 'geoip' ? 'IP list' : 'Site list'}</span>
 						<span class="mono val">{set.country}</span>
-						<select bind:value={set.action} aria-label="Action">
-							{#each actions as a (a.value)}<option value={a.value}>{a.label}</option>{/each}
-						</select>
+						<Select bind:value={set.action} label="Action" options={actions} />
 						<button class="danger" onclick={() => draft?.ruleSets.splice(i, 1)} aria-label="Delete list">✕</button>
 					</div>
 				{/each}
@@ -193,9 +194,9 @@
 					{/each}
 				</div>
 				<form class="add" onsubmit={(e) => (e.preventDefault(), addSet())}>
-					<select bind:value={setKind}><option value="geoip">IP list (geoip)</option><option value="geosite">Site list (geosite)</option></select>
+					<Select bind:value={setKind} label="List type" options={[{ value: 'geoip', label: 'IP list (geoip)' }, { value: 'geosite', label: 'Site list (geosite)' }]} />
 					<input class="grow" bind:value={country} placeholder="Country or list, e.g. cn, ru, lk" maxlength="32" />
-					<select bind:value={setAction}>{#each actions as a (a.value)}<option value={a.value}>{a.label}</option>{/each}</select>
+					<Select bind:value={setAction} label="Action" options={actions} />
 					<button class="primary" disabled={!country.trim()}>Add</button>
 				</form>
 			</section>
@@ -211,9 +212,7 @@
 			<span class="caption">DNS</span>
 			<label class="toggle">
 				<span><strong>Resolver</strong><small>Queries go through the tunnel unless you pick the system resolver.</small></span>
-				<select bind:value={draft.dns.provider}>
-					{#each providers as p (p.value)}<option value={p.value}>{p.label}</option>{/each}
-				</select>
+				<Select bind:value={draft.dns.provider} label="Resolver" options={providers} />
 			</label>
 			{#if draft.dns.provider === 'custom'}
 				<input bind:value={draft.dns.custom} placeholder="dns.example.com" spellcheck="false" />
@@ -271,14 +270,6 @@
 		display: grid;
 	}
 	input,
-	select {
-		padding: 5px 8px;
-		border-radius: 8px;
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		user-select: text;
-		min-width: 0;
-	}
 	input[type='checkbox'] {
 		padding: 0;
 		width: 34px;

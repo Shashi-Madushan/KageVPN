@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Select from './Select.svelte';
 	import { tick } from 'svelte';
 	import type { Level } from '$lib/api';
 	import { app } from '$lib/app.svelte';
@@ -29,9 +30,7 @@
 
 <div class="tools">
 	<input placeholder="Search logs" bind:value={query} />
-	<select bind:value={minLevel} aria-label="Minimum level">
-		{#each levels as level (level)}<option value={level}>{level}</option>{/each}
-	</select>
+	<Select bind:value={minLevel} label="Minimum level" options={levels.map((l) => ({ value: l, label: l }))} />
 	<button onclick={() => app.clearLogs()}>Clear</button>
 </div>
 
@@ -55,7 +54,6 @@
 		margin-bottom: 8px;
 	}
 	input,
-	select,
 	button {
 		background: var(--surface);
 		border: 1px solid var(--hairline);

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Select from './Select.svelte';
 	import { onMount } from 'svelte';
 	import type { Bucket, Point, TopRow } from '$lib/api';
 	import { app } from '$lib/app.svelte';
@@ -113,16 +114,26 @@
 			<label class="check"><input type="checkbox" bind:checked={usage.compare} /> Compare with previous period</label>
 		</div>
 		<div class="row filters">
-			<select bind:value={usage.profileId} aria-label="Profile">
-				<option value={null}>All profiles</option>
-				{#each app.profiles as profile (profile.id)}<option value={profile.id}>{profile.name}</option>{/each}
-				<option value="auto">Auto (fastest)</option>
-			</select>
-			<select bind:value={usage.mode} aria-label="Mode">
-				<option value={null}>All modes</option>
-				<option value="tun">TUN</option>
-				<option value="proxy">Proxy</option>
-			</select>
+			<Select
+				value={usage.profileId ?? ''}
+				label="Profile"
+				options={[
+					{ value: '', label: 'All profiles' },
+					...app.profiles.map((p) => ({ value: p.id, label: p.name })),
+					{ value: 'auto', label: 'Auto (fastest)' }
+				]}
+				onchange={(v) => (usage.profileId = v || null)}
+			/>
+			<Select
+				value={usage.mode ?? ''}
+				label="Mode"
+				options={[
+					{ value: '', label: 'All modes' },
+					{ value: 'tun', label: 'TUN' },
+					{ value: 'proxy', label: 'Proxy' }
+				]}
+				onchange={(v) => (usage.mode = (v || null) as typeof usage.mode)}
+			/>
 			{#if usage.app || usage.domain}
 				<button class="chip" onclick={() => usage.clearDimension()}>{usage.app ?? usage.domain} ✕</button>
 			{/if}
@@ -200,18 +211,25 @@
 					<input type="number" min="1" max="31" value={s.cycleDay} onchange={(e) => usage.saveSettings({ cycleDay: Math.min(31, Math.max(1, Number(e.currentTarget.value) || 1)) })} />
 				</label>
 				<label>At 100%
-					<select value={s.quotaAction} onchange={(e) => usage.saveSettings({ quotaAction: e.currentTarget.value as 'notify' | 'disconnect' })}>
-						<option value="notify">Notify me</option>
-						<option value="disconnect">Disconnect</option>
-					</select>
+					<Select
+						value={s.quotaAction}
+						label="At 100%"
+						options={[{ value: 'notify', label: 'Notify me' }, { value: 'disconnect', label: 'Disconnect' }]}
+						onchange={(v) => usage.saveSettings({ quotaAction: v })}
+					/>
 				</label>
 				<label>Keep app/domain detail
-					<select value={s.detailRetentionDays} onchange={(e) => usage.saveSettings({ detailRetentionDays: Number(e.currentTarget.value) })}>
-						<option value={30}>30 days</option>
-						<option value={90}>90 days</option>
-						<option value={180}>180 days</option>
-						<option value={365}>1 year</option>
-					</select>
+					<Select
+						value={String(s.detailRetentionDays)}
+						label="Keep app/domain detail"
+						options={[
+							{ value: '30', label: '30 days' },
+							{ value: '90', label: '90 days' },
+							{ value: '180', label: '180 days' },
+							{ value: '365', label: '1 year' }
+						]}
+						onchange={(v) => usage.saveSettings({ detailRetentionDays: Number(v) })}
+					/>
 				</label>
 			</div>
 			<label class="toggle"><span><strong>Record apps</strong><small>Which apps used the tunnel (estimated).</small></span>
@@ -281,13 +299,6 @@
 		color: var(--fg-muted);
 	}
 	input,
-	select {
-		padding: 5px 8px;
-		border-radius: 8px;
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		user-select: text;
-	}
 	label {
 		display: grid;
 		gap: 3px;

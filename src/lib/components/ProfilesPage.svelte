@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Select from './Select.svelte';
 	import { api, blankProfile, type Profile, type Subscription } from '$lib/api';
 	import { clickOutside, focusOnMount } from '$lib/actions';
 	import { app } from '$lib/app.svelte';
@@ -117,11 +118,15 @@
 <div class="page">
 	<div class="toolbar">
 		<input type="search" placeholder="Search profiles" bind:value={query} aria-label="Search profiles" />
-		<select bind:value={sortBy} aria-label="Sort profiles" class="sort-select">
-			<option value="default">Default</option>
-			<option value="latency">⚡ Lowest Ping</option>
-			<option value="name">Name</option>
-		</select>
+		<Select
+			bind:value={sortBy}
+			label="Sort profiles"
+			options={[
+				{ value: 'default', label: 'Default' },
+				{ value: 'latency', label: '⚡ Lowest Ping' },
+				{ value: 'name', label: 'Name' }
+			]}
+		/>
 		<button disabled={app.profiles.length === 0 || testing} onclick={() => app.testAll()}>{testing ? 'Testing…' : 'Test all'}</button>
 		<button onclick={openImport}>Import</button>
 		<button class="primary" onclick={() => (editing = blankProfile())}>New</button>
@@ -138,10 +143,12 @@
 		{#if app.auto.enabled && app.groups.length}
 			<label class="inline">
 				<small>Only from group</small>
-				<select value={app.auto.group ?? ''} onchange={(e) => app.setAuto({ ...app.auto, group: e.currentTarget.value || null })}>
-					<option value="">All profiles</option>
-					{#each app.groups as group (group)}<option value={group}>{group}</option>{/each}
-				</select>
+				<Select
+					value={app.auto.group ?? ''}
+					label="Only from group"
+					options={[{ value: '', label: 'All profiles' }, ...app.groups.map((g) => ({ value: g, label: g }))]}
+					onchange={(g) => app.setAuto({ ...app.auto, group: g || null })}
+				/>
 			</label>
 		{/if}
 	</section>
@@ -302,13 +309,6 @@
 		min-width: 0;
 	}
 	input,
-	select {
-		padding: 6px 10px;
-		border-radius: 8px;
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		user-select: text;
-	}
 	button {
 		border: 1px solid var(--hairline);
 		background: var(--surface-strong);
@@ -557,13 +557,6 @@
 		flex: 1;
 		width: auto;
 		min-width: 0;
-	}
-	.sort-select {
-		padding: 5px 8px;
-		font-size: 12px;
-		border-radius: 8px;
-		border: 1px solid var(--hairline);
-		background: var(--surface-strong);
 	}
 	.item-flag {
 		font-size: 15px;
