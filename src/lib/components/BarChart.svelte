@@ -53,7 +53,7 @@
 		position: absolute;
 		top: -4px;
 		left: 0;
-		font-size: 10px;
+		font-size: 11px;
 		color: var(--fg-muted);
 	}
 	.plot {
@@ -140,7 +140,7 @@
 	.axis span {
 		position: absolute;
 		transform: translateX(-50%);
-		font-size: 10px;
+		font-size: 11px;
 		color: var(--fg-muted);
 		white-space: nowrap;
 	}

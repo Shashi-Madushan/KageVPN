@@ -270,35 +270,6 @@
 		display: grid;
 	}
 	input,
-	input[type='checkbox'] {
-		padding: 0;
-		width: 34px;
-		height: 20px;
-		appearance: none;
-		border-radius: 10px;
-		background: var(--hairline);
-		position: relative;
-		flex: none;
-		transition: background 0.2s;
-	}
-	input[type='checkbox']::after {
-		content: '';
-		position: absolute;
-		top: 2px;
-		left: 2px;
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-		background: white;
-		box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-		transition: transform 0.2s;
-	}
-	input[type='checkbox']:checked {
-		background: var(--ok);
-	}
-	input[type='checkbox']:checked::after {
-		transform: translateX(14px);
-	}
 	.rule {
 		display: flex;
 		align-items: center;

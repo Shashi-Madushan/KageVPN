@@ -1,7 +1,11 @@
+<script lang="ts" module>
+	export type Page = 'home' | 'profiles' | 'usage' | 'routing' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings';
+
+	export const pageOrder: Page[] = ['home', 'profiles', 'usage', 'routing', 'connections', 'diagnostics', 'core', 'logs', 'settings'];
+</script>
+
 <script lang="ts">
 	import Icon, { type IconName } from './Icon.svelte';
-
-	export type Page = 'home' | 'profiles' | 'usage' | 'routing' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings';
 
 	let { page, badges = {}, onselect }: { page: Page; badges?: Partial<Record<Page, string>>; onselect: (page: Page) => void } = $props();
 
@@ -14,7 +18,7 @@
 			items: [
 				{ page: 'home', label: 'Home', icon: 'home' },
 				{ page: 'profiles', label: 'Servers', icon: 'profiles' },
-				{ page: 'usage', label: 'Data Usage', icon: 'usage' }
+				{ page: 'usage', label: 'Data usage', icon: 'usage' }
 			]
 		},
 		{
@@ -28,20 +32,30 @@
 		{
 			title: 'System',
 			items: [
-				{ page: 'core', label: 'Core Engine', icon: 'core' },
+				{ page: 'core', label: 'Engine', icon: 'core' },
 				{ page: 'logs', label: 'Logs', icon: 'logs' },
 				{ page: 'settings', label: 'Settings', icon: 'settings' }
 			]
 		}
 	];
+
+	function navKeydown(e: KeyboardEvent) {
+		if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+		const items = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('button')];
+		const i = items.indexOf(document.activeElement as HTMLButtonElement);
+		if (i < 0) return;
+		e.preventDefault();
+		items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+	}
 </script>
 
-<nav aria-label="Main Navigation">
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<nav aria-label="Main Navigation" onkeydown={navKeydown}>
 	{#each sections as section (section.title)}
 		<div class="section-group">
 			<span class="section-title">{section.title}</span>
 			{#each section.items as item (item.page)}
-				<button class:active={page === item.page} onclick={() => onselect(item.page)}>
+				<button class:active={page === item.page} title="{item.label} (⌘{pageOrder.indexOf(item.page) + 1})" aria-label={item.label} aria-current={page === item.page ? 'page' : undefined} onclick={() => onselect(item.page)}>
 					<Icon name={item.icon} />
 					<span>{item.label}</span>
 					{#if badges[item.page]}<em>{badges[item.page]}</em>{/if}
@@ -62,7 +76,7 @@
 		gap: 2px;
 	}
 	.section-title {
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 700;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
@@ -90,10 +104,38 @@
 		color: var(--accent);
 		font-weight: 600;
 	}
+	@media (max-width: 759px) {
+		nav {
+			padding: 0 8px;
+			gap: 8px;
+		}
+		.section-title,
+		button span {
+			display: none;
+		}
+		.section-group + .section-group {
+			border-top: 1px solid var(--hairline);
+			padding-top: 8px;
+		}
+		button {
+			position: relative;
+			justify-content: center;
+			padding: 9px 0;
+		}
+		em {
+			position: absolute;
+			top: 4px;
+			right: 6px;
+			width: 8px;
+			height: 8px;
+			padding: 0;
+			font-size: 0;
+		}
+	}
 	em {
 		margin-left: auto;
 		font-style: normal;
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 700;
 		padding: 1px 6px;
 		border-radius: 999px;

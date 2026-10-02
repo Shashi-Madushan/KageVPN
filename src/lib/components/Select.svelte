@@ -235,7 +235,7 @@
 		font-weight: 600;
 	}
 	.s-hint {
-		font-size: 10px;
+		font-size: 11px;
 		color: var(--fg-muted);
 		flex: none;
 	}

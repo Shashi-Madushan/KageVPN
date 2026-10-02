@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { app } from '$lib/app.svelte';
+	import { header } from '$lib/header.svelte';
 	import { core } from '$lib/core.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
 	import ConnectionsPage from '$lib/components/ConnectionsPage.svelte';
@@ -11,22 +12,43 @@
 	import ProfilesPage from '$lib/components/ProfilesPage.svelte';
 	import RoutingPage from '$lib/components/RoutingPage.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
-	import Sidebar, { type Page } from '$lib/components/Sidebar.svelte';
+	import Sidebar, { pageOrder, type Page } from '$lib/components/Sidebar.svelte';
 	import UsagePage from '$lib/components/UsagePage.svelte';
 
 	const titles: Record<Page, string> = {
 		home: 'Home',
-		profiles: 'Profiles',
+		profiles: 'Servers',
 		usage: 'Data usage',
 		routing: 'Routing',
 		connections: 'Connections',
 		diagnostics: 'Diagnostics',
-		core: 'sing-box core',
+		core: 'Engine',
 		logs: 'Logs',
 		settings: 'Settings'
 	};
 
+	const subtitles: Record<Page, string> = {
+		home: 'Connection status and live traffic',
+		profiles: 'Choose, import and test your servers',
+		usage: 'See how much data each app and server uses',
+		routing: 'Decide which traffic goes through the VPN',
+		connections: 'Live connections passing through the tunnel',
+		diagnostics: 'Speed, leak and connectivity checks',
+		core: 'The sing-box engine that powers the tunnel',
+		logs: 'Technical output for troubleshooting',
+		settings: 'Startup, reliability and shortcuts'
+	};
+
 	let page = $state<Page>('home');
+
+	function onkeydown(e: KeyboardEvent) {
+		if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+		const i = Number(e.key) - 1;
+		if (Number.isInteger(i) && i >= 0 && i < pageOrder.length) {
+			e.preventDefault();
+			page = pageOrder[i];
+		}
+	}
 
 	onMount(() => {
 		app.init();
@@ -51,13 +73,17 @@
 	const badges = $derived<Partial<Record<Page, string>>>(core.updateAvailable ? { core: '1' } : {});
 </script>
 
+<svelte:window {onkeydown} />
+
 <div class="app">
 	<aside data-tauri-drag-region>
 		<Sidebar {page} {badges} onselect={(p) => (page = p)} />
 	</aside>
 
 	<section class="content">
-		<header data-tauri-drag-region><h1>{titles[page]}</h1></header>
+		<header data-tauri-drag-region><div class="titles"><h1>{titles[page]}</h1><p>{subtitles[page]}</p></div>
+			{#if header.actions}<div class="actions">{@render header.actions()}</div>{/if}
+		</header>
 		{#if clipboardWatch.offer}
 			<div class="offer card">
 				<span>A <span class="mono">vless://</span> link was copied.</span>
@@ -95,7 +121,7 @@
 		height: 100vh;
 		overflow: hidden;
 		display: grid;
-		grid-template-columns: 188px minmax(0, 1fr);
+		grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
 		grid-template-rows: minmax(0, 1fr);
 	}
 	aside {
@@ -111,17 +137,42 @@
 		background: var(--content-bg);
 		border-left: 1px solid var(--hairline);
 	}
+	@media (max-width: 759px) {
+		.app {
+			grid-template-columns: 56px minmax(0, 1fr);
+		}
+	}
 	header {
-		padding: 14px 20px 6px;
+		padding: 14px var(--page-pad) 6px;
+		width: 100%;
+		max-width: var(--content-max);
+		margin-inline: auto;
 		flex: none;
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 12px;
+		flex-wrap: wrap;
+	}
+	.actions {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 8px;
+		-webkit-app-region: no-drag;
 	}
 	h1 {
 		margin: 0;
 		font-size: 18px;
 		font-weight: 650;
 	}
+	header p {
+		margin: 2px 0 0;
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
 	.offer {
-		margin: 0 20px 6px;
+		margin: 0 var(--page-pad) 6px;
 		padding: 8px 12px;
 		display: flex;
 		align-items: center;
@@ -149,7 +200,11 @@
 		min-height: 0;
 		overflow-y: auto;
 		overscroll-behavior: contain;
-		padding: 8px 20px 20px;
+		padding: 8px var(--page-pad) 20px;
+	}
+	main > :global(*) {
+		max-width: var(--content-max);
+		margin-inline: auto;
 	}
 	main.fill {
 		display: flex;

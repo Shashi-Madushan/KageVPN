@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api, type LiveConnection } from '$lib/api';
 	import { app } from '$lib/app.svelte';
+	import HeaderActions from './HeaderActions.svelte';
 	import { formatBytes } from '$lib/format';
 
 	let rows = $state<LiveConnection[]>([]);
@@ -57,15 +58,17 @@
 
 <div class="page">
 	<div class="toolbar">
-		<input type="search" placeholder="Filter by host, app or rule" bind:value={query} aria-label="Filter connections" />
+		<input class="input" type="search" placeholder="Filter by host, app or rule" bind:value={query} aria-label="Filter connections" />
 		<span class="count tabular">{shown.length} open</span>
-		<button class="danger" disabled={!rows.length} onclick={closeAll}>Close all</button>
 	</div>
+	<HeaderActions>
+		<button class="btn danger" disabled={!rows.length} onclick={closeAll}>Close all</button>
+	</HeaderActions>
 
 	{#if !app.connected}
-		<div class="card empty">Connect to see live connections.</div>
+		<div class="card empty">Connect to see live connections.<button class="btn primary" disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()}>Connect now</button></div>
 	{:else if error}
-		<div class="card empty error">{error}</div>
+		<div class="card empty error">{error}<button class="btn" onclick={load}>Retry</button></div>
 	{:else if shown.length === 0}
 		<div class="card empty">No open connections.</div>
 	{:else}
@@ -93,6 +96,7 @@
 		align-content: start;
 	}
 	.toolbar {
+		flex-wrap: wrap;
 		display: flex;
 		gap: 10px;
 		align-items: center;
@@ -100,29 +104,15 @@
 	.toolbar input {
 		flex: 1;
 		min-width: 0;
-		padding: 6px 10px;
-		border-radius: 8px;
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		user-select: text;
 	}
 	.count {
 		color: var(--fg-muted);
 		font-size: 12px;
 	}
-	button {
-		border: 1px solid var(--hairline);
-		background: var(--surface-strong);
-		border-radius: 8px;
-		padding: 5px 12px;
-	}
-	button.danger {
-		color: var(--danger);
-	}
-	button:disabled {
-		opacity: 0.4;
-	}
 	.empty {
+		display: grid;
+		justify-items: center;
+		gap: 10px;
 		padding: 28px;
 		text-align: center;
 		color: var(--fg-muted);
@@ -132,6 +122,33 @@
 	}
 	.list {
 		overflow: hidden;
+		container-type: inline-size;
+	}
+	@container (max-width: 520px) {
+		.head,
+		.row {
+			grid-template-columns: minmax(0, 1fr) 64px 64px 24px;
+		}
+		.head > :nth-child(2),
+		.head > :nth-child(3),
+		.head > :nth-child(6),
+		.row > :nth-child(2),
+		.row > :nth-child(3),
+		.row > :nth-child(6) {
+			display: none;
+		}
+	}
+	@container (min-width: 521px) and (max-width: 680px) {
+		.head,
+		.row {
+			grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 64px 64px 24px;
+		}
+		.head > :nth-child(3),
+		.head > :nth-child(6),
+		.row > :nth-child(3),
+		.row > :nth-child(6) {
+			display: none;
+		}
 	}
 	.head,
 	.row {
@@ -165,7 +182,9 @@
 	.x {
 		border: 0;
 		background: none;
-		padding: 0;
+		padding: 4px;
+		min-width: 28px;
+		min-height: 28px;
 		color: var(--fg-muted);
 	}
 </style>

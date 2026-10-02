@@ -3,6 +3,7 @@
 	import { core } from '$lib/core.svelte';
 	import { usage } from '$lib/usage.svelte';
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, profileFlag } from '$lib/format';
+	import Icon from './Icon.svelte';
 	import HintBanner from './HintBanner.svelte';
 	import PowerButton from './PowerButton.svelte';
 	import Select from './Select.svelte';
@@ -35,10 +36,13 @@
 	const statusText = $derived(
 		isProtected ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
 	);
+	const headline = $derived(
+		isProtected ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
+	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
 	const serverValue = $derived(app.auto.enabled ? 'auto' : (app.activeId ?? ''));
 	const serverOptions = $derived([
-		...(app.profiles.length > 1 ? [{ value: 'auto', label: 'Auto (fastest server)', icon: '⚡' }] : []),
+		...(app.profiles.length > 1 ? [{ value: 'auto', label: 'Auto (fastest server)', icon: '↯' }] : []),
 		...app.profiles.map((p) => ({
 			value: p.id,
 			label: p.name.replace(/^\p{RI}{2}\s*/u, ''),
@@ -125,13 +129,20 @@
 					<strong>{statusText}</strong>
 					{#if elapsed}<span class="elapsed tabular">{elapsed}</span>{/if}
 				</div>
-				{#if app.reliability.killSwitch}
-					<span class="ks-badge" title="Kill switch is armed">🛡️ Kill Switch</span>
-				{/if}
+				<div class="chips">
+					{#if app.reliability.killSwitch}
+						<span class="chip" title="Kill switch is armed"><Icon name="shield" size={12} /> Kill switch</span>
+					{/if}
+					{#if app.reliability.autoReconnect}
+						<span class="chip" title="Reconnects automatically if the tunnel drops"><Icon name="refresh" size={12} /> Auto-reconnect</span>
+					{/if}
+					<span class="chip" title="Connection mode">{app.mode === 'tun' ? 'Full system' : 'Proxy only'}</span>
+				</div>
 			</div>
 
 			<div class="power-center">
 				<PowerButton state={app.status.state} size={112} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
+				<h2 class="headline {app.status.state}">{headline}</h2>
 				<div class="ip-row">
 					{#if app.connected}
 						{#if app.exitIp}
@@ -234,6 +245,7 @@
 
 <style>
 	.home {
+		container-type: inline-size;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
@@ -244,7 +256,7 @@
 		gap: 14px;
 		align-items: stretch;
 	}
-	@media (max-width: 720px) {
+	@container (max-width: 600px) {
 		.grid {
 			grid-template-columns: 1fr;
 		}
@@ -310,7 +322,7 @@
 		grid-template-columns: repeat(3, 1fr);
 		gap: 10px;
 	}
-	@media (max-width: 600px) {
+	@container (max-width: 520px) {
 		.steps-grid {
 			grid-template-columns: 1fr;
 		}
@@ -351,7 +363,7 @@
 		font-size: 12px;
 	}
 	.step-card small {
-		font-size: 10px;
+		font-size: 11px;
 		color: var(--fg-muted);
 	}
 	.step-card button {
@@ -412,6 +424,36 @@
 		opacity: 0.8;
 		padding-left: 7px;
 		border-left: 1px solid currentColor;
+	}
+	.headline {
+		margin: 0;
+		font-size: 20px;
+		font-weight: 650;
+		letter-spacing: -0.01em;
+	}
+	.headline.connected {
+		color: var(--ok);
+	}
+	.headline.connecting {
+		color: var(--warn);
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 6px;
+	}
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 3px 9px;
+		border-radius: 999px;
+		background: var(--surface-strong);
+		border: 1px solid var(--hairline);
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--fg-muted);
 	}
 	.ks-badge {
 		padding: 3px 9px;
@@ -618,7 +660,7 @@
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 12px;
 	}
-	@media (max-width: 720px) {
+	@container (max-width: 600px) {
 		.quick-tools {
 			grid-template-columns: 1fr;
 		}
@@ -627,10 +669,10 @@
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		padding: 12px 14px;
-		border-radius: 12px;
+		padding: 8px 12px;
+		border-radius: 10px;
 		border: 1px solid var(--hairline);
-		background: var(--surface);
+		background: transparent;
 		text-align: left;
 		transition: border-color 0.15s, background 0.15s;
 	}
@@ -641,9 +683,9 @@
 	.tool-icon {
 		display: grid;
 		place-items: center;
-		width: 32px;
-		height: 32px;
-		border-radius: 9px;
+		width: 28px;
+		height: 28px;
+		border-radius: 8px;
 		flex: none;
 		color: var(--accent);
 		background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -659,6 +701,11 @@
 	.tool-text strong {
 		font-size: 12.5px;
 		font-weight: 600;
+	}
+	@container (max-width: 760px) {
+		.tool-text small {
+			display: none;
+		}
 	}
 	.tool-text small {
 		font-size: 11px;

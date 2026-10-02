@@ -60,12 +60,12 @@
 		{#if app.reliability.killSwitch}
 			<div class="restore">
 				<small>If your internet stays blocked after the app quits unexpectedly, remove the firewall rules:</small>
-				<button disabled={restoring} onclick={restore}>{restoring ? 'Working…' : 'Restore internet access'}</button>
+				<button class="btn" disabled={restoring} onclick={restore}>{restoring ? 'Working…' : 'Restore internet access'}</button>
 			</div>
 		{/if}
 	</div>
 
-	<button class="quit" onclick={() => app.quit()}>Quit SingBox GUI</button>
+	<button class="btn quit" onclick={() => app.quit()}>Quit SingBox GUI</button>
 </div>
 
 <style>
@@ -97,7 +97,7 @@
 	}
 	em {
 		font-style: normal;
-		font-size: 10px;
+		font-size: 11px;
 		padding: 1px 6px;
 		margin-left: 4px;
 		border-radius: 6px;
@@ -110,41 +110,6 @@
 		align-items: center;
 		gap: 12px;
 		padding: 10px 14px 12px;
-	}
-	input[type='checkbox'] {
-		width: 34px;
-		height: 20px;
-		appearance: none;
-		border-radius: 10px;
-		background: var(--hairline);
-		position: relative;
-		flex: none;
-		transition: background 0.2s;
-	}
-	input[type='checkbox']::after {
-		content: '';
-		position: absolute;
-		top: 2px;
-		left: 2px;
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-		background: white;
-		box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-		transition: transform 0.2s;
-	}
-	input[type='checkbox']:checked {
-		background: var(--ok);
-	}
-	input[type='checkbox']:checked::after {
-		transform: translateX(14px);
-	}
-	button {
-		border: 1px solid var(--hairline);
-		background: var(--surface-strong);
-		border-radius: 8px;
-		padding: 6px 14px;
-		white-space: nowrap;
 	}
 	.quit {
 		margin-top: 4px;

@@ -34,7 +34,7 @@
 
 	const serverValue = $derived(app.auto.enabled ? 'auto' : (app.activeId ?? ''));
 	const serverOptions = $derived([
-		...(app.profiles.length > 1 ? [{ value: 'auto', label: 'Auto (fastest server)', icon: '⚡' }] : []),
+		...(app.profiles.length > 1 ? [{ value: 'auto', label: 'Auto (fastest server)', icon: '↯' }] : []),
 		...app.profiles.map((p) => ({ value: p.id, label: p.name.replace(/^\p{RI}{2}\s*/u, ''), icon: profileFlag(p.name, p.server) }))
 	]);
 
@@ -250,7 +250,7 @@
 		font-size: 11px;
 	}
 	.ping-pill {
-		font-size: 10px;
+		font-size: 11px;
 		padding: 1px 5px;
 		border-radius: 4px;
 		font-weight: 600;

@@ -4,6 +4,7 @@
 	import { clickOutside, focusOnMount } from '$lib/actions';
 	import { app } from '$lib/app.svelte';
 	import { formatBytes, latencyLabel, latencyTone, profileFlag } from '$lib/format';
+	import HeaderActions from './HeaderActions.svelte';
 	import ImportDialog from './ImportDialog.svelte';
 	import MiniSpark from './MiniSpark.svelte';
 	import ProfileDialog from './ProfileDialog.svelte';
@@ -17,6 +18,21 @@
 	let menuPos = $state({ top: 0, right: 0 });
 	let renaming = $state<string | null>(null);
 	let query = $state('');
+	let compact = $state(typeof localStorage !== 'undefined' && localStorage.getItem('serverDensity') === 'compact');
+	$effect(() => {
+		try {
+			localStorage.setItem('serverDensity', compact ? 'compact' : 'comfortable');
+		} catch {}
+	});
+
+	function listKeydown(e: KeyboardEvent) {
+		if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+		const picks = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('button.pick')];
+		const i = picks.indexOf(document.activeElement as HTMLButtonElement);
+		if (i < 0) return;
+		e.preventDefault();
+		picks[Math.max(0, Math.min(picks.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))]?.focus();
+	}
 	let sortBy = $state<'default' | 'latency' | 'name'>('default');
 	let deleteTarget = $state<Profile | null>(null);
 	let deleteSubTarget = $state<Subscription | null>(null);
@@ -117,20 +133,23 @@
 
 <div class="page">
 	<div class="toolbar">
-		<input type="search" placeholder="Search profiles" bind:value={query} aria-label="Search profiles" />
+		<input class="input" type="search" placeholder="Search servers" bind:value={query} aria-label="Search servers" />
 		<Select
 			bind:value={sortBy}
 			label="Sort profiles"
 			options={[
 				{ value: 'default', label: 'Default' },
-				{ value: 'latency', label: '⚡ Lowest Ping' },
+				{ value: 'latency', label: 'Lowest ping' },
 				{ value: 'name', label: 'Name' }
 			]}
 		/>
-		<button disabled={app.profiles.length === 0 || testing} onclick={() => app.testAll()}>{testing ? 'Testing…' : 'Test all'}</button>
-		<button onclick={openImport}>Import</button>
-		<button class="primary" onclick={() => (editing = blankProfile())}>New</button>
+		<button class="btn density" aria-pressed={compact} title="Toggle compact list" onclick={() => (compact = !compact)}>{compact ? 'Comfortable' : 'Compact'}</button>
 	</div>
+	<HeaderActions>
+		<button class="btn" disabled={app.profiles.length === 0 || testing} onclick={() => app.testAll()}>{testing ? 'Testing…' : 'Test all'}</button>
+		<button class="btn" onclick={openImport}>Import</button>
+		<button class="btn primary" onclick={() => (editing = blankProfile())}>New</button>
+	</HeaderActions>
 
 	<section class="card auto">
 		<label>
@@ -155,16 +174,17 @@
 
 	{#if app.profiles.length === 0}
 		<div class="empty card">
-			<strong>No profiles yet</strong>
+			<strong>No servers yet</strong>
 			<span>Paste <span class="mono">vless://</span> links, add a subscription, or create one by hand.</span>
-			<button class="primary" onclick={openImport}>Paste links</button>
+			<button class="btn primary" onclick={openImport}>Paste links</button>
 		</div>
 	{/if}
 
 	{#each sections as section (section.group)}
 		<section>
 			{#if section.group || sections.length > 1}<span class="caption">{section.group || 'Ungrouped'}</span>{/if}
-			<ul>
+			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+			<ul class:compact onkeydown={listKeydown}>
 				{#each section.items as profile (profile.id)}
 					<li class="card" class:active={profile.id === app.activeId && !app.auto.enabled}>
 						<button class="pick" onclick={() => app.select(profile.id)} title={app.connected ? 'Switch live' : 'Select'}>
@@ -308,6 +328,12 @@
 		flex: 1;
 		min-width: 0;
 	}
+	ul.compact :global(.pick) {
+		padding-block: 3px;
+	}
+	ul.compact .badge {
+		display: none;
+	}
 	input,
 	button {
 		border: 1px solid var(--hairline);
@@ -343,35 +369,6 @@
 	}
 	small {
 		color: var(--fg-muted);
-	}
-	input[type='checkbox'] {
-		width: 34px;
-		height: 20px;
-		padding: 0;
-		appearance: none;
-		border-radius: 10px;
-		background: var(--hairline);
-		position: relative;
-		flex: none;
-		transition: background 0.2s;
-	}
-	input[type='checkbox']::after {
-		content: '';
-		position: absolute;
-		top: 2px;
-		left: 2px;
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-		background: white;
-		box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-		transition: transform 0.2s;
-	}
-	input[type='checkbox']:checked {
-		background: var(--ok);
-	}
-	input[type='checkbox']:checked::after {
-		transform: translateX(14px);
 	}
 	ul {
 		list-style: none;
@@ -429,7 +426,7 @@
 		width: 100%;
 	}
 	.badge {
-		font-size: 10px;
+		font-size: 11px;
 		padding: 2px 6px;
 		border-radius: 6px;
 		background: var(--hairline);
@@ -461,12 +458,16 @@
 	.star {
 		color: var(--fg-muted);
 		font-size: 15px;
-		padding: 4px 4px;
+		padding: 4px;
+		min-width: 28px;
+		min-height: 28px;
 	}
 	.star.on {
 		color: var(--warn);
 	}
 	.more {
+		min-width: 28px;
+		min-height: 28px;
 		font-size: 16px;
 		line-height: 1;
 	}

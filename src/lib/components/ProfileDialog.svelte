@@ -175,6 +175,11 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 10px 12px;
 	}
+	@media (max-width: 520px) {
+		.grid {
+			grid-template-columns: 1fr;
+		}
+	}
 	.adv-grid {
 		margin-top: 10px;
 	}
