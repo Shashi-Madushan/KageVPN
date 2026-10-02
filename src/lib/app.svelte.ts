@@ -18,10 +18,9 @@ import {
 
 const MAX_LOG_LINES = 2000;
 const HISTORY_LENGTH = 60;
-const TOAST_MS = 5000;
 
 export type Latency = { ms: number } | { failed: true } | { pending: true };
-export type Toast = { id: number; message: string; kind: 'error' | 'info' };
+export type NoticeKind = 'error' | 'info';
 
 const NO_TRAFFIC: Traffic = { up: 0, down: 0, totalUp: 0, totalDown: 0 };
 
@@ -44,7 +43,6 @@ class AppStore {
 	latencyHistory = $state<Record<string, (number | null)[]>>({});
 	exitIp = $state<string | null>(null);
 	delayMs = $state<number | null>(null);
-	toasts = $state<Toast[]>([]);
 	pendingImport = $state<string | null>(null);
 
 	activeProfile = $derived(this.profiles.find((p) => p.id === this.activeId) ?? null);
@@ -53,8 +51,6 @@ class AppStore {
 	locked = $derived(this.busy || this.connected);
 	groups = $derived([...new Set(this.profiles.map((p) => p.group).filter((g): g is string => !!g))].sort());
 	hint = $derived<Hint | null>(this.logs.findLast((l) => l.hint)?.hint ?? null);
-
-	private toastId = 0;
 
 	async init() {
 		const snap = await api.snapshot();
@@ -111,16 +107,9 @@ class AppStore {
 		this.history = [...this.history, { up: next.up, down: next.down }].slice(-HISTORY_LENGTH);
 	}
 
-	notify(message: string, kind: Toast['kind'] = 'error') {
+	notify(message: string, kind: NoticeKind = 'error') {
 		const title = kind === 'error' ? 'SingBox Error' : 'SingBox GUI';
 		api.notifyOs(title, message).catch(() => null);
-		const id = ++this.toastId;
-		this.toasts = [...this.toasts, { id, message, kind }];
-		setTimeout(() => this.dismiss(id), TOAST_MS);
-	}
-
-	dismiss(id: number) {
-		this.toasts = this.toasts.filter((t) => t.id !== id);
 	}
 
 	private async run<T>(action: () => Promise<T>): Promise<T | undefined> {

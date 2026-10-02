@@ -12,7 +12,6 @@
 	import RoutingPage from '$lib/components/RoutingPage.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
 	import Sidebar, { type Page } from '$lib/components/Sidebar.svelte';
-	import Toasts from '$lib/components/Toasts.svelte';
 	import UsagePage from '$lib/components/UsagePage.svelte';
 
 	const titles: Record<Page, string> = {
@@ -89,7 +88,6 @@
 			{/if}
 		</main>
 	</section>
-	<Toasts />
 </div>
 
 <style>
