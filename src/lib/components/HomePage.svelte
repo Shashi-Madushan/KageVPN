@@ -431,7 +431,7 @@
 		letter-spacing: -0.01em;
 	}
 	.headline.connected {
-		color: var(--ok);
+		color: var(--ok-text);
 	}
 	.headline.connecting {
 		color: var(--warn);

@@ -112,6 +112,15 @@ Critique: stacked identical translucent cards, icon-in-tinted-tile hero, pill ba
 - ✅ Engine: key/value "Active engine" group, real table for Versions (Version / Released · size / Status / action), plain-text status with a dot instead of pills, container-query column hiding
 - ✅ Routing: segmented Mode control with one-line explanation, General settings group, rules as compact rows (type · match · action) with hover-revealed reorder/delete, text-link presets
 
+### Phase 3e — Tray popover (320×460)
+Audit: server name and flag shown twice, picker boxed inside a card, dead blank graph when disconnected, dead disabled controls with no servers, no headline matching Home, ~20px hit targets.
+- ✅ Centred hero with power button + "You're protected" headline; one sub line (server · time · ping) that truncates; exit IP below
+- ✅ Server picker unboxed; traffic card only shown when connected (disconnected shows just Today usage)
+- ✅ No-servers state: single "Add a server…" action, usage/mode hidden
+- ✅ 28px close and footer targets, 12px text floor, "Disconnect to change…" note when locked
+- ✅ `--ok-text` token (4.5:1+ on light) for green headlines on Home and tray
+- 🟡 Native right-click menu (Open / Connect / Quit) reviewed in code, unchanged
+
 ### Phase 5 — Validation (needs real users)
 - 🟡 Test script prepared below; sessions not run
   1. "Connect to the VPN" (target < 5 s, 0 misclicks)

@@ -40,100 +40,79 @@
 
 	const isProtected = $derived(app.status.state === 'connected');
 	const isConnecting = $derived(app.status.state === 'connecting');
-	const statusBadge = $derived(
-		isProtected ? 'PROTECTED' : isConnecting ? 'CONNECTING…' : 'NOT CONNECTED'
+	const headline = $derived(
+		isProtected ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
 	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
-	const activeFlag = $derived(
-		app.activeProfile ? profileFlag(app.activeProfile.name, app.activeProfile.server) : '🌐'
+	const activeName = $derived(
+		app.auto.enabled ? 'Auto (fastest)' : (app.activeProfile?.name.replace(/^\p{RI}{2}\s*/u, '') ?? null)
 	);
 </script>
 
 <div class="popover">
-	<header>
-		<div class="status-pill {app.status.state}">
-			<span class="dot"></span>
-			<span>{statusBadge}</span>
-		</div>
-		{#if elapsed}
-			<span class="time tabular">{elapsed}</span>
-		{/if}
-		<button class="close-btn" onclick={() => api.hideTray()} aria-label="Close tray" title="Close (Esc)">✕</button>
-	</header>
+	<button class="close-btn" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
 
-	<div class="hero">
-		<PowerButton state={app.status.state} size={62} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
-		<div class="hero-info">
-			<div class="hero-name-row">
-				<span class="flag">{activeFlag}</span>
-				<strong class="hero-name" title={app.activeProfile?.name ?? 'No profile selected'}>
-					{app.activeProfile?.name ?? 'No profile'}
-				</strong>
-			</div>
-			<div class="hero-sub">
-				{#if app.connected}
-					<span class="mono ip-text">{app.exitIp ?? 'Verifying…'}</span>
-					{#if app.delayMs !== null}
-						<span class="ping-pill ok">{app.delayMs} ms</span>
-					{/if}
-				{:else}
-					<span class="ready-text">{app.profiles.length ? 'Tap button to connect' : 'Add profile in app'}</span>
-				{/if}
-			</div>
-		</div>
-	</div>
-
-	<!-- Clean server select that never overflows height -->
-	<div class="server-bar card">
-		<div class="server-pick-row">
-			<Select
-				grow
-				value={serverValue}
-				options={serverOptions}
-				disabled={app.locked || app.profiles.length === 0}
-				label="Server Profile"
-				placeholder="No profiles"
-				onchange={(id) => {
-					if (id === 'auto') return app.setAuto({ ...app.auto, enabled: true });
-					if (app.auto.enabled) app.setAuto({ ...app.auto, enabled: false });
-					app.select(id);
-				}}
-			/>
-		</div>
-	</div>
-
-	<!-- Traffic stats -->
-	<div class="traffic-box card">
-		<div class="speeds-row">
-			<div class="speed-col">
-				<span class="caption">Download</span>
-				<strong class="tabular down">{formatRate(app.traffic.down)}</strong>
-			</div>
-			<div class="speed-col">
-				<span class="caption">Upload</span>
-				<strong class="tabular up">{formatRate(app.traffic.up)}</strong>
-			</div>
-		</div>
-		<div class="graph">
-			<Sparkline samples={app.history} height={38} />
-		</div>
-		<div class="today-row">
-			<span>Today: <strong class="tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong></span>
-			{#if usage.quota?.limit}
-				<span class="tabular">{usage.quota.percent.toFixed(0)}% of cap</span>
+	<section class="hero">
+		<PowerButton state={app.status.state} size={76} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
+		<h1 class="headline {app.status.state}">{headline}</h1>
+		<p class="sub">
+			{#if app.connected}
+				{#if activeName}<span class="name" title={activeName}>{activeName}</span>{/if}
+				{#if elapsed}<span class="dim tabular">{elapsed}</span>{/if}
+				{#if app.delayMs !== null}<span class="dim tabular">{app.delayMs} ms</span>{/if}
+			{:else if isConnecting}
+				<span class="dim">Establishing secure tunnel…</span>
+			{:else if app.profiles.length}
+				<span class="dim">Press the button to connect</span>
+			{:else}
+				<span class="dim">Add a server to get started</span>
 			{/if}
+		</p>
+		{#if app.connected && app.exitIp}<span class="ip mono tabular">{app.exitIp}</span>{/if}
+	</section>
+
+	{#if app.profiles.length}
+		<div class="pick">
+		<Select
+			grow
+			value={serverValue}
+			options={serverOptions}
+			disabled={app.locked}
+			label="Server"
+			placeholder="No servers"
+			onchange={(id) => {
+				if (id === 'auto') return app.setAuto({ ...app.auto, enabled: true });
+				if (app.auto.enabled) app.setAuto({ ...app.auto, enabled: false });
+				app.select(id);
+			}}
+		/>
 		</div>
-	</div>
+	{:else}
+		<button class="btn primary add" onclick={() => api.openMainWindow()}>Add a server…</button>
+	{/if}
 
-	<!-- Mode Toggle -->
-	<div class="mode-row">
-		<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
-	</div>
+	{#if app.profiles.length}
+	<section class="stats group" aria-label="Traffic">
+		{#if app.connected}
+			<div class="speeds">
+				<div><span class="caption">Download</span><strong class="tabular down">{formatRate(app.traffic.down)}</strong></div>
+				<div><span class="caption">Upload</span><strong class="tabular up">{formatRate(app.traffic.up)}</strong></div>
+			</div>
+			<div class="graph"><Sparkline samples={app.history} height={34} /></div>
+		{/if}
+		<div class="today">
+			<span>Today <strong class="tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong></span>
+			{#if usage.quota?.limit}<span class="tabular">{usage.quota.percent.toFixed(0)}% of cap</span>{/if}
+		</div>
+	</section>
 
-	<!-- Footer -->
+	<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
+	{#if app.locked}<p class="lock">Disconnect to change server or mode.</p>{/if}
+	{/if}
+
 	<footer>
-		<button class="footer-btn" onclick={() => api.openMainWindow()}>Open SingBox GUI</button>
-		<button class="footer-btn quit" onclick={() => app.quit()}>Quit</button>
+		<button class="foot-btn" onclick={() => api.openMainWindow()}>Open SingBox GUI</button>
+		<button class="foot-btn quit" onclick={() => app.quit()}>Quit</button>
 	</footer>
 </div>
 
@@ -142,11 +121,12 @@
 		background: transparent;
 	}
 	.popover {
+		position: relative;
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
-		padding: 12px 14px 10px;
+		gap: 10px;
+		padding: 16px 14px 8px;
 		background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -154,142 +134,95 @@
 		border-radius: 12px;
 		overflow: hidden;
 		box-sizing: border-box;
-		gap: 8px;
-	}
-	header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex: none;
-	}
-	.status-pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		font-size: 10.5px;
-		font-weight: 700;
-		letter-spacing: 0.04em;
-		padding: 2px 8px;
-		border-radius: 999px;
-		background: var(--hairline);
-		color: var(--fg-muted);
-	}
-	.status-pill.connected {
-		background: color-mix(in srgb, var(--ok) 18%, transparent);
-		color: var(--ok);
-	}
-	.status-pill.connecting {
-		background: color-mix(in srgb, var(--warn) 18%, transparent);
-		color: var(--warn);
-	}
-	.dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: currentColor;
-	}
-	.time {
-		font-size: 11px;
-		color: var(--fg-muted);
-		margin-left: 2px;
 	}
 	.close-btn {
-		margin-left: auto;
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		width: 28px;
+		height: 28px;
 		border: 0;
+		border-radius: 6px;
 		background: none;
 		color: var(--fg-muted);
 		font-size: 12px;
-		padding: 2px 6px;
-		border-radius: 4px;
-		cursor: pointer;
 	}
 	.close-btn:hover {
 		background: var(--hairline);
 		color: var(--fg);
 	}
 	.hero {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 2px 0;
-		flex: none;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		justify-items: center;
+		gap: 4px;
+		padding-top: 4px;
 	}
-	.hero-info {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		min-width: 0;
-		flex: 1;
-	}
-	.hero-name-row {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		min-width: 0;
-	}
-	.flag {
-		font-size: 15px;
-		flex: none;
-	}
-	.hero-name {
-		font-size: 13.5px;
+	.headline {
+		margin: 8px 0 0;
+		font-size: 18px;
 		font-weight: 650;
+		letter-spacing: -0.01em;
+	}
+	.headline.connected {
+		color: var(--ok-text);
+	}
+	.headline.connecting {
+		color: var(--warn);
+	}
+	.sub {
+		margin: 0;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		max-width: 100%;
+		min-width: 0;
+		font-size: 12px;
+	}
+	.name {
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		color: var(--fg);
-	}
-	.hero-sub {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		font-size: 11px;
-		color: var(--fg-muted);
-	}
-	.ip-text {
-		font-size: 11px;
-	}
-	.ping-pill {
-		font-size: 11px;
-		padding: 1px 5px;
-		border-radius: 4px;
 		font-weight: 600;
 	}
-	.ping-pill.ok {
-		background: color-mix(in srgb, var(--ok) 18%, transparent);
-		color: var(--ok);
-	}
-	.ready-text {
+	.dim {
 		color: var(--fg-muted);
+		white-space: nowrap;
 	}
-	.server-bar {
-		padding: 6px 8px;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		flex: none;
+	.sub .dim + .dim::before {
+		content: '·';
+		margin-right: 8px;
 	}
-	.server-pick-row {
+	.name + .dim::before {
+		content: '·';
+		margin-right: 8px;
+	}
+	.ip {
+		font-size: 11px;
+		color: var(--fg-muted);
+		user-select: text;
+	}
+	.add {
+		min-height: 34px;
+	}
+	.pick {
 		display: flex;
-		align-items: center;
+	}
+	.stats {
+		padding: 10px 12px 8px;
+		display: grid;
 		gap: 6px;
 	}
-	.traffic-box {
-		padding: 8px 10px 6px;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		flex: none;
-	}
-	.speeds-row {
+	.speeds {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 8px;
 	}
-	.speed-col {
+	.speeds div {
 		display: grid;
 	}
-	.speed-col strong {
+	.speeds strong {
 		font-size: 14px;
 	}
 	.down {
@@ -298,45 +231,44 @@
 	.up {
 		color: var(--up);
 	}
-	.graph {
-		margin: 2px 0;
-	}
-	.today-row {
+	.today {
 		display: flex;
 		justify-content: space-between;
-		font-size: 11px;
+		font-size: 12px;
 		color: var(--fg-muted);
 	}
-	.today-row strong {
+	.today strong {
 		color: var(--fg);
 	}
-	.mode-row {
-		flex: none;
+	.lock {
+		margin: -4px 0 0;
+		font-size: 11px;
+		color: var(--fg-muted);
+		text-align: center;
 	}
 	footer {
+		margin-top: auto;
 		display: flex;
 		justify-content: space-between;
 		border-top: 1px solid var(--hairline);
 		padding-top: 6px;
-		flex: none;
 	}
-	.footer-btn {
+	.foot-btn {
+		min-height: 28px;
 		border: 0;
 		background: none;
-		padding: 3px 6px;
+		padding: 4px 8px;
 		border-radius: 6px;
 		color: var(--accent);
-		font-size: 11.5px;
-		font-weight: 500;
-		cursor: pointer;
+		font-size: 12px;
 	}
-	.footer-btn:hover {
+	.foot-btn:hover {
 		background: var(--hairline);
 	}
-	.footer-btn.quit {
+	.foot-btn.quit {
 		color: var(--fg-muted);
 	}
-	.footer-btn.quit:hover {
+	.foot-btn.quit:hover {
 		color: var(--danger);
 	}
 </style>

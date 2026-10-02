@@ -7,6 +7,7 @@
 	--hairline: rgb(0 0 0 / 0.09);
 	--accent: #0a84ff;
 	--ok: #28b463;
+	--ok-text: #17803f;
 	--warn: #f29d0e;
 	--danger: #e5453b;
 	--down: #0a84ff;
@@ -40,6 +41,7 @@
 		--content-bg: rgb(28 28 30 / 0.55);
 		--hairline: rgb(255 255 255 / 0.1);
 		--ok: #30d158;
+		--ok-text: #30d158;
 		--warn: #ff9f0a;
 		--danger: #ff453a;
 		--down: #64d2ff;
