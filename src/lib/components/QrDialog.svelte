@@ -1,90 +1,79 @@
 <script lang="ts">
 	import { api, type Profile } from '$lib/api';
 	import { app } from '$lib/app.svelte';
+	import Dialog from './Dialog.svelte';
 
 	let { profile, onclose }: { profile: Profile | null; onclose: () => void } = $props();
-	let dialog: HTMLDialogElement;
 	let svg = $state('');
 	let link = $state('');
+	let copied = $state(false);
 
 	$effect(() => {
-		if (profile && !dialog.open) {
-			svg = '';
-			link = '';
-			dialog.showModal();
-			Promise.all([api.profileQr(profile.id), api.profileLink(profile.id)])
-				.then(([image, url]) => ((svg = image), (link = url)))
-				.catch((e) => app.notify(String(e)));
-		}
-		if (!profile && dialog.open) dialog.close();
+		if (!profile) return;
+		svg = '';
+		link = '';
+		copied = false;
+		Promise.all([api.profileQr(profile.id), api.profileLink(profile.id)])
+			.then(([image, url]) => ((svg = image), (link = url)))
+			.catch((e) => app.notify(String(e)));
 	});
 
 	async function copy() {
 		await navigator.clipboard.writeText(link).catch(() => null);
-		app.notify('Link copied.', 'info');
+		copied = true;
+		setTimeout(() => (copied = false), 1800);
 	}
 </script>
 
-<dialog bind:this={dialog} onclose={onclose}>
-	<h3>{profile?.name}</h3>
-	<div class="qr">{@html svg}</div>
-	<p class="hint">Scan with another device, or copy the share link. The certificate pin is not included.</p>
-	<div class="actions">
-		<button onclick={copy} disabled={!link}>Copy link</button>
-		<button class="primary" onclick={onclose}>Done</button>
+<Dialog open={profile !== null} title={profile?.name ?? ''} subtitle="Scan with another device to add this server." width={340} {onclose}>
+	<div class="qr">{#if svg}{@html svg}{:else}<span class="loading">Generating…</span>{/if}</div>
+	<div class="link-row">
+		<span class="mono link" title={link}>{link || '…'}</span>
 	</div>
-</dialog>
+	<p class="note">The certificate pin is not included in the link.</p>
+
+	{#snippet footer()}
+		<button class="btn" onclick={copy} disabled={!link}>{copied ? 'Copied ✓' : 'Copy link'}</button>
+		<button class="btn primary" onclick={onclose}>Done</button>
+	{/snippet}
+</Dialog>
 
 <style>
-	dialog {
-		width: min(320px, 92vw);
-		border: 1px solid var(--hairline);
-		border-radius: var(--radius);
-		background: var(--surface-strong);
-		color: var(--fg);
-		padding: 18px;
-		text-align: center;
-		box-shadow: 0 20px 60px rgb(0 0 0 / 0.35);
-	}
-	dialog::backdrop {
-		background: rgb(0 0 0 / 0.3);
-	}
-	h3 {
-		margin: 0 0 10px;
-		font-size: 15px;
-	}
 	.qr {
-		min-height: 220px;
-		background: white;
-		border-radius: 10px;
-		padding: 6px;
 		display: grid;
 		place-items: center;
+		min-height: 236px;
+		padding: 8px;
+		border-radius: 10px;
+		background: white;
+		overflow: hidden;
 	}
 	.qr :global(svg) {
-		width: 100%;
+		display: block;
+		width: min(100%, 236px);
 		height: auto;
-		max-width: 240px;
+		aspect-ratio: 1;
 	}
-	.hint {
-		color: var(--fg-muted);
-		font-size: 11px;
+	.loading {
+		color: #6e6e73;
+		font-size: 12px;
 	}
-	.actions {
-		display: flex;
-		justify-content: center;
-		gap: 8px;
-	}
-	button {
-		border: 1px solid var(--hairline);
-		background: var(--surface);
+	.link-row {
+		padding: 7px 10px;
 		border-radius: 8px;
-		padding: 6px 16px;
+		background: var(--hairline);
 	}
-	button.primary {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: white;
-		font-weight: 600;
+	.link {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 11px;
+		user-select: text;
+	}
+	.note {
+		margin: -6px 0 0;
+		font-size: 11px;
+		color: var(--fg-muted);
 	}
 </style>

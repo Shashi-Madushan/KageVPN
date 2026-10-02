@@ -121,6 +121,14 @@ Audit: server name and flag shown twice, picker boxed inside a card, dead blank 
 - ✅ `--ok-text` token (4.5:1+ on light) for green headlines on Home and tray
 - 🟡 Native right-click menu (Open / Connect / Quit) reviewed in code, unchanged
 
+### Phase 3f — Server management and dialogs
+- ✅ Servers: single primary "Add server" (+ Test all) in the header; flat grouped list with Server / Protocol / Latency columns, accent bar on the active server, colour-coded latency, flag shown once, compact density, row menu with grouped actions
+- ✅ Subscriptions collapsed to rows with an inline "+ Add subscription…" form; hidden in the empty state, which has its own two clear actions
+- ✅ Shared `Dialog` (header, scrolling body, footer, backdrop/Esc close) and `ConfirmDialog`; Add server, New/Edit server, QR and delete confirmations rebuilt on them
+- ✅ Add server: auto-fills from clipboard, drop a file, live "N links ready", "Enter details manually" fallback
+- ✅ Edit server: Connection / Security / Transport sections, Advanced options collapsed, inline UUID validation, Save disabled until valid
+- ✅ Fixed: segmented options inside a form submitted it (added `type="button"`)
+
 ### Phase 5 — Validation (needs real users)
 - 🟡 Test script prepared below; sessions not run
   1. "Connect to the VPN" (target < 5 s, 0 misclicks)

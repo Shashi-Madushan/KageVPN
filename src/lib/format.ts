@@ -108,3 +108,6 @@ export function importMessage(summary: ImportSummary): string {
 	if (summary.failed.length) parts.push(`${summary.failed.length} skipped`);
 	return (parts.join(', ') || 'Nothing to import') + '.';
 }
+
+/** Drops a leading emoji flag from a name, since the flag is shown separately. */
+export const stripFlag = (name: string) => name.replace(/^\p{RI}{2}\s*/u, '');

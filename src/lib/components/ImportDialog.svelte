@@ -1,25 +1,29 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
 	import { importMessage } from '$lib/format';
+	import Dialog from './Dialog.svelte';
 
-	let { open = $bindable(), initial = '' }: { open: boolean; initial?: string } = $props();
+	let {
+		open = $bindable(),
+		initial = '',
+		onmanual
+	}: { open: boolean; initial?: string; onmanual?: () => void } = $props();
+
 	let text = $state('');
 	let error = $state<string | null>(null);
 	let dragging = $state(false);
+	let busy = $state(false);
 	let fileInput: HTMLInputElement;
-	let dialog: HTMLDialogElement;
 
 	const found = $derived(text.split(/\s+/).filter((t) => /^vless:\/\//i.test(t)).length);
 
 	$effect(() => {
-		if (open && !dialog.open) {
+		if (open) {
 			error = null;
-			text = initial;
 			dragging = false;
-			dialog.showModal();
+			text = initial;
 			if (!initial) pasteFromClipboard();
 		}
-		if (!open && dialog.open) dialog.close();
 	});
 
 	async function pasteFromClipboard() {
@@ -31,35 +35,26 @@
 		}
 	}
 
-	async function handleDrop(e: DragEvent) {
-		e.preventDefault();
-		dragging = false;
-		const file = e.dataTransfer?.files?.[0];
-		if (file) {
-			try {
-				const content = await file.text();
-				text = content;
-			} catch (err) {
-				error = `Could not read file: ${err}`;
-			}
+	async function loadFile(file: File | undefined) {
+		if (!file) return;
+		try {
+			text = await file.text();
+			error = null;
+		} catch (err) {
+			error = `Could not read the file: ${err}`;
 		}
 	}
 
-	async function handleFile(e: Event) {
-		const target = e.currentTarget as HTMLInputElement;
-		const file = target.files?.[0];
-		if (file) {
-			try {
-				const content = await file.text();
-				text = content;
-			} catch (err) {
-				error = `Could not read file: ${err}`;
-			}
-		}
+	function ondrop(e: DragEvent) {
+		e.preventDefault();
+		dragging = false;
+		loadFile(e.dataTransfer?.files?.[0]);
 	}
 
 	async function save() {
+		busy = true;
 		const { summary, error: failure } = await app.importText(text);
+		busy = false;
 		error = failure;
 		if (summary) {
 			app.notify(importMessage(summary), 'info');
@@ -67,141 +62,99 @@
 			open = false;
 		}
 	}
+
+	function manual() {
+		open = false;
+		onmanual?.();
+	}
 </script>
 
-<dialog bind:this={dialog} onclose={() => (open = false)}>
-	<h3>Import profiles</h3>
-	<p class="hint">Paste <span class="mono">vless://</span> links, or drag and drop a text file.</p>
-
+<Dialog {open} title="Add server" subtitle="Paste one or more vless:// links, or drop a text file." onclose={() => (open = false)}>
 	<div
-		class="dropzone"
+		class="drop"
 		class:dragging
-		ondragover={(e) => { e.preventDefault(); dragging = true; }}
+		ondragover={(e) => (e.preventDefault(), (dragging = true))}
 		ondragleave={() => (dragging = false)}
-		ondrop={handleDrop}
+		{ondrop}
 		role="region"
-		aria-label="Drop file zone"
+		aria-label="Drop a file with links"
 	>
-		<textarea
-			bind:value={text}
-			placeholder="vless://…"
-			rows="7"
-			spellcheck="false"
-			class="mono"
-			aria-label="VLESS Links"
-		></textarea>
-		{#if dragging}
-			<div class="drop-overlay">Drop file to load links</div>
-		{/if}
+		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…" aria-label="VLESS links"></textarea>
+		{#if dragging}<div class="overlay">Drop the file to load its links</div>{/if}
 	</div>
 
-	<div class="file-row">
-		<input type="file" bind:this={fileInput} accept=".txt,.json" class="file-hidden" onchange={handleFile} />
-		<button type="button" class="file-btn" onclick={() => fileInput.click()}>📁 Choose text file…</button>
-		{#if text}<span class="hint count">{found} link{found === 1 ? '' : 's'} detected</span>{/if}
+	<div class="meta">
+		<span class="found" class:ok={found > 0}>
+			{#if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No vless:// links found{:else}Nothing pasted yet{/if}
+		</span>
+		<span class="links">
+			<input type="file" accept=".txt,.json,text/plain" hidden bind:this={fileInput} onchange={(e) => loadFile(e.currentTarget.files?.[0])} />
+			<button type="button" class="linkbtn" onclick={() => fileInput.click()}>Choose file…</button>
+			<button type="button" class="linkbtn" onclick={manual}>Enter details manually</button>
+		</span>
 	</div>
 
-	{#if error}<p class="error">{error}</p>{/if}
-	<div class="actions">
-		<button onclick={() => (open = false)}>Cancel</button>
-		<button class="primary" disabled={found === 0} onclick={save}>Import {found > 1 ? `${found} profiles` : ''}</button>
-	</div>
-</dialog>
+	{#if error}<p class="error" role="alert">{error}</p>{/if}
+
+	{#snippet footer()}
+		<button class="btn" onclick={() => (open = false)}>Cancel</button>
+		<button class="btn primary" disabled={found === 0 || busy} onclick={save}>
+			{busy ? 'Adding…' : found > 1 ? `Add ${found} servers` : 'Add server'}
+		</button>
+	{/snippet}
+</Dialog>
 
 <style>
-	dialog {
-		width: min(440px, 92vw);
-		border: 1px solid var(--hairline);
-		border-radius: var(--radius);
-		background: var(--surface-strong);
-		color: var(--fg);
-		padding: 18px;
-		box-shadow: 0 20px 60px rgb(0 0 0 / 0.35);
-	}
-	dialog::backdrop {
-		background: rgb(0 0 0 / 0.3);
-	}
-	h3 {
-		margin: 0;
-		font-size: 15px;
-	}
-	.hint {
-		margin: 4px 0 10px;
-		color: var(--fg-muted);
-		font-size: 12px;
-	}
-	.dropzone {
+	.drop {
 		position: relative;
 	}
 	textarea {
 		width: 100%;
-		resize: none;
-		background: var(--surface);
-		border: 1px solid var(--hairline);
-		border-radius: var(--radius-sm);
-		padding: 9px;
-		font-size: 11px;
-		user-select: text;
+		font-size: 11.5px;
+		line-height: 1.5;
 		display: block;
 	}
-	.dropzone.dragging textarea {
+	.drop.dragging textarea {
 		border-color: var(--accent);
 	}
-	.drop-overlay {
+	.overlay {
 		position: absolute;
 		inset: 0;
-		background: color-mix(in srgb, var(--accent) 18%, var(--surface-strong));
-		border: 2px dashed var(--accent);
-		border-radius: var(--radius-sm);
 		display: grid;
 		place-items: center;
-		font-size: 13px;
-		font-weight: 600;
+		border: 2px dashed var(--accent);
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--accent) 14%, var(--surface-strong));
 		color: var(--accent);
+		font-weight: 600;
 		pointer-events: none;
 	}
-	.file-row {
+	.meta {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-top: 8px;
+		flex-wrap: wrap;
+		gap: 6px 12px;
+		margin-top: -4px;
+		font-size: 12px;
 	}
-	.file-hidden {
-		display: none;
+	.found {
+		color: var(--fg-muted);
 	}
-	.file-btn {
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		border-radius: 6px;
-		padding: 4px 10px;
-		font-size: 11px;
-		cursor: pointer;
-	}
-	.count {
-		margin: 0;
-		font-size: 11px;
-	}
-	.actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: 8px;
-		margin-top: 14px;
-	}
-	button {
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		border-radius: 8px;
-		padding: 6px 16px;
-	}
-	button.primary {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: white;
+	.found.ok {
+		color: var(--ok-text);
 		font-weight: 600;
 	}
+	.links {
+		display: flex;
+		gap: 14px;
+	}
 	.error {
-		color: var(--danger);
+		margin: 0;
+		padding: 8px 10px;
+		border-radius: 8px;
 		font-size: 12px;
-		margin: 8px 0 0;
+		color: var(--danger);
+		background: color-mix(in srgb, var(--danger) 10%, transparent);
 	}
 </style>

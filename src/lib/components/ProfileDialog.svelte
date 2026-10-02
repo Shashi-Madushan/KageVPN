@@ -1,12 +1,13 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { app } from '$lib/app.svelte';
 	import { blankProfile, type Profile, type TransportKind } from '$lib/api';
 	import Select from './Select.svelte';
+	import Dialog from './Dialog.svelte';
 	import Segmented from './Segmented.svelte';
 
 	let { profile, onclose }: { profile: Profile | null; onclose: () => void } = $props();
 
-	let dialog: HTMLDialogElement;
 	let draft = $state<Profile>(blankProfile());
 	let alpn = $state('');
 	let error = $state<string | null>(null);
@@ -25,14 +26,15 @@
 		{ value: 'reality' as const, label: 'Reality' }
 	];
 
+	// Load the form only when a different server is opened, never when the user edits it.
 	$effect(() => {
-		if (profile && !dialog.open) {
-			draft = structuredClone($state.snapshot(profile));
+		const source = profile;
+		if (!source) return;
+		untrack(() => {
+			draft = structuredClone($state.snapshot(source));
 			alpn = draft.alpn.join(',');
 			error = null;
-			dialog.showModal();
-		}
-		if (!profile && dialog.open) dialog.close();
+		});
 	});
 
 	const text = (value: string | null) => value ?? '';
@@ -67,168 +69,193 @@
 		saving = false;
 		if (!error) onclose();
 	}
+
+	const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	const uuidBad = $derived(draft.uuid.trim() !== '' && !UUID.test(draft.uuid.trim()));
+	const ready = $derived(
+		draft.name.trim() !== '' &&
+			draft.server.trim() !== '' &&
+			UUID.test(draft.uuid.trim()) &&
+			draft.port >= 1 &&
+			draft.port <= 65535 &&
+			(draft.security !== 'reality' || (draft.reality?.publicKey.trim() ?? '') !== '')
+	);
 </script>
 
-<dialog bind:this={dialog} onclose={onclose} aria-labelledby="dialog-title">
-	<h3 id="dialog-title">{creating ? 'New Profile' : 'Edit Profile'}</h3>
-	<form onsubmit={(e) => (e.preventDefault(), save())}>
-		<div class="grid">
-			<label class="wide">Name <input bind:value={draft.name} required aria-label="Profile name" placeholder="e.g. US West" /></label>
-			<label>Server Host/IP <input bind:value={draft.server} class="mono" required aria-label="Server address" placeholder="example.com" /></label>
-			<label>Port <input type="number" min="1" max="65535" bind:value={draft.port} aria-label="Port number" /></label>
-			<label class="wide">UUID <input bind:value={draft.uuid} class="mono" spellcheck="false" required aria-label="Client UUID" /></label>
-			<label class="wide">
-				Group / Folder
-				<input list="group-options" value={text(draft.group)} oninput={(e) => (draft.group = e.currentTarget.value)} placeholder="None" aria-label="Profile group" />
+<Dialog
+	open={profile !== null}
+	title={creating ? 'New server' : 'Edit server'}
+	subtitle={creating ? 'Enter the details from your provider.' : undefined}
+	width={500}
+	{onclose}
+>
+	<form id="server-form" onsubmit={(e) => (e.preventDefault(), save())}>
+		<section>
+			<h3 class="caption">Connection</h3>
+			<label class="field">
+				<span class="field-label">Name</span>
+				<input class="input" bind:value={draft.name} required placeholder="e.g. Frankfurt" />
+			</label>
+			<div class="field-row">
+				<label class="field">
+					<span class="field-label">Address</span>
+					<input class="input mono" bind:value={draft.server} required placeholder="vpn.example.com" spellcheck="false" />
+				</label>
+				<label class="field">
+					<span class="field-label">Port</span>
+					<input class="input" type="number" min="1" max="65535" bind:value={draft.port} />
+				</label>
+			</div>
+			<label class="field">
+				<span class="field-label">User ID (UUID)</span>
+				<input class="input mono" class:invalid={uuidBad} bind:value={draft.uuid} required spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000" />
+				{#if uuidBad}<span class="field-error">This is not a valid UUID.</span>{/if}
+			</label>
+			<label class="field">
+				<span class="field-label">Group <em>optional</em></span>
+				<input class="input" list="group-options" value={text(draft.group)} oninput={(e) => (draft.group = e.currentTarget.value)} placeholder="Ungrouped" />
 				<datalist id="group-options">{#each app.groups as group (group)}<option value={group}></option>{/each}</datalist>
 			</label>
+		</section>
 
-			<details class="wide advanced-box" open={draft.security === 'reality'}>
-				<summary>Advanced VLESS Parameters (Reality, Transport, Flow, ALPN)</summary>
-				<div class="grid adv-grid">
-					<div class="wide field">
-						<span>Security</span>
-						<Segmented options={securities} value={draft.security} label="Security protocol" onchange={setSecurity} />
-					</div>
-
-					<label>SNI <input value={text(draft.sni)} oninput={(e) => (draft.sni = e.currentTarget.value)} placeholder={draft.server || 'server name'} aria-label="Server Name Indication" /></label>
-					<label>
-						Fingerprint
-						<Select value={draft.fingerprint ?? ''} onchange={(v) => (draft.fingerprint = v)} label="TLS Fingerprint" options={fingerprints.map((f) => ({ value: f, label: f }))} />
+		<section>
+			<h3 class="caption">Security</h3>
+			<Segmented options={securities} value={draft.security} label="Security" onchange={setSecurity} />
+			<label class="field">
+				<span class="field-label">Server name (SNI) <em>optional</em></span>
+				<input class="input" value={text(draft.sni)} oninput={(e) => (draft.sni = e.currentTarget.value)} placeholder={draft.server || 'Same as the address'} spellcheck="false" />
+			</label>
+			{#if draft.security === 'reality' && draft.reality}
+				<div class="field-row wide-first">
+					<label class="field">
+						<span class="field-label">Public key</span>
+						<input class="input mono" bind:value={draft.reality.publicKey} spellcheck="false" />
 					</label>
+					<label class="field">
+						<span class="field-label">Short ID</span>
+						<input class="input mono" bind:value={draft.reality.shortId} spellcheck="false" />
+					</label>
+				</div>
+			{/if}
+		</section>
 
-					{#if draft.security === 'reality' && draft.reality}
-						<label class="wide">Reality Public Key <input bind:value={draft.reality.publicKey} class="mono" spellcheck="false" aria-label="Reality public key" /></label>
-						<label>Short ID <input bind:value={draft.reality.shortId} class="mono" aria-label="Short ID" /></label>
-					{:else}
-						<label>ALPN <input bind:value={alpn} placeholder="h2,http/1.1" aria-label="Application-Layer Protocol Negotiation" /></label>
-					{/if}
+		<section>
+			<h3 class="caption">Transport</h3>
+			<Segmented options={transports} value={draft.transport.kind} label="Transport" onchange={(k) => (draft.transport.kind = k)} />
+			{#if draft.transport.kind === 'ws' || draft.transport.kind === 'httpupgrade'}
+				<div class="field-row even">
+					<label class="field">
+						<span class="field-label">Path</span>
+						<input class="input mono" value={text(draft.transport.path)} oninput={(e) => (draft.transport.path = e.currentTarget.value)} placeholder="/" spellcheck="false" />
+					</label>
+					<label class="field">
+						<span class="field-label">Host header <em>optional</em></span>
+						<input class="input mono" value={text(draft.transport.host)} oninput={(e) => (draft.transport.host = e.currentTarget.value)} spellcheck="false" />
+					</label>
+				</div>
+			{:else if draft.transport.kind === 'grpc'}
+				<label class="field">
+					<span class="field-label">Service name</span>
+					<input class="input mono" value={text(draft.transport.serviceName)} oninput={(e) => (draft.transport.serviceName = e.currentTarget.value)} spellcheck="false" />
+				</label>
+			{/if}
+		</section>
 
-					<label>
-						Flow
+		<details class="advanced">
+			<summary>Advanced options</summary>
+			<div class="advanced-body">
+				<div class="field-row even">
+					<div class="field">
+						<span class="field-label">Fingerprint</span>
+						<Select value={draft.fingerprint ?? ''} onchange={(v) => (draft.fingerprint = v)} label="TLS fingerprint" options={fingerprints.map((f) => ({ value: f, label: f }))} />
+					</div>
+					<div class="field">
+						<span class="field-label">Flow</span>
 						<Select
 							value={draft.flow ?? ''}
-							label="Flow control"
+							label="Flow"
 							options={[{ value: '', label: 'None' }, { value: 'xtls-rprx-vision', label: 'xtls-rprx-vision' }]}
 							onchange={(v) => (draft.flow = v || null)}
 						/>
-					</label>
-
-					<div class="wide field">
-						<span>Transport</span>
-						<Segmented options={transports} value={draft.transport.kind} label="Transport protocol" onchange={(k) => (draft.transport.kind = k)} />
 					</div>
-
-					{#if draft.transport.kind === 'ws' || draft.transport.kind === 'httpupgrade'}
-						<label>Path <input value={text(draft.transport.path)} oninput={(e) => (draft.transport.path = e.currentTarget.value)} placeholder="/" aria-label="WebSocket Path" /></label>
-						<label>Host Header <input value={text(draft.transport.host)} oninput={(e) => (draft.transport.host = e.currentTarget.value)} aria-label="Host header" /></label>
-					{:else if draft.transport.kind === 'grpc'}
-						<label class="wide">Service Name <input value={text(draft.transport.serviceName)} oninput={(e) => (draft.transport.serviceName = e.currentTarget.value)} aria-label="gRPC Service name" /></label>
+				</div>
+				<div class="field-row even">
+					{#if draft.security === 'tls'}
+						<label class="field">
+							<span class="field-label">ALPN</span>
+							<input class="input mono" bind:value={alpn} placeholder="h2,http/1.1" spellcheck="false" />
+						</label>
 					{/if}
-
-					<label class="wide">
-						Packet Encoding
+					<div class="field">
+						<span class="field-label">Packet encoding</span>
 						<Select
 							value={draft.packetEncoding ?? ''}
 							label="Packet encoding"
-							options={[
-								{ value: '', label: 'Default' },
-								{ value: 'xudp', label: 'xudp' },
-								{ value: 'packetaddr', label: 'packetaddr' }
-							]}
+							options={[{ value: '', label: 'Default' }, { value: 'xudp', label: 'xudp' }, { value: 'packetaddr', label: 'packetaddr' }]}
 							onchange={(v) => (draft.packetEncoding = v || null)}
 						/>
-					</label>
+					</div>
 				</div>
-			</details>
-		</div>
+			</div>
+		</details>
 
-		{#if error}<p class="error">{error}</p>{/if}
-		<div class="actions">
-			<button type="button" onclick={onclose}>Cancel</button>
-			<button type="submit" class="primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-		</div>
+		{#if error}<p class="error" role="alert">{error}</p>{/if}
 	</form>
-</dialog>
+
+	{#snippet footer()}
+		<button type="button" class="btn" onclick={onclose}>Cancel</button>
+		<button type="submit" form="server-form" class="btn primary" disabled={saving || !ready}>{saving ? 'Saving…' : creating ? 'Add server' : 'Save changes'}</button>
+	{/snippet}
+</Dialog>
 
 <style>
-	dialog {
-		width: min(520px, 94vw);
-		max-height: 88vh;
-		overflow-y: auto;
-		border: 1px solid var(--hairline);
-		border-radius: var(--radius);
-		background: var(--surface-strong);
-		color: var(--fg);
-		padding: 18px;
-		box-shadow: 0 20px 60px rgb(0 0 0 / 0.35);
+	form {
+		display: grid;
+		gap: 18px;
 	}
-	dialog::backdrop {
-		background: rgb(0 0 0 / 0.3);
+	section {
+		display: grid;
+		gap: 10px;
 	}
 	h3 {
-		margin: 0 0 12px;
-		font-size: 15px;
+		margin: 0;
 	}
-	.grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 10px 12px;
-	}
-	@media (max-width: 520px) {
-		.grid {
-			grid-template-columns: 1fr;
-		}
-	}
-	.adv-grid {
-		margin-top: 10px;
-	}
-	.wide {
-		grid-column: 1 / -1;
-	}
-	label,
-	.field {
-		display: grid;
-		gap: 4px;
-		font-size: 11px;
+	em {
+		font-style: normal;
+		font-weight: 400;
 		color: var(--fg-muted);
-		font-weight: 600;
 	}
-	input,
-	.advanced-box {
-		border: 1px solid var(--hairline);
-		border-radius: 8px;
-		padding: 8px 10px;
-		background: color-mix(in srgb, var(--hairline) 50%, transparent);
+	.field-row.even {
+		grid-template-columns: 1fr 1fr;
 	}
-	.advanced-box summary {
+	.field-row.wide-first {
+		grid-template-columns: minmax(0, 1fr) 120px;
+	}
+	.advanced summary {
 		cursor: pointer;
+		font-size: 12px;
 		font-weight: 600;
-		font-size: 11.5px;
 		color: var(--accent);
 		user-select: none;
 	}
-	.actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: 8px;
-		margin-top: 14px;
-	}
-	button {
-		border: 1px solid var(--hairline);
-		background: var(--surface);
-		border-radius: 8px;
-		padding: 6px 16px;
-	}
-	button.primary {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: white;
-		font-weight: 600;
+	.advanced-body {
+		display: grid;
+		gap: 10px;
+		margin-top: 10px;
 	}
 	.error {
-		color: var(--danger);
+		margin: 0;
+		padding: 8px 10px;
+		border-radius: 8px;
 		font-size: 12px;
-		margin: 10px 0 0;
+		color: var(--danger);
+		background: color-mix(in srgb, var(--danger) 10%, transparent);
+	}
+	@media (max-width: 520px) {
+		.field-row,
+		.field-row.even,
+		.field-row.wide-first {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

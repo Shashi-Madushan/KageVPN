@@ -223,6 +223,7 @@ input[type='checkbox']:checked::after {
 	font-size: 12px;
 }
 .linkbtn {
+	white-space: nowrap;
 	border: 0;
 	background: none;
 	padding: 0;
@@ -286,4 +287,39 @@ input[type='checkbox']:checked::after {
 }
 .state.info::before {
 	background: var(--accent);
+}
+
+/* ---- Form fields ---- */
+.field {
+	display: grid;
+	gap: 5px;
+	min-width: 0;
+}
+.field > .field-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--fg);
+}
+.field > .field-hint {
+	font-size: 11px;
+	color: var(--fg-muted);
+}
+.field > .field-error {
+	font-size: 11px;
+	color: var(--danger);
+}
+.field-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 96px;
+	gap: 10px;
+}
+.input.invalid {
+	border-color: var(--danger);
+}
+textarea.input {
+	padding: 9px 10px;
+	resize: vertical;
+}
+.field .input {
+	width: 100%;
 }
