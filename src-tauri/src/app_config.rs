@@ -28,7 +28,6 @@ pub const APP_UPDATE_PUBKEY: Option<&str> = None;
 pub const FEEDBACK_ENDPOINT: Option<&str> = None;
 /// Sent as `Authorization: Bearer …` when set. Not a secret in a desktop app, so the server
 /// must rate-limit and validate regardless.
-#[allow(dead_code)] // read by the feedback sender once it exists
 pub const FEEDBACK_TOKEN: Option<&str> = None;
 
 // ── Cores ───────────────────────────────────────────────────────────────────

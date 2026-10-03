@@ -453,3 +453,23 @@ export const usageApi = {
 	reset: () => invoke<void>('usage_reset'),
 	clearDetails: () => invoke<void>('usage_clear_details')
 };
+
+export type FeedbackKind = 'bug' | 'idea' | 'question';
+
+export interface FeedbackInput {
+	kind: FeedbackKind;
+	message: string;
+	contact: string | null;
+	includeDiagnostics: boolean;
+}
+
+export interface FeedbackResult {
+	/** Reference number the backend returned, if any. */
+	id: string | null;
+}
+
+export const feedbackApi = {
+	/** The exact JSON that would be sent, after redaction. */
+	preview: (input: FeedbackInput) => invoke<string>('feedback_preview', { input }),
+	send: (input: FeedbackInput) => invoke<FeedbackResult>('feedback_send', { input })
+};

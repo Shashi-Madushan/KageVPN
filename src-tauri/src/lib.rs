@@ -6,6 +6,7 @@ mod core;
 mod diagnostics;
 mod downloads;
 mod error;
+mod feedback;
 mod fsutil;
 mod logs;
 mod net;
@@ -80,6 +81,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            feedback::feedback_preview,
+            feedback::feedback_send,
             commands::snapshot,
             commands::import_text,
             commands::save_profile,

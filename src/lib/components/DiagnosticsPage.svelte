@@ -3,6 +3,7 @@
 	import { api, type Diagnostics, type IpInfo, type SpeedProgress, type SpeedResult } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
+	import { feedback } from '$lib/feedback.svelte';
 	import HeaderActions from './HeaderActions.svelte';
 	import Icon from './Icon.svelte';
 	import SpeedGauge from './SpeedGauge.svelte';
@@ -116,6 +117,7 @@
 
 <HeaderActions>
 	<button class="btn" onclick={copyReport}>Copy report</button>
+	{#if app.info.feedbackConfigured}<button class="btn" onclick={() => feedback.show('bug')}>Report a problem</button>{/if}
 </HeaderActions>
 
 <div class="page">

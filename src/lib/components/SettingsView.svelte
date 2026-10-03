@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
+	import { feedback } from '$lib/feedback.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 
 	let restoring = $state(false);
@@ -75,6 +76,12 @@
 			<span><strong>Welcome tour</strong><small>A quick walkthrough of adding a server and connecting.</small></span>
 			<button class="btn" onclick={() => onboarding.show()}>Show tour</button>
 		</div>
+		{#if app.info.feedbackConfigured}
+			<div class="restore">
+				<span><strong>Feedback</strong><small>Report a problem, suggest an idea or ask a question.</small></span>
+				<button class="btn" onclick={() => feedback.show()}>Send feedback…</button>
+			</div>
+		{/if}
 	</div>
 
 	<button class="btn quit" onclick={() => app.quit()}>Quit {app.info.name}</button>

@@ -12,6 +12,7 @@
 	import DiagnosticsPage from '$lib/components/DiagnosticsPage.svelte';
 	import HomePage from '$lib/components/HomePage.svelte';
 	import DownloadsMenu from '$lib/components/DownloadsMenu.svelte';
+	import FeedbackDialog from '$lib/components/FeedbackDialog.svelte';
 	import EngineInstallDialog from '$lib/components/EngineInstallDialog.svelte';
 	import OnboardingDialog from '$lib/components/OnboardingDialog.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
@@ -139,6 +140,7 @@
 
 <OnboardingDialog onnavigate={(p) => (page = p)} />
 <EngineInstallDialog open={core.promptInstall} />
+<FeedbackDialog />
 
 <style>
 	.app {
