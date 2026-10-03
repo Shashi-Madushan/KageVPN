@@ -17,6 +17,7 @@
 	import FeedbackDialog from '$lib/components/FeedbackDialog.svelte';
 	import EngineInstallDialog from '$lib/components/EngineInstallDialog.svelte';
 	import OnboardingDialog from '$lib/components/OnboardingDialog.svelte';
+	import PoweredBy from '$lib/components/PoweredBy.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import LogView from '$lib/components/LogView.svelte';
 	import ProfilesPage from '$lib/components/ProfilesPage.svelte';
@@ -98,7 +99,10 @@
 	<div class="titlebar" data-tauri-drag-region></div>
 	<aside data-tauri-drag-region>
 		<Sidebar {page} {badges} onselect={(p) => (page = p)} />
-		<div class="aside-foot"><ThemeToggle /></div>
+		<div class="aside-foot">
+			<ThemeToggle />
+			<div class="brand"><PoweredBy /></div>
+		</div>
 	</aside>
 
 	<section class="content">
@@ -181,8 +185,13 @@
 	.aside-foot {
 		margin-top: auto;
 		display: flex;
-		justify-content: center;
-		padding: 10px 10px 12px;
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+		padding: 10px 10px 14px;
+	}
+	.brand {
+		opacity: 0.8;
 	}
 	.content {
 		display: flex;
@@ -194,6 +203,10 @@
 		border-left: 1px solid var(--hairline);
 	}
 	@media (max-width: 759px) {
+		/* The icon rail is too narrow for a wordmark. */
+		.brand {
+			display: none;
+		}
 		.app {
 			/* Wide enough to hold the macOS window buttons, which end about 66px from the edge. */
 			grid-template-columns: var(--rail-w) minmax(0, 1fr);

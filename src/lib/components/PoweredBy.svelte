@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
+	import ApzurLogo from './ApzurLogo.svelte';
 
-	let { align = 'center' }: { align?: 'center' | 'start' } = $props();
+	let { align = 'center', height = 11 }: { align?: 'center' | 'start'; height?: number } = $props();
 </script>
 
 {#if app.info.brand}
-	<div class="powered" class:start={align === 'start'}>
+	<div class="powered" class:start={align === 'start'} aria-label="Powered by {app.info.brand}">
 		<span>Powered by</span>
-		<!-- The artwork is dark ink on a light backdrop, so it always sits on its own white chip. -->
-		<span class="chip"><img src="/apzur-logo.svg" alt={app.info.brand} draggable="false" /></span>
+		<ApzurLogo {height} />
 	</div>
 {/if}
 
@@ -17,25 +17,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 8px;
+		gap: 7px;
 		color: var(--fg-muted);
-		font-size: 12px;
+		font-size: 11px;
 		user-select: none;
 	}
 	.powered.start {
 		justify-content: flex-start;
-	}
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		padding: 3px 8px;
-		border-radius: 6px;
-		background: #fff;
-		box-shadow: 0 0 0 1px var(--hairline);
-	}
-	img {
-		display: block;
-		height: 14px;
-		width: auto;
 	}
 </style>

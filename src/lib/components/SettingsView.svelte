@@ -2,7 +2,6 @@
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import type { UpdatePolicy } from '$lib/api';
-	import PoweredBy from './PoweredBy.svelte';
 	import Select from './Select.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
 	import { appUpdate } from '$lib/appUpdate.svelte';
@@ -115,8 +114,6 @@
 	</div>
 
 	<button class="btn quit" onclick={() => app.quit()}>Quit {app.info.name}</button>
-
-	<div class="brand"><PoweredBy /></div>
 </div>
 
 <style>
@@ -161,10 +158,6 @@
 		align-items: center;
 		gap: 12px;
 		padding: 10px 14px 12px;
-	}
-	.brand {
-		margin-top: 14px;
-		padding-bottom: 4px;
 	}
 	.quit {
 		margin-top: 4px;

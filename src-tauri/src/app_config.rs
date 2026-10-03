@@ -9,7 +9,7 @@
 
 pub const APP_NAME: &str = "Apzur VPN";
 pub const APP_SLUG: &str = "apzur-vpn";
-/// The company shown in "Powered by …". The logo is `static/apzur-logo.svg`.
+/// The company shown in "Powered by …". The logo is drawn in `src/lib/components/ApzurLogo.svelte`.
 pub const BRAND_NAME: &str = "Apzur";
 
 /// Bundle identifiers earlier builds used. Their data folders are moved to the current one on
