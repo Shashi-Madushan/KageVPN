@@ -4,7 +4,7 @@
 	import type { Bucket, Point, TopRow } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { bucketLabel, PRESETS, rangeDays, type Preset } from '$lib/dates';
-	import { formatBytes } from '$lib/format';
+	import { formatBytes, profileFlag } from '$lib/format';
 	import { usage } from '$lib/usage.svelte';
 	import BarChart from './BarChart.svelte';
 	import HeaderActions from './HeaderActions.svelte';
@@ -90,10 +90,33 @@
 	}
 
 	const quotaGb = $derived(usage.settings?.quotaBytes ? +(usage.settings.quotaBytes / GIB).toFixed(2) : '');
-	const share = (row: TopRow, rows: TopRow[]) => {
-		const max = Math.max(1, ...rows.map((r) => r.up + r.down));
-		return ((row.up + row.down) / max) * 100;
+	const rowTotal = (r: TopRow) => r.up + r.down;
+	const maxOf = (rows: TopRow[]) => Math.max(1, ...rows.map(rowTotal));
+	const sumOf = (rows: TopRow[]) => rows.reduce((sum, r) => sum + rowTotal(r), 0);
+	const percentOf = (row: TopRow, rows: TopRow[]) => {
+		const sum = sumOf(rows);
+		if (!sum) return '0%';
+		const value = (rowTotal(row) / sum) * 100;
+		return value > 0 && value < 1 ? '<1%' : `${Math.round(value)}%`;
 	};
+	const hueOf = (text: string) => [...text].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+
+	/** Friendly title, optional note and avatar for one breakdown row. */
+	function describe(kind: 'app' | 'domain' | 'profile', row: TopRow) {
+		if (kind === 'profile') {
+			const name = profileName(row.key);
+			const server = app.profiles.find((p) => p.id === row.key)?.server ?? '';
+			return { title: name, note: null as string | null, glyph: profileFlag(name, server), hue: hueOf(name) };
+		}
+		if (kind === 'app') {
+			// macOS reports apps as "Name (owner)"; the owner only matters for system processes.
+			const match = row.key.match(/^(.*?)\s*\(([^)]+)\)$/);
+			const title = match ? match[1] : row.key;
+			return { title, note: match?.[2] === 'root' ? 'system' : null, glyph: title.charAt(0).toUpperCase(), hue: hueOf(title) };
+		}
+		const host = row.key.replace(/^www\./, '');
+		return { title: row.key, note: null, glyph: host.charAt(0).toUpperCase(), hue: hueOf(host) };
+	}
 
 	const tabs = $derived([
 		{ value: 'app' as const, label: 'Apps', rows: usage.topApps, empty: usage.settings?.recordApps ? 'No app data yet.' : 'App recording is off. Turn it on under Limits and privacy.' },
@@ -211,15 +234,30 @@
 			<span class="caption">Breakdown</span>
 			<Segmented options={tabs.map((t) => ({ value: t.value, label: t.label }))} value={tab} label="Breakdown by" onchange={(v) => (tab = v)} />
 		</div>
-		{#each current.rows as row (row.key)}
-			<button class="trow" onclick={() => pick(tab, row)} title="Filter by this">
-				<span class="name">{tab === 'profile' ? profileName(row.key) : row.key}</span>
-				<span class="val tabular">{formatBytes(row.up + row.down)}</span>
-				<span class="share"><i style:width="{share(row, current.rows)}%"></i></span>
-			</button>
+		{#if current.rows.length}
+			{@const max = maxOf(current.rows)}
+			<div class="tiles">
+				{#each current.rows as row, i (row.key)}
+					{@const info = describe(tab, row)}
+					<button class="tile" onclick={() => pick(tab, row)} title="Show only {info.title}">
+						<span class="avatar" style:--h={info.hue} aria-hidden="true">{info.glyph}</span>
+						<span class="who">
+							<span class="title">{info.title}{#if info.note}<span class="note">{info.note}</span>{/if}</span>
+							<span class="sub tabular"><span class="d">↓ {formatBytes(row.down)}</span><span class="u">↑ {formatBytes(row.up)}</span></span>
+						</span>
+						<span class="amount">
+							<strong class="tabular">{formatBytes(rowTotal(row))}</strong>
+							<small class="tabular">{percentOf(row, current.rows)}</small>
+						</span>
+						<span class="meter" role="img" aria-label="{percentOf(row, current.rows)} of the traffic shown">
+							<i class="d" style:width="{(row.down / max) * 100}%"></i><i class="u" style:width="{(row.up / max) * 100}%"></i>
+						</span>
+					</button>
+				{/each}
+			</div>
 		{:else}
 			<p class="empty small">{current.empty}</p>
-		{/each}
+		{/if}
 	</section>
 
 	{#if usage.settings}
@@ -472,40 +510,104 @@
 		margin: 10px 0;
 		font-size: 12px;
 	}
-	.trow {
+	.tiles {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 3px 10px;
-		border: 0;
-		background: none;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+		gap: 10px;
+	}
+	.tile {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 8px 12px;
+		padding: 12px 14px;
+		border: 1px solid var(--hairline);
+		border-radius: 12px;
+		background: var(--surface-strong);
 		text-align: left;
-		padding: 7px 8px;
-		margin: 0 -8px;
-		border-radius: 8px;
+		transition: border-color 0.15s, background 0.15s;
 	}
-	.trow:hover {
-		background: var(--hairline);
+	.tile:hover {
+		border-color: var(--accent);
 	}
-	.name {
+	.avatar {
+		display: grid;
+		place-items: center;
+		width: 36px;
+		height: 36px;
+		border-radius: 10px;
+		font-size: 16px;
+		font-weight: 700;
+		/* Mixing in the text colour keeps the letter readable in both themes. */
+		color: color-mix(in srgb, hsl(var(--h) 65% 48%) 62%, var(--fg));
+		background: hsl(var(--h) 70% 50% / 0.18);
+	}
+	.who {
+		display: grid;
+		gap: 2px;
+		min-width: 0;
+	}
+	.title {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		font-weight: 600;
 	}
-	.val {
+	.note {
+		flex: none;
+		padding: 1px 6px;
+		border-radius: 999px;
+		background: var(--hairline);
 		color: var(--fg-muted);
-		font-size: 12px;
+		font-size: 11px;
+		font-weight: 500;
 	}
-	.share {
+	.sub {
+		display: flex;
+		gap: 10px;
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
+	.sub .d::first-letter {
+		color: var(--down);
+	}
+	.sub .u::first-letter {
+		color: var(--up);
+	}
+	.amount {
+		display: grid;
+		justify-items: end;
+		gap: 1px;
+	}
+	.amount strong {
+		font-size: 14px;
+	}
+	.amount small {
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
+	.meter {
 		grid-column: 1 / -1;
-		height: 3px;
-		border-radius: 2px;
+		display: flex;
+		height: 10px;
+		border-radius: 5px;
 		background: var(--hairline);
 		overflow: hidden;
 	}
-	.share i {
+	.meter i {
 		display: block;
 		height: 100%;
-		background: var(--accent);
+		min-width: 0;
+	}
+	.meter .d {
+		background: var(--down);
+	}
+	.meter .u {
+		background: var(--up);
 	}
 	.settings {
 		padding: 0;
