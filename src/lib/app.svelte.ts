@@ -20,7 +20,7 @@ const MAX_LOG_LINES = 2000;
 const HISTORY_LENGTH = 60;
 
 export type Latency = { ms: number } | { failed: true } | { pending: true };
-export type NoticeKind = 'error' | 'info';
+type NoticeKind = 'error' | 'info';
 
 const NO_TRAFFIC: Traffic = { up: 0, down: 0, totalUp: 0, totalDown: 0 };
 

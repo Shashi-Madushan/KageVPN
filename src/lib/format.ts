@@ -23,7 +23,7 @@ export function formatBytes(bytes: number): string {
 
 export const formatRate = (bytesPerSecond: number) => `${formatBytes(bytesPerSecond)}/s`;
 
-export type LatencyTone = 'ok' | 'warn' | 'bad' | 'idle';
+type LatencyTone = 'ok' | 'warn' | 'bad' | 'idle';
 
 export function latencyTone(latency: Latency | undefined): LatencyTone {
 	if (!latency || 'pending' in latency) return 'idle';
@@ -83,7 +83,7 @@ const COUNTRY_MAP: Record<string, string> = {
 	switzerland: 'CH'
 };
 
-export function countryCodeToFlag(code: string): string {
+function countryCodeToFlag(code: string): string {
 	if (!code || code.length !== 2) return '🌐';
 	const base = 127397;
 	return String.fromCodePoint(...[...code.toUpperCase()].map((c) => base + c.charCodeAt(0)));

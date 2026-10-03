@@ -24,7 +24,7 @@ export function toDateInput(d: Date): string {
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export function fromDateInput(value: string): Date {
+function fromDateInput(value: string): Date {
 	const [y, m, d] = value.split('-').map(Number);
 	return new Date(y, (m || 1) - 1, d || 1);
 }

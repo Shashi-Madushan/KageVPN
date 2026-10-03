@@ -70,15 +70,5 @@ fn applescript_escape(value: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_applescript_escape() {
-        let text = "Error: \"file not found\"\nPath: C:\\test";
-        assert_eq!(
-            applescript_escape(text),
-            "Error: \\\"file not found\\\" Path: C:\\\\test"
-        );
-    }
-}
+#[path = "tests/notify.rs"]
+mod tests;

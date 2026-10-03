@@ -1,6 +1,6 @@
 # SingBox GUI
 
-Minimal macOS app (Tauri 2 + Svelte) that manages [sing-box](https://sing-box.sagernet.org): import a `vless://` link, connect in TUN or proxy mode, view logs, test latency. See [PRD.md](PRD.md) for v1 and [PRD-v2.md](PRD-v2.md) for the v2 plan.
+Minimal macOS app (Tauri 2 + Svelte) that manages [sing-box](https://sing-box.sagernet.org): import a `vless://` link, connect in TUN or proxy mode, view logs, test latency. See [PRD.md](docs/PRD.md) for v1 and [PRD-v2.md](docs/PRD-v2.md) for the v2 plan.
 
 ## Requirements
 - `brew install sing-box`
