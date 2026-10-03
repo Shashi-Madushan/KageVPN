@@ -1,7 +1,11 @@
 import { listen } from '@tauri-apps/api/event';
 import { app } from './app.svelte';
 import { coreApi, type Channel, type CoreFinished, type CoreProgress, type CoreStatus, type Release, type UpdatePolicy } from './api';
+import { downloads } from './downloads.svelte';
 import { compareVersions } from './version';
+
+const STAGES = { download: 'Downloading', verify: 'Verifying checksum', extract: 'Extracting', check: 'Checking config', done: 'Finishing' };
+const ENGINE = 'engine';
 
 class CoreStore {
 	status = $state<CoreStatus | null>(null);
@@ -37,15 +41,34 @@ class CoreStore {
 		await listen<CoreProgress>('core-progress', (e) => {
 			this.progress = e.payload;
 			if (this.installing === null && e.payload.stage !== 'done') this.installing = e.payload.version;
+			this.track(e.payload);
 		});
 		await listen<CoreFinished>('core-finished', async (e) => {
 			this.installing = null;
 			this.progress = null;
 			this.failure = e.payload.error;
+			downloads.finish(ENGINE, e.payload.error);
 			if (e.payload.version) this.announced = null;
 			await this.refresh();
 		});
 		await listen<string>('core-update', (e) => (this.announced = e.payload));
+	}
+
+	/** Mirrors engine progress into the global download list, including installs the backend started itself. */
+	private track(p: CoreProgress) {
+		if (!downloads.active.some((i) => i.id === ENGINE)) {
+			downloads.start({
+				id: ENGINE,
+				title: `sing-box ${p.version}`,
+				detail: STAGES[p.stage],
+				cancel: () => this.cancel(),
+				retry: () => this.installBackground(p.version)
+			});
+		}
+		const sized = p.stage === 'download' && p.total > 0;
+		const percent = sized ? Math.min(100, (p.received / p.total) * 100) : p.stage === 'download' ? null : 100;
+		const detail = sized ? `${STAGES.download} ${Math.round(percent ?? 0)}%` : STAGES[p.stage];
+		downloads.update(ENGINE, { title: `sing-box ${p.version}`, detail, percent });
 	}
 
 	async refresh() {
@@ -71,29 +94,24 @@ class CoreStore {
 		}
 	}
 
-	async install(version: string, allowUnverified = false) {
-		this.installing = version;
-		this.progress = null;
-		const ok = await this.run(async () => {
-			await coreApi.install(version, allowUnverified);
-			return true;
-		});
-		this.installing = null;
-		this.progress = null;
-		await this.refresh();
-		if (ok) app.notify(`sing-box ${version} installed and selected. It applies on the next connect.`, 'info');
-	}
-
 	/** Downloads in the backend, so it keeps going if the user leaves this page. */
-	async installBackground(version: string | null = null) {
+	async installBackground(version: string | null = null, allowUnverified = false) {
 		this.failure = null;
+		downloads.start({
+			id: ENGINE,
+			title: version ? `sing-box ${version}` : 'sing-box engine',
+			detail: 'Starting',
+			cancel: () => this.cancel(),
+			retry: () => this.installBackground(version, allowUnverified)
+		});
 		this.installing = version ?? 'latest';
 		this.progress = null;
 		this.promptInstall = false;
 		try {
-			await coreApi.installBackground(version);
+			await coreApi.installBackground(version, allowUnverified);
 		} catch (e) {
 			this.installing = null;
+			downloads.finish(ENGINE, String(e));
 			app.notify(String(e));
 		}
 	}
@@ -128,7 +146,9 @@ class CoreStore {
 
 	async brewUpgrade() {
 		this.installing = 'brew';
+		downloads.start({ id: 'brew', title: 'sing-box via Homebrew', detail: 'Upgrading' });
 		const output = await this.run(coreApi.brewUpgrade);
+		downloads.finish('brew', output === undefined ? 'Upgrade failed' : null);
 		this.installing = null;
 		await this.refresh();
 		if (output !== undefined) app.notify(output || 'Homebrew finished.', 'info');

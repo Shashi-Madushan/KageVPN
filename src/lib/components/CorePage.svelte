@@ -41,7 +41,7 @@
 			return;
 		}
 		confirming = null;
-		core.install(release.version, !release.sha256);
+		core.installBackground(release.version, !release.sha256);
 	}
 
 	const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '');

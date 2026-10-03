@@ -87,17 +87,10 @@ struct Finished {
     error: Option<String>,
 }
 
-#[tauri::command]
-pub async fn core_install(app: AppHandle, version: String, allow_unverified: bool) -> Result<()> {
-    let _busy = Busy::acquire(&app)?;
-    let release = find_release(&version).await?;
-    install_release(&app, &release, allow_unverified, Activation::Now).await
-}
-
-/// Starts a verified install on a background task and returns at once. Progress arrives as
+/// Starts an install on a background task and returns at once. Progress arrives as
 /// `core-progress` events and the outcome as `core-finished`, so the UI can be left meanwhile.
 #[tauri::command]
-pub fn core_install_background(app: AppHandle, version: Option<String>) -> Result<()> {
+pub fn core_install_background(app: AppHandle, version: Option<String>, allow_unverified: Option<bool>) -> Result<()> {
     let busy = Busy::acquire(&app)?;
     tauri::async_runtime::spawn(async move {
         let outcome = async {
@@ -105,7 +98,7 @@ pub fn core_install_background(app: AppHandle, version: Option<String>) -> Resul
                 Some(version) => find_release(version).await?,
                 None => latest_stable().await?,
             };
-            install_release(&app, &release, false, Activation::Now).await.map(|_| release.version)
+            install_release(&app, &release, allow_unverified.unwrap_or(false), Activation::Now).await.map(|_| release.version)
         }
         .await;
         drop(busy);

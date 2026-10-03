@@ -10,6 +10,7 @@
 	import CorePage from '$lib/components/CorePage.svelte';
 	import DiagnosticsPage from '$lib/components/DiagnosticsPage.svelte';
 	import HomePage from '$lib/components/HomePage.svelte';
+	import DownloadsMenu from '$lib/components/DownloadsMenu.svelte';
 	import EngineInstallDialog from '$lib/components/EngineInstallDialog.svelte';
 	import OnboardingDialog from '$lib/components/OnboardingDialog.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
@@ -97,7 +98,10 @@
 
 	<section class="content">
 		<header data-tauri-drag-region><div class="titles"><h1>{titles[page]}</h1><p>{subtitles[page]}</p></div>
-			{#if header.actions}<div class="actions">{@render header.actions()}</div>{/if}
+			<div class="actions">
+				{#if header.actions}{@render header.actions()}{/if}
+				<DownloadsMenu />
+			</div>
 		</header>
 		{#if clipboardWatch.offer}
 			<div class="offer card">

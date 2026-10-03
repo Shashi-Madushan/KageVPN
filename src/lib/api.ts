@@ -392,11 +392,10 @@ export interface CoreFinished {
 export const coreApi = {
 	status: () => invoke<CoreStatus>('core_status'),
 	check: () => invoke<Release[]>('core_check'),
-	install: (version: string, allowUnverified = false) =>
-		invoke<void>('core_install', { version, allowUnverified }),
 	use: (version: string | null) => invoke<void>('core_use', { version }),
 	remove: (version: string) => invoke<void>('core_remove', { version }),
-	installBackground: (version: string | null) => invoke<void>('core_install_background', { version }),
+	installBackground: (version: string | null, allowUnverified = false) =>
+		invoke<void>('core_install_background', { version, allowUnverified }),
 	cancel: () => invoke<void>('core_cancel'),
 	setChannel: (channel: Channel) => invoke<void>('set_core_channel', { channel }),
 	setPolicy: (policy: UpdatePolicy) => invoke<void>('set_core_update_policy', { policy }),

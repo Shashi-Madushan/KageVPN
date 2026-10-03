@@ -27,7 +27,7 @@
 	let trigger = $state<HTMLButtonElement>();
 	let menu = $state<HTMLDivElement>();
 	let focused = $state(0);
-	let pos = $state({ left: 0, width: 0, top: 0, bottom: 0, up: false });
+	let pos = $state({ left: 0, right: 0, width: 0, top: 0, bottom: 0, up: false, end: false });
 
 	const selected = $derived(options.find((o) => o.value === value));
 
@@ -38,6 +38,9 @@
 		const up = room < Math.min(MENU_MAX, options.length * 30 + 10) && r.top > room;
 		pos = {
 			left: r.left,
+			right: window.innerWidth - r.right,
+			// A trigger in the right half grows its menu leftwards so long labels stay on screen.
+			end: r.left + r.width / 2 > window.innerWidth / 2,
 			width: r.width,
 			top: r.bottom + 4,
 			bottom: window.innerHeight - r.top + 4,
@@ -114,9 +117,10 @@
 		bind:this={menu}
 		role="listbox"
 		aria-label={label}
-		style:left="{pos.left}px"
+		style:left={pos.end ? 'auto' : `${pos.left}px`}
+		style:right={pos.end ? `${pos.right}px` : 'auto'}
 		style:min-width="{pos.width}px"
-		style:max-width="{Math.max(pos.width, 240)}px"
+		style:max-width="min({Math.max(pos.width, 260)}px, calc(100vw - 16px))"
 		style:top={pos.up ? 'auto' : `${pos.top}px`}
 		style:bottom={pos.up ? `${pos.bottom}px` : 'auto'}
 		style:max-height="{MENU_MAX}px"

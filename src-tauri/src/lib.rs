@@ -127,7 +127,6 @@ pub fn run() {
             commands::quit_app,
             core::commands::core_status,
             core::commands::core_check,
-            core::commands::core_install,
             core::commands::core_use,
             core::commands::core_remove,
             core::commands::set_core_channel,
