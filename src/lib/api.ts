@@ -370,6 +370,7 @@ export interface CoreRef {
 
 export interface AppInfo {
 	name: string;
+	brand: string;
 	version: string;
 	updatesConfigured: boolean;
 	feedbackConfigured: boolean;

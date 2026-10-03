@@ -4,6 +4,7 @@
 	import { core } from '$lib/core.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import Dialog from './Dialog.svelte';
+	import PoweredBy from './PoweredBy.svelte';
 	import PowerButton from './PowerButton.svelte';
 	import Segmented from './Segmented.svelte';
 	import Select from './Select.svelte';
@@ -137,6 +138,7 @@
 				<p>{slides[step].text}</p>
 				{#if step === 4 && hotkey}<p class="tip">Tip: press <kbd>{hotkey}</kbd> from anywhere to connect or disconnect.</p>{/if}
 				{#if step === 1}<p class="tip">You can also drop a text file, or use <em>Enter details manually</em> if you have the values.</p>{/if}
+				{#if step === 0}<div class="brand"><PoweredBy align="start" /></div>{/if}
 				{#if step === last}<p class="tip">You can replay this tour any time from Settings.</p>{/if}
 				{#if step === last && core.missing}
 					<button class="btn" onclick={installEngine}>Download the engine</button>
@@ -476,5 +478,8 @@
 		.d-connect {
 			grid-template-columns: 1fr;
 		}
+	}
+	.brand {
+		margin-top: 14px;
 	}
 </style>

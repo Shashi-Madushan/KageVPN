@@ -53,6 +53,7 @@ pub struct NodeLatency {
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
     name: &'static str,
+    brand: &'static str,
     version: &'static str,
     updates_configured: bool,
     feedback_configured: bool,
@@ -63,6 +64,7 @@ pub struct AppInfo {
 pub fn app_info() -> AppInfo {
     AppInfo {
         name: app_config::APP_NAME,
+        brand: app_config::BRAND_NAME,
         version: app_config::APP_VERSION,
         updates_configured: app_config::APP_UPDATE_FEED.is_some() && app_config::APP_UPDATE_PUBKEY.is_some(),
         feedback_configured: app_config::FEEDBACK_ENDPOINT.is_some(),
