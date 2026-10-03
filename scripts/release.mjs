@@ -68,7 +68,7 @@ const version = assertVersion(opt.version ?? current);
 const productName = JSON.parse(readFileSync(confPath, 'utf8')).productName;
 const platform = platformKey();
 
-const keyPath = process.env.OSPREY_UPDATER_KEY_PATH ?? join(homedir(), '.tauri', 'apzur-vpn-updater.key');
+const keyPath = process.env.APZUR_UPDATER_KEY_PATH ?? join(homedir(), '.tauri', 'apzur-vpn-updater.key');
 if (!existsSync(keyPath)) fail(`signing key not found at ${keyPath} (see docs/RELEASING.md)`);
 
 function signingPassword() {
