@@ -87,6 +87,8 @@
 <svelte:window {onkeydown} />
 
 <div class="app">
+	<!-- The window has no native title bar, so this strip is what drags it and zooms it on double-click. -->
+	<div class="titlebar" data-tauri-drag-region></div>
 	<aside data-tauri-drag-region>
 		<Sidebar {page} {badges} onselect={(p) => (page = p)} />
 		<div class="aside-foot"><ThemeToggle /></div>
@@ -132,11 +134,22 @@
 
 <style>
 	.app {
+		position: relative;
 		height: 100vh;
 		overflow: hidden;
 		display: grid;
 		grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
 		grid-template-rows: minmax(0, 1fr);
+	}
+	.titlebar {
+		position: absolute;
+		inset: 0 0 auto 0;
+		height: 44px;
+		z-index: 1;
+	}
+	/* Let presses on the title text fall through to the drag strip beneath it. */
+	.titles {
+		pointer-events: none;
 	}
 	aside {
 		display: flex;
@@ -161,7 +174,8 @@
 	}
 	@media (max-width: 759px) {
 		.app {
-			grid-template-columns: 56px minmax(0, 1fr);
+			/* Wide enough to hold the macOS window buttons, which end about 66px from the edge. */
+			grid-template-columns: var(--rail-w) minmax(0, 1fr);
 		}
 	}
 	header {
@@ -182,6 +196,8 @@
 		flex-wrap: wrap;
 		gap: 8px;
 		-webkit-app-region: no-drag;
+		position: relative;
+		z-index: 2;
 	}
 	h1 {
 		margin: 0;
