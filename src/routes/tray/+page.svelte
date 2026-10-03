@@ -111,7 +111,7 @@
 	{/if}
 
 	<footer>
-		<button class="foot-btn" onclick={() => api.openMainWindow()}>Open SingBox GUI</button>
+		<button class="foot-btn" onclick={() => api.openMainWindow()}>Open {app.info.name}</button>
 		<button class="foot-btn quit" onclick={() => app.quit()}>Quit</button>
 	</footer>
 </div>

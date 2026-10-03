@@ -99,7 +99,7 @@
 	async function copyReport() {
 		const errors = app.logs.filter((l) => l.level === 'error').slice(-8).map((l) => l.text);
 		const lines = [
-			'SingBox GUI diagnostics',
+			`${app.info.name} diagnostics`,
 			`State: ${app.status.state} (${app.status.mode})`,
 			`Profile: ${app.activeProfile ? `${app.activeProfile.security}/${app.activeProfile.transport.kind}` : 'none'}`,
 			`Core: ${core.status?.active ? `${core.status.active.version} (${core.status.active.source})` : 'none'}`,

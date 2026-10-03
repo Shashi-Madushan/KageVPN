@@ -1,12 +1,12 @@
 [package]
-name = "singbox-gui"
+name = "osprey-vpn"
 version = "0.1.0"
 description = "Minimal sing-box VPN manager"
 authors = ["shashi"]
 edition = "2021"
 
 [lib]
-name = "singbox_gui_lib"
+name = "osprey_vpn_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

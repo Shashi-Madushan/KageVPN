@@ -1,6 +1,25 @@
 use std::fs::{self, File};
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// Moves the data folder an earlier bundle identifier used to `new_dir`, once, so renaming the
+/// app keeps saved servers, settings, usage history and downloaded cores. Does nothing if
+/// `new_dir` already has content or no legacy folder exists. Returns whether anything moved.
+pub fn adopt_legacy_dir(new_dir: &Path, legacy_dirs: &[PathBuf]) -> io::Result<bool> {
+    let in_use = fs::read_dir(new_dir).map(|mut entries| entries.next().is_some()).unwrap_or(false);
+    if in_use {
+        return Ok(false);
+    }
+    let Some(legacy) = legacy_dirs.iter().find(|dir| dir.is_dir() && dir.as_path() != new_dir) else {
+        return Ok(false);
+    };
+    if let Some(parent) = new_dir.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let _ = fs::remove_dir(new_dir); // an empty folder would block the move
+    fs::rename(legacy, new_dir)?;
+    Ok(true)
+}
 
 #[derive(Clone)]
 pub struct AppPaths {
@@ -60,3 +79,7 @@ impl AppPaths {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/paths.rs"]
+mod tests;

@@ -1,4 +1,4 @@
-# PRD: SingBox GUI — a minimal sing-box VPN manager for macOS
+# PRD: Osprey VPN — a minimal sing-box VPN manager for macOS
 
 | | |
 |---|---|

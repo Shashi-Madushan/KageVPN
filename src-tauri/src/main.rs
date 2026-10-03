@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    singbox_gui_lib::run()
+    osprey_vpn_lib::run()
 }

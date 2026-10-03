@@ -33,7 +33,7 @@ pub fn usage_export(app: AppHandle, state: State<AppState>, args: ReportArgs) ->
     let csv = with_db(&state, |db| query::export_csv(db, &args))?;
     let directory = app.path().download_dir().map_err(|e| AppError::Launch(e.to_string()))?;
     let name = format!(
-        "singbox-usage-{}-{}.csv",
+        "osprey-usage-{}-{}.csv",
         query::local_time(args.from).format("%Y%m%d"),
         query::local_time(args.to - 1).format("%Y%m%d")
     );

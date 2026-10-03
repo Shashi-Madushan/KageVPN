@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "SingBox GUI",
+  "productName": "Osprey VPN",
   "version": "0.1.0",
-  "identifier": "com.shashi.singboxgui",
+  "identifier": "com.shashi.ospreyvpn",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "SingBox GUI",
+        "title": "Osprey VPN",
         "width": 960,
         "height": 620,
         "minWidth": 520,
@@ -79,7 +79,7 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "singboxgui"
+          "ospreyvpn"
         ]
       }
     }

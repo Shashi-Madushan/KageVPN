@@ -64,7 +64,12 @@ pub fn run() {
         .plugin(updater_plugin())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![HIDDEN_FLAG])))
         .setup(|app| {
-            let paths = AppPaths::new(app.path().app_data_dir()?)?;
+            let data_dir = app.path().app_data_dir()?;
+            if let Some(parent) = data_dir.parent() {
+                let legacy: Vec<_> = app_config::LEGACY_IDENTIFIERS.iter().map(|id| parent.join(id)).collect();
+                let _ = paths::adopt_legacy_dir(&data_dir, &legacy);
+            }
+            let paths = AppPaths::new(data_dir)?;
             app.manage(AppState::new(paths));
             core::migrate_layout(&app.state::<AppState>().paths, &app_config::SING_BOX);
             notify::setup(app.handle());
@@ -194,7 +199,7 @@ fn register_deep_links(app: &tauri::AppHandle) {
     });
 }
 
-/// `singboxgui://connect|disconnect|toggle` act directly; `import?url=` only asks
+/// `ospreyvpn://connect|disconnect|toggle` act directly; `import?url=` only asks
 /// the UI to confirm, so a link can never add a profile silently.
 fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
     let Ok(url) = url::Url::parse(raw) else { return };

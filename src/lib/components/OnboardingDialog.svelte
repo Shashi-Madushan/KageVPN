@@ -12,17 +12,17 @@
 
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
 
-	const slides = [
-		{ title: 'Welcome to SingBox GUI', text: 'A simple way to run a private, encrypted connection on your Mac. This quick tour takes about a minute.' },
+	const slides = $derived([
+		{ title: `Welcome to ${app.info.name}`, text: 'A simple way to run a private, encrypted connection on your Mac. This quick tour takes about a minute.' },
 		{ title: 'Add a server', text: 'Your VPN provider gives you a vless:// link or a subscription URL. Paste it once and the app saves and keeps it for you.' },
 		{ title: 'Choose how to connect', text: 'Full system sends every app through the VPN. Proxy only protects just the apps you point at the local proxy.' },
 		{ title: 'Connect in one click', text: 'Pick a server and press the power button. Turn on auto mode and the app picks the fastest server for you.' },
 		{ title: 'Always within reach', text: 'Connect, switch servers and watch your speed from the menu bar, without opening the window.' },
 		{ title: "You're all set", text: 'Here is where your setup stands.' }
-	];
+	]);
 
 	let step = $state(0);
-	const last = slides.length - 1;
+	const last = $derived(slides.length - 1);
 	const hasServer = $derived(app.profiles.length > 0);
 	const hotkey = $derived(
 		app.reliability.hotkey && app.hotkey ? app.hotkey.replace('CommandOrControl', '⌘').replace('Alt', '⌥').replace(/\+/g, ' ') : ''

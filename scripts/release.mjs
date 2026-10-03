@@ -28,8 +28,8 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const file = (...p) => join(root, ...p);
-const KEYCHAIN_SERVICE = 'singbox-gui-updater-key';
-const slug = 'singbox-gui';
+const KEYCHAIN_SERVICE = 'osprey-vpn-updater-key';
+const slug = 'osprey-vpn';
 
 const { values: opt } = parseArgs({
 	options: {
@@ -68,7 +68,7 @@ const version = assertVersion(opt.version ?? current);
 const productName = JSON.parse(readFileSync(confPath, 'utf8')).productName;
 const platform = platformKey();
 
-const keyPath = process.env.SINGBOX_UPDATER_KEY_PATH ?? join(homedir(), '.tauri', 'singbox-gui-updater.key');
+const keyPath = process.env.OSPREY_UPDATER_KEY_PATH ?? join(homedir(), '.tauri', 'osprey-vpn-updater.key');
 if (!existsSync(keyPath)) fail(`signing key not found at ${keyPath} (see docs/RELEASING.md)`);
 
 function signingPassword() {

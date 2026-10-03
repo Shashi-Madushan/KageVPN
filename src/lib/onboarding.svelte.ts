@@ -1,4 +1,4 @@
-const KEY = 'singbox-gui.onboarding-seen';
+const KEY = 'osprey-vpn.onboarding-seen';
 
 function read(): boolean {
 	try {
