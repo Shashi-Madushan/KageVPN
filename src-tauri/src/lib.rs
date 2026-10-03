@@ -95,6 +95,7 @@ pub fn run() {
             commands::remove_subscription,
             commands::run_diagnostics,
             commands::run_speed_test,
+            commands::cancel_speed_test,
             commands::connections_list,
             commands::close_connection,
             commands::close_all_connections,

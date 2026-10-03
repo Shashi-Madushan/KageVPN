@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export type Mode = 'tun' | 'proxy';
 export type ConnState = 'disconnected' | 'connecting' | 'connected';
@@ -252,6 +253,19 @@ export interface Diagnostics {
 export interface SpeedResult {
 	downMbps: number;
 	upMbps: number;
+	pingMs: number;
+	jitterMs: number;
+}
+
+export type SpeedPhase = 'ping' | 'download' | 'upload' | 'done';
+
+/** A live reading streamed while the speed test runs. */
+export interface SpeedProgress {
+	phase: SpeedPhase;
+	mbps: number;
+	progress: number;
+	pingMs: number | null;
+	jitterMs: number | null;
 }
 
 export interface Snapshot {
@@ -291,6 +305,9 @@ export const api = {
 	removeSubscription: (id: string) => invoke<void>('remove_subscription', { id }),
 	runDiagnostics: () => invoke<Diagnostics>('run_diagnostics'),
 	runSpeedTest: () => invoke<SpeedResult>('run_speed_test'),
+	cancelSpeedTest: () => invoke<void>('cancel_speed_test'),
+	onSpeedProgress: (handler: (progress: SpeedProgress) => void): Promise<UnlistenFn> =>
+		listen<SpeedProgress>('speed-progress', (event) => handler(event.payload)),
 	connections: () => invoke<LiveConnection[]>('connections_list'),
 	closeConnection: (id: string) => invoke<void>('close_connection', { id }),
 	closeAllConnections: () => invoke<void>('close_all_connections'),

@@ -1,12 +1,24 @@
 <script lang="ts">
-	import { api, type Diagnostics, type IpInfo, type SpeedResult } from '$lib/api';
+	import { onDestroy } from 'svelte';
+	import { api, type Diagnostics, type IpInfo, type SpeedProgress, type SpeedResult } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
 	import HeaderActions from './HeaderActions.svelte';
 	import Icon from './Icon.svelte';
+	import SpeedGauge from './SpeedGauge.svelte';
 
 	let result = $state<Diagnostics | null>(null);
 	let speed = $state<SpeedResult | null>(null);
+	let live = $state<SpeedProgress | null>(null);
+	let samples = $state<number[]>([]);
+	let partial = $state<{ ping: number | null; jitter: number | null; down: number | null; up: number | null }>({
+		ping: null,
+		jitter: null,
+		down: null,
+		up: null
+	});
+	let speedError = $state<string | null>(null);
+	let unlisten: (() => void) | null = null;
 	let checking = $state(false);
 	let testing = $state(false);
 	let checkedAt = $state<Date | null>(null);
@@ -18,12 +30,55 @@
 		checkedAt = new Date();
 	}
 
+	const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+
+	function onProgress(event: SpeedProgress) {
+		if (live && live.phase !== event.phase) {
+			// A phase just finished: show its average right away, the exact figure arrives at the end.
+			if (live.phase === 'download') partial.down = mean(samples.slice(Math.floor(samples.length * 0.2)));
+			samples = [];
+		}
+		if (event.phase === 'download' || event.phase === 'upload') samples = [...samples, event.mbps];
+		if (event.pingMs !== null) {
+			partial.ping = event.pingMs;
+			partial.jitter = event.jitterMs;
+		}
+		live = event;
+	}
+
 	async function runSpeed() {
 		testing = true;
 		speed = null;
-		speed = await api.runSpeedTest().catch((e) => (app.notify(String(e)), null));
-		testing = false;
+		speedError = null;
+		live = null;
+		samples = [];
+		partial = { ping: null, jitter: null, down: null, up: null };
+		unlisten = await api.onSpeedProgress(onProgress);
+		try {
+			speed = await api.runSpeedTest();
+			partial = { ping: speed.pingMs, jitter: speed.jitterMs, down: speed.downMbps, up: speed.upMbps };
+		} catch (e) {
+			const message = String(e);
+			if (!message.includes('cancelled')) speedError = message;
+		} finally {
+			unlisten?.();
+			unlisten = null;
+			live = null;
+			samples = [];
+			testing = false;
+		}
 	}
+
+	function cancelSpeed() {
+		api.cancelSpeedTest();
+	}
+
+	onDestroy(() => {
+		if (testing) api.cancelSpeedTest();
+		unlisten?.();
+	});
+
+	const gaugePhase = $derived(live ? live.phase : speed ? 'done' : 'idle');
 
 	const place = (info: IpInfo | null) => (info ? [info.city, info.country].filter(Boolean).join(', ') : '');
 
@@ -50,7 +105,7 @@
 			`Tunnel IP: ${result?.tunnel?.ip ?? 'n/a'} ${place(result?.tunnel ?? null)}`,
 			`System IP: ${result?.system?.ip ?? 'n/a'} ${place(result?.system ?? null)}`,
 			`DNS resolver: ${result?.dns ? `${result.dns.ip} (${result.dns.geo})` : 'n/a'}`,
-			speed ? `Speed: ${speed.downMbps.toFixed(1)} Mbps down, ${speed.upMbps.toFixed(1)} Mbps up` : '',
+			speed ? `Speed: ${speed.downMbps.toFixed(1)} Mbps down, ${speed.upMbps.toFixed(1)} Mbps up, ping ${speed.pingMs.toFixed(0)} ms (jitter ${speed.jitterMs.toFixed(0)} ms)` : '',
 			'Recent errors (review before sharing):',
 			...errors
 		].filter(Boolean);
@@ -92,18 +147,35 @@
 
 	<section class="card speed">
 		<div class="speed-head">
-			<div><strong>Speed test</strong><small>Measured through the tunnel with Cloudflare. Uses about 30 MB.</small></div>
-			<button class="btn primary" disabled={testing || !app.connected} onclick={runSpeed}>{testing ? 'Testing…' : speed ? 'Test again' : 'Start test'}</button>
+			<div><strong>Speed test</strong><small>Measured through the tunnel with Cloudflare. About 8 seconds each way; uses roughly 30–100 MB.</small></div>
+			{#if testing}
+				<button class="btn" onclick={cancelSpeed}>Cancel</button>
+			{:else}
+				<button class="btn primary" disabled={!app.connected} onclick={runSpeed}>{speed ? 'Test again' : 'Start test'}</button>
+			{/if}
 		</div>
-		{#if !app.connected}
-			<div class="hint"><small>Connect to the VPN to measure its speed.</small><button class="btn" disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()}>Connect</button></div>
-		{:else if testing}
-			<div class="progress" aria-label="Speed test running"><div class="bar"></div></div>
-		{:else if speed}
-			<div class="results">
-				<div><span class="caption">Download</span><strong class="big down tabular">{speed.downMbps.toFixed(1)}<small> Mbps</small></strong></div>
-				<div><span class="caption">Upload</span><strong class="big up tabular">{speed.upMbps.toFixed(1)}<small> Mbps</small></strong></div>
+
+		<SpeedGauge phase={gaugePhase} mbps={live?.mbps ?? 0} {samples} pingMs={live?.pingMs ?? partial.ping} final={speed?.downMbps ?? null} />
+
+		<div class="results" aria-live="polite">
+			<div class="res" class:now={live?.phase === 'ping'}>
+				<span class="caption">Ping</span>
+				<strong class="tabular" class:empty={partial.ping === null}>{partial.ping === null ? '—' : partial.ping.toFixed(0)}<small> ms</small></strong>
+				<span class="sub tabular">{partial.jitter === null ? 'Jitter —' : `Jitter ${partial.jitter.toFixed(0)} ms`}</span>
 			</div>
+			<div class="res down" class:now={live?.phase === 'download'}>
+				<span class="caption">Download</span>
+				<strong class="tabular" class:empty={partial.down === null}>{partial.down === null ? '—' : partial.down.toFixed(1)}<small> Mbps</small></strong>
+			</div>
+			<div class="res up" class:now={live?.phase === 'upload'}>
+				<span class="caption">Upload</span>
+				<strong class="tabular" class:empty={partial.up === null}>{partial.up === null ? '—' : partial.up.toFixed(1)}<small> Mbps</small></strong>
+			</div>
+		</div>
+
+		{#if speedError}<p class="speed-error" role="alert">{speedError}</p>{/if}
+		{#if !app.connected && !testing}
+			<div class="hint"><small>Connect to the VPN to measure its speed.</small><button class="btn" disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()}>Connect</button></div>
 		{/if}
 	</section>
 </div>
@@ -192,19 +264,21 @@
 		user-select: text;
 	}
 	.speed {
-		padding: 14px 16px;
+		padding: 14px 16px 16px;
 		display: grid;
 		gap: 12px;
 	}
 	.speed-head {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		justify-content: space-between;
 		flex-wrap: wrap;
 		gap: 10px 16px;
 	}
 	.speed-head div {
 		display: grid;
+		flex: 1;
+		min-width: 240px;
 	}
 	.hint {
 		display: flex;
@@ -217,48 +291,55 @@
 	}
 	.results {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 10px;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 8px;
 	}
-	.results > div {
+	.res {
 		display: grid;
 		gap: 2px;
-		padding: 12px 14px;
+		padding: 10px 12px;
 		border-radius: var(--radius-sm);
+		border: 1px solid transparent;
 		background: var(--hairline);
+		transition: border-color 0.2s;
 	}
-	.big {
-		font-size: 28px;
+	.res.now {
+		border-color: var(--accent);
+	}
+	.res.down.now {
+		border-color: var(--down);
+	}
+	.res.up.now {
+		border-color: var(--up);
+	}
+	.res strong {
+		font-size: 20px;
 		font-weight: 650;
-		letter-spacing: -0.01em;
 	}
-	.big small {
-		margin-left: 4px;
-		font-size: 13px;
-		font-weight: 400;
-	}
-	.down {
+	.res.down strong:not(.empty) {
 		color: var(--down);
 	}
-	.up {
+	.res.up strong:not(.empty) {
 		color: var(--up);
 	}
-	.progress {
-		height: 5px;
-		border-radius: 3px;
-		background: var(--hairline);
-		overflow: hidden;
+	.res strong.empty {
+		color: var(--fg-muted);
 	}
-	.bar {
-		height: 100%;
-		width: 100%;
-		background: var(--accent);
-		transform-origin: left;
-		animation: slide 1.1s ease-in-out infinite;
+	.res strong small {
+		font-size: 11px;
+		font-weight: 400;
+		color: var(--fg-muted);
 	}
-	@keyframes slide {
-		50% {
-			transform: scaleX(0.35);
-		}
+	.res .sub {
+		font-size: 11px;
+		color: var(--fg-muted);
+	}
+	.speed-error {
+		margin: 0;
+		padding: 8px 10px;
+		border-radius: 8px;
+		font-size: 12px;
+		color: var(--danger);
+		background: color-mix(in srgb, var(--danger) 10%, transparent);
 	}
 </style>

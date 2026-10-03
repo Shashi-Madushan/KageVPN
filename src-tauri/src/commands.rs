@@ -329,8 +329,13 @@ pub async fn run_diagnostics(state: State<'_, AppState>) -> Result<Diagnostics> 
 }
 
 #[tauri::command]
-pub async fn run_speed_test() -> Result<SpeedResult> {
-    diagnostics::speed_test().await
+pub async fn run_speed_test(app: AppHandle) -> Result<SpeedResult> {
+    diagnostics::speed_test(&app).await
+}
+
+#[tauri::command]
+pub fn cancel_speed_test() {
+    diagnostics::cancel_speed_test();
 }
 
 #[tauri::command]

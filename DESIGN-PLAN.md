@@ -136,6 +136,12 @@ Audit: server name and flag shown twice, picker boxed inside a card, dead blank 
 - ✅ Last step adapts: "Install the engine first" when missing, primary becomes "Add a server" and opens that dialog on Servers
 - ✅ Arrow-key navigation, step dots, Skip; fixed dialog height between steps; opaque `--dialog-bg` for all dialogs
 
+### Phase 3h — Speed test gauge
+- ✅ Backend streams live readings (`speed-progress`, ~6/s): ping + jitter first, then time-boxed download (4 parallel streams) and upload (3 streams), 8 s each, with a cancel command
+- ✅ Ookla-style dial: 270° non-linear scale (0–1000 Mbps), animated needle and arc, big live number, phase label, live graph per phase
+- ✅ Ping / Download / Upload result tiles fill in as each phase finishes; the finished dial shows the download result
+- ✅ Cancel, inline error, light and dark themes, 520px layout
+
 ### Phase 5 — Validation (needs real users)
 - 🟡 Test script prepared below; sessions not run
   1. "Connect to the VPN" (target < 5 s, 0 misclicks)
