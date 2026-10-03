@@ -54,7 +54,7 @@ Conclusions applied: (1) status headline ("You're protected") is the hero, power
 ## 5. Responsive strategy (Phase 1 — implemented)
 | Window width | Layout |
 |--------------|--------|
-| ≥ 1100 | Sidebar 200px, content centred, max 960px |
+| ≥ 1100 | Sidebar 200px, content centred, max 1200px |
 | 760–1099 | Sidebar 188px, content fluid |
 | 560–759 | **Icon rail** sidebar (56px), labels become tooltips, badges become dots |
 | < 560 | Rail + single-column everywhere; tables become stacked rows |
