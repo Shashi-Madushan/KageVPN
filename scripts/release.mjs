@@ -41,6 +41,7 @@ const { values: opt } = parseArgs({
 		publish: { type: 'boolean', default: false },
 		draft: { type: 'boolean', default: false },
 		'skip-build': { type: 'boolean', default: false },
+		dmg: { type: 'boolean', default: false },
 		'allow-dirty': { type: 'boolean', default: false },
 		'dry-run': { type: 'boolean', default: false }
 	}
@@ -112,10 +113,15 @@ if (version !== current || readCargoVersion(readFileSync(cargoPath, 'utf8')) !==
 
 const bundleDir = file('src-tauri', 'target', 'release', 'bundle');
 const tarball = join(bundleDir, 'macos', `${productName}.app.tar.gz`);
+const signingEnv = { ...process.env, TAURI_SIGNING_PRIVATE_KEY: keyPath, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: signingPassword() };
 if (!opt['skip-build']) {
-	run('npm', ['run', 'tauri', '--', 'build'], {
-		env: { ...process.env, TAURI_SIGNING_PRIVATE_KEY: keyPath, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: signingPassword() }
-	});
+	// The app bundle is all the updater needs. The .dmg (first installs only) is a separate,
+	// optional step because macOS can refuse the disk-image styling when run without a desktop session.
+	run('npm', ['run', 'tauri', '--', 'build', '--bundles', 'app'], { env: signingEnv });
+	if (opt.dmg) {
+		const made = spawnSync('npm', ['run', 'tauri', '--', 'build', '--bundles', 'dmg'], { cwd: root, stdio: 'inherit', env: signingEnv });
+		if (made.status !== 0) console.warn('\nrelease: the .dmg could not be built, continuing without it');
+	}
 }
 if (!existsSync(tarball) || !existsSync(`${tarball}.sig`)) fail(`the build did not produce a signed update at ${tarball}`);
 
