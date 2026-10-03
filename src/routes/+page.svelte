@@ -215,7 +215,9 @@
 	header {
 		padding: 14px var(--page-pad) 6px;
 		width: 100%;
-		max-width: var(--content-max);
+		/* The padding sits inside this box, so add it to the limit: the title and buttons then line
+		   up with the cards below, which are --content-max wide inside main's own padding. */
+		max-width: calc(var(--content-max) + 2 * var(--page-pad));
 		margin-inline: auto;
 		flex: none;
 		display: flex;
@@ -244,7 +246,9 @@
 		color: var(--fg-muted);
 	}
 	.offer {
-		margin: 0 var(--page-pad) 6px;
+		width: calc(100% - 2 * var(--page-pad));
+		max-width: var(--content-max);
+		margin: 0 auto 6px;
 		padding: 8px 12px;
 		display: flex;
 		align-items: center;
