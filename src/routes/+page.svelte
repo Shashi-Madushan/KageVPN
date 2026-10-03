@@ -11,6 +11,7 @@
 	import DiagnosticsPage from '$lib/components/DiagnosticsPage.svelte';
 	import HomePage from '$lib/components/HomePage.svelte';
 	import OnboardingDialog from '$lib/components/OnboardingDialog.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import LogView from '$lib/components/LogView.svelte';
 	import ProfilesPage from '$lib/components/ProfilesPage.svelte';
 	import RoutingPage from '$lib/components/RoutingPage.svelte';
@@ -88,6 +89,7 @@
 <div class="app">
 	<aside data-tauri-drag-region>
 		<Sidebar {page} {badges} onselect={(p) => (page = p)} />
+		<div class="aside-foot"><ThemeToggle /></div>
 	</aside>
 
 	<section class="content">
@@ -137,8 +139,16 @@
 		grid-template-rows: minmax(0, 1fr);
 	}
 	aside {
+		display: flex;
+		flex-direction: column;
 		padding-top: 52px;
 		overflow: hidden;
+	}
+	.aside-foot {
+		margin-top: auto;
+		display: flex;
+		justify-content: center;
+		padding: 10px 10px 12px;
 	}
 	.content {
 		display: flex;

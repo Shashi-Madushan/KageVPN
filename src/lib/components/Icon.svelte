@@ -1,5 +1,5 @@
 <script lang="ts">
-	export type IconName = 'home' | 'profiles' | 'usage' | 'routing' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings' | 'shield' | 'bolt' | 'refresh';
+	export type IconName = 'home' | 'profiles' | 'usage' | 'routing' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings' | 'shield' | 'bolt' | 'refresh' | 'sun' | 'moon' | 'monitor';
 
 	let { name, size = 16 }: { name: IconName; size?: number } = $props();
 
@@ -15,6 +15,9 @@
 		shield: 'M12 3l7 2.6v5.6c0 4.4-3 7.6-7 9.8-4-2.2-7-5.4-7-9.8V5.6L12 3Zm-3 9 2.2 2.2L15.2 10',
 		bolt: 'M13 2 5 13.5h6L10 22l9-12h-6l0-8Z',
 		refresh: 'M20 12a8 8 0 1 1-2.5-5.8M20 4v4h-4',
+		sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0-13v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4',
+		moon: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z',
+		monitor: 'M4 5h16v11H4zM9 20h6M12 16v4',
 		settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.3l2-1.5-2-3.4-2.3 1a7.4 7.4 0 0 0-2.2-1.3L14.4 3h-4l-.4 2.5a7.4 7.4 0 0 0-2.2 1.3l-2.3-1-2 3.4 2 1.5a7.4 7.4 0 0 0 0 2.6l-2 1.5 2 3.4 2.3-1a7.4 7.4 0 0 0 2.2 1.3l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 2.2-1.3l2.3 1 2-3.4-2-1.5c.1-.4.1-.9.1-1.3Z'
 	};
 </script>

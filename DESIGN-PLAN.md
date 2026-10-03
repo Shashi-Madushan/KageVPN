@@ -142,6 +142,11 @@ Audit: server name and flag shown twice, picker boxed inside a card, dead blank 
 - ✅ Ping / Download / Upload result tiles fill in as each phase finishes; the finished dial shows the download result
 - ✅ Cancel, inline error, light and dark themes, 520px layout
 
+### Phase 3i — Theme toggle
+- ✅ Icon-only System / Light / Dark selector at the bottom of the sidebar (arrow-key support); the narrow icon rail uses one cycling button
+- ✅ Saved per device, applied before first paint, shared with the tray popover, and passed to the native window (`setTheme`) so the frosted sidebar matches
+- ✅ CSS tokens follow the OS only while "System" is selected
+
 ### Phase 5 — Validation (needs real users)
 - 🟡 Test script prepared below; sessions not run
   1. "Connect to the VPN" (target < 5 s, 0 misclicks)

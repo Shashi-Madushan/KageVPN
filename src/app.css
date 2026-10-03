@@ -33,8 +33,31 @@
 	color-scheme: light dark;
 }
 
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+	--fg: #f5f5f7;
+	--fg-muted: #a1a1a8;
+	--surface: rgb(255 255 255 / 0.07);
+	--surface-strong: rgb(60 60 64 / 0.92);
+	--content-bg: rgb(28 28 30 / 0.55);
+	--hairline: rgb(255 255 255 / 0.1);
+	--dialog-bg: #2c2c2e;
+	--ok: #30d158;
+	--ok-text: #30d158;
+	--warn: #ff9f0a;
+	--danger: #ff453a;
+	--down: #64d2ff;
+	--up: #da8fff;
+	--shadow: none;
+	color-scheme: dark;
+}
+
+/* Follow the system unless the user picked a theme. */
 @media (prefers-color-scheme: dark) {
-	:root {
+	:root:not([data-theme='light']):not([data-theme='dark']) {
 		--fg: #f5f5f7;
 		--fg-muted: #a1a1a8;
 		--surface: rgb(255 255 255 / 0.07);
