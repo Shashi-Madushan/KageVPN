@@ -26,6 +26,11 @@ class AppUpdate {
 	enabled = $derived(app.info.updatesConfigured);
 
 	async init() {
+		try {
+			this.policy = (await appUpdateApi.settings()).policy;
+		} catch {
+			// keep the default
+		}
 		if (!app.info.updatesConfigured) return;
 		downloads.onRetry('app', () => this.install());
 		await listen<DownloadProgress>('download-progress', (e) => {
@@ -43,11 +48,6 @@ class AppUpdate {
 		await listen<UpdateAvailable>('update-available', (e) => {
 			if (e.payload.kind === 'app') this.available = { version: e.payload.version, notes: null };
 		});
-		try {
-			this.policy = (await appUpdateApi.settings()).policy;
-		} catch {
-			// keep the default
-		}
 		// The backend checks too, but it may announce before this window is listening.
 		// "Automatic" installs from the backend, so only look here when the user decides.
 		if (this.policy === 'ask') await this.check(true);

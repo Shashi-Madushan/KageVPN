@@ -73,7 +73,8 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": ""
+      "pubkey": "",
+      "requireSignedVersion": true
     },
     "deep-link": {
       "desktop": {

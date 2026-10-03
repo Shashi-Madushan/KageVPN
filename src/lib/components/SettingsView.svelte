@@ -75,19 +75,26 @@
 		{/if}
 	</div>
 
-	{#if app.info.updatesConfigured}
-		<span class="caption">App updates</span>
-		<div class="settings card">
-			<div class="restore">
-				<span><strong>Version {app.info.version}</strong><small>{appUpdate.checkedMessage ?? 'Updates are checked once a day.'}</small></span>
-				<button class="btn" disabled={appUpdate.checking} onclick={() => appUpdate.check()}>{appUpdate.checking ? 'Checking…' : 'Check now'}</button>
-			</div>
+	<span class="caption">App updates</span>
+	<div class="settings card">
+		<div class="restore">
+			<span>
+				<strong>Version {app.info.version}</strong>
+				<small>
+					{#if !app.info.updatesConfigured}
+						Update checks are off because this build has no update feed (set APP_UPDATE_FEED in app_config.rs).
+					{:else}
+						{appUpdate.checkedMessage ?? 'Updates are checked once a day.'}
+					{/if}
+				</small>
+			</span>
+			<button class="btn" disabled={!app.info.updatesConfigured || appUpdate.checking} onclick={() => appUpdate.check()}>{appUpdate.checking ? 'Checking…' : 'Check now'}</button>
+		</div>
 			<div class="restore">
 				<span><strong>When an update is available</strong><small>Automatic installs download in the background. Restarting is always your choice.</small></span>
 				<Select options={policies} value={appUpdate.policy} label="App update policy" onchange={(p: UpdatePolicy) => appUpdate.setPolicy(p)} />
 			</div>
 		</div>
-	{/if}
 
 	<span class="caption">Help</span>
 	<div class="settings card">

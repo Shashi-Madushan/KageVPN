@@ -59,6 +59,15 @@ What it does:
 Other options: `--dmg`, `--base-url <url>` for a host other than GitHub, `--notes-file`, `--draft`,
 `--allow-dirty`, and `--dry-run` to print the plan without building.
 
+## Where the update controls are in the app
+
+- **Settings → App updates:** current version, **Check now**, and "When an update is available"
+  (Ask me, Install automatically, Do nothing). The section is always shown; checking is disabled
+  until `APP_UPDATE_FEED` is set.
+- **Engine page → Updates:** the same three choices for the sing-box engine.
+- **Home:** a banner when an app update is available, downloading, or waiting for a restart.
+- **Title bar, download icon:** live progress, cancel and retry for app and engine downloads.
+
 ## Checking a release
 
 - Open `latest.json`: `version` is the new version and `platforms` has your CPU.
@@ -72,9 +81,8 @@ Other options: `--dmg`, `--base-url <url>` for a host other than GitHub, `--note
   also checks the app. Without an Apple Developer ID, first installs show a Gatekeeper warning
   (right-click, Open). Add the certificate and notarization settings to the Tauri bundle config
   when you have an account.
-- **Downgrade protection.** The updater has a `requireSignedVersion` option that rejects an old
-  artifact served under a newer version number. Turn it on in `tauri.conf.json`
-  (`plugins.updater`) once you have confirmed that a release built by this script carries its
-  version in the signature, and that earlier releases can still update.
+- **Downgrade protection is on.** `requireSignedVersion` in `tauri.conf.json` makes the app reject
+  an older artifact served under a newer version number. Releases built by this script carry their
+  version in the signature, so they pass. Do not build releases any other way.
 - **Key rotation.** There is no automatic way to change keys. A new key means shipping one
   last release signed with the old key that contains the new public key.
