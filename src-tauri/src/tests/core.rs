@@ -28,9 +28,9 @@ fn release(version: &str) -> releases::Release {
 
 #[test]
 fn newest_release_is_the_highest_version_not_the_first() {
-    let picked = commands::newest(vec![release("1.9.7"), release("1.12.10"), release("1.12.9")]).unwrap();
+    let picked = provider::newest(vec![release("1.9.7"), release("1.12.10"), release("1.12.9")]).unwrap();
     assert_eq!(picked.version, "1.12.10");
-    assert!(commands::newest(vec![]).is_none());
+    assert!(provider::newest(vec![]).is_none());
 }
 
 #[test]

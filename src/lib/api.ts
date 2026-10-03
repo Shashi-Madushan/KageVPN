@@ -396,19 +396,36 @@ export interface Release {
 	sha256: string | null;
 }
 
-export interface CoreProgress {
-	core: string;
+export type DownloadKind = 'app' | 'core';
+
+export interface DownloadProgress {
+	id: string;
+	kind: DownloadKind;
+	title: string;
 	version: string;
-	stage: 'download' | 'verify' | 'extract' | 'check' | 'done';
+	stage: 'download' | 'verify' | 'extract' | 'check' | 'install' | 'done';
 	received: number;
 	total: number;
 }
 
-export interface CoreFinished {
-	core: string;
+export interface DownloadFinished {
+	id: string;
+	kind: DownloadKind;
+	title: string;
 	version: string | null;
 	error: string | null;
 }
+
+export interface UpdateAvailable {
+	id: string;
+	kind: DownloadKind;
+	name: string;
+	version: string;
+}
+
+export const downloadsApi = {
+	cancel: () => invoke<void>('download_cancel')
+};
 
 export const coreApi = {
 	status: () => invoke<CoreStatus>('core_status'),
@@ -417,7 +434,6 @@ export const coreApi = {
 	remove: (version: string) => invoke<void>('core_remove', { version }),
 	installBackground: (version: string | null, allowUnverified = false) =>
 		invoke<void>('core_install_background', { version, allowUnverified }),
-	cancel: () => invoke<void>('core_cancel'),
 	setActive: (id: string) => invoke<void>('core_set_active', { id }),
 	setChannel: (channel: Channel) => invoke<void>('set_core_channel', { channel }),
 	setPolicy: (policy: UpdatePolicy) => invoke<void>('set_core_update_policy', { policy }),

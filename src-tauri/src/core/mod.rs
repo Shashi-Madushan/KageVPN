@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod installer;
+pub mod provider;
 pub mod releases;
 pub mod version;
 

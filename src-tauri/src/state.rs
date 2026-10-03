@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 
+use crate::downloads::Downloads;
 use crate::logs::LogBuffer;
 use crate::paths::AppPaths;
 use crate::session::Status;
@@ -15,8 +16,7 @@ pub struct AppState {
     pub pid: Mutex<Option<u32>>,
     pub logs: LogBuffer,
     pub traffic: Mutex<TrafficState>,
-    pub core_busy: AtomicBool,
-    pub core_cancel: AtomicBool,
+    pub downloads: Downloads,
     pub stopping: AtomicBool,
     pub reconnecting: AtomicBool,
     pub clash_secret: Mutex<Option<String>>,
@@ -35,8 +35,7 @@ impl AppState {
             pid: Mutex::new(None),
             logs: LogBuffer::default(),
             traffic: Mutex::new(TrafficState::default()),
-            core_busy: AtomicBool::new(false),
-            core_cancel: AtomicBool::new(false),
+            downloads: Downloads::default(),
             stopping: AtomicBool::new(false),
             reconnecting: AtomicBool::new(false),
             clash_secret: Mutex::new(None),

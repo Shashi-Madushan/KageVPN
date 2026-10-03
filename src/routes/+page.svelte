@@ -4,6 +4,7 @@
 	import { importMessage } from '$lib/format';
 	import { header } from '$lib/header.svelte';
 	import { core } from '$lib/core.svelte';
+	import { downloads } from '$lib/downloads.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import ConnectionsPage from '$lib/components/ConnectionsPage.svelte';
@@ -58,6 +59,7 @@
 
 	onMount(() => {
 		app.init();
+		downloads.init();
 		core.init();
 		clipboardWatch.start();
 		return () => clipboardWatch.stop();

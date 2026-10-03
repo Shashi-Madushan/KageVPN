@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
+	import { STAGES } from '$lib/downloads.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import { usage } from '$lib/usage.svelte';
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, profileFlag } from '$lib/format';
@@ -14,8 +15,6 @@
 	import type { Page } from './Sidebar.svelte';
 
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
-
-	const STAGES = { download: 'Downloading', verify: 'Verifying', extract: 'Extracting', check: 'Checking', done: 'Done' };
 
 	const modes = [
 		{ value: 'tun' as const, label: 'Full System (TUN)' },

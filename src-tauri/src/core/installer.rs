@@ -4,44 +4,22 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use flate2::read::GzDecoder;
-use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Emitter, Manager};
 
 use super::releases::Release;
 use super::{inspect, Manifest, Source, MANIFEST_NAME};
 use crate::app_config::CoreSpec;
 use crate::error::{AppError, Result};
 use crate::paths::AppPaths;
-use crate::state::AppState;
+use crate::downloads::{Reporter, Stage};
 use crate::singbox;
 
 const PROGRESS_STEP: u64 = 256 * 1024;
 const ARCHIVE_NAME: &str = "archive.tar.gz";
 
-#[derive(Clone, Copy, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Stage {
-    Download,
-    Verify,
-    Extract,
-    Check,
-    Done,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Progress {
-    pub core: String,
-    pub version: String,
-    pub stage: Stage,
-    pub received: u64,
-    pub total: u64,
-}
-
 pub async fn install(
-    app: &AppHandle,
+    reporter: &Reporter,
     paths: &AppPaths,
     spec: &CoreSpec,
     release: &Release,
@@ -58,7 +36,7 @@ pub async fn install(
     let _ = fs::remove_dir_all(&staging);
     fs::create_dir_all(&staging)?;
 
-    let result = run(app, paths, spec, release, &staging, check_config).await;
+    let result = run(reporter, paths, spec, release, &staging, check_config).await;
     if result.is_err() {
         let _ = fs::remove_dir_all(&staging);
     }
@@ -66,7 +44,7 @@ pub async fn install(
 }
 
 async fn run(
-    app: &AppHandle,
+    reporter: &Reporter,
     paths: &AppPaths,
     spec: &CoreSpec,
     release: &Release,
@@ -74,23 +52,23 @@ async fn run(
     check_config: Option<Value>,
 ) -> Result<()> {
     let archive = staging.join(ARCHIVE_NAME);
-    let archive_sha256 = download(app, spec, release, &archive).await?;
+    let archive_sha256 = download(reporter, release, &archive).await?;
 
-    emit(app, spec, release, Stage::Verify, 0, 0);
+    reporter.report(Stage::Verify, 0, 0);
     if let Some(expected) = &release.sha256 {
         if !expected.eq_ignore_ascii_case(&archive_sha256) {
             return Err(AppError::Launch("checksum mismatch, the download was rejected".into()));
         }
     }
 
-    emit(app, spec, release, Stage::Extract, 0, 0);
+    reporter.report(Stage::Extract, 0, 0);
     let binary = staging.join(spec.binary_name);
     let (archive_path, binary_path, name) = (archive.clone(), binary.clone(), spec.binary_name);
     tauri::async_runtime::spawn_blocking(move || extract_binary(name, &archive_path, &binary_path))
         .await
         .map_err(|e| AppError::Launch(e.to_string()))??;
 
-    emit(app, spec, release, Stage::Check, 0, 0);
+    reporter.report(Stage::Check, 0, 0);
     verify_binary(spec, &binary, staging, check_config)?;
 
     let manifest = Manifest {
@@ -105,11 +83,11 @@ async fn run(
     let target = paths.core_dir_for(spec.id).join(&release.version);
     let _ = fs::remove_dir_all(&target);
     fs::rename(staging, &target)?;
-    emit(app, spec, release, Stage::Done, 0, 0);
+    reporter.report(Stage::Done, 0, 0);
     Ok(())
 }
 
-async fn download(app: &AppHandle, spec: &CoreSpec, release: &Release, destination: &Path) -> Result<String> {
+async fn download(reporter: &Reporter, release: &Release, destination: &Path) -> Result<String> {
     let mut response = reqwest::Client::builder()
         .user_agent(crate::app_config::user_agent())
         .build()?
@@ -122,9 +100,8 @@ async fn download(app: &AppHandle, spec: &CoreSpec, release: &Release, destinati
     let mut hasher = Sha256::new();
     let (mut received, mut last_emit) = (0u64, 0u64);
 
-    let cancel = &app.state::<AppState>().core_cancel;
     while let Some(chunk) = response.chunk().await? {
-        if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+        if reporter.cancelled() {
             return Err(AppError::Launch("download cancelled".into()));
         }
         hasher.update(&chunk);
@@ -132,10 +109,10 @@ async fn download(app: &AppHandle, spec: &CoreSpec, release: &Release, destinati
         received += chunk.len() as u64;
         if received - last_emit >= PROGRESS_STEP {
             last_emit = received;
-            emit(app, spec, release, Stage::Download, received, release.size);
+            reporter.report(Stage::Download, received, release.size);
         }
     }
-    emit(app, spec, release, Stage::Download, received, release.size);
+    reporter.report(Stage::Download, received, release.size);
     Ok(hex(&hasher.finalize()))
 }
 
@@ -197,11 +174,6 @@ pub fn sha256_file(path: &Path) -> Result<String> {
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
-fn emit(app: &AppHandle, spec: &CoreSpec, release: &Release, stage: Stage, received: u64, total: u64) {
-    let progress = Progress { core: spec.name.to_string(), version: release.version.clone(), stage, received, total };
-    let _ = app.emit("core-progress", progress);
 }
 
 fn now_secs() -> u64 {

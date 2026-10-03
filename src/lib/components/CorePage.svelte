@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { core } from '$lib/core.svelte';
+	import { STAGES } from '$lib/downloads.svelte';
 	import { app } from '$lib/app.svelte';
 	import { formatBytes } from '$lib/format';
 	import { compareVersions } from '$lib/version';
@@ -17,7 +18,6 @@
 		{ value: 'auto' as const, label: 'Install automatically' },
 		{ value: 'off' as const, label: 'Do nothing' }
 	];
-	const STAGES = { download: 'Downloading', verify: 'Verifying checksum', extract: 'Extracting', check: 'Checking config', done: 'Done' };
 
 	let confirming = $state<string | null>(null);
 	let expanded = $state<string | null>(null);

@@ -1,16 +1,14 @@
 import { listen } from '@tauri-apps/api/event';
 import { app } from './app.svelte';
-import { coreApi, type Channel, type CoreFinished, type CoreProgress, type CoreStatus, type Release, type UpdatePolicy } from './api';
+import { coreApi, downloadsApi, type Channel, type CoreStatus, type DownloadFinished, type DownloadProgress, type Release, type UpdatePolicy, type UpdateAvailable } from './api';
 import { downloads } from './downloads.svelte';
 import { compareVersions } from './version';
 
-const STAGES = { download: 'Downloading', verify: 'Verifying checksum', extract: 'Extracting', check: 'Checking config', done: 'Finishing' };
-const ENGINE = 'engine';
 
 class CoreStore {
 	status = $state<CoreStatus | null>(null);
 	releases = $state<Release[]>([]);
-	progress = $state<CoreProgress | null>(null);
+	progress = $state<DownloadProgress | null>(null);
 	checking = $state(false);
 	installing = $state<string | null>(null);
 	checked = $state(false);
@@ -39,37 +37,23 @@ class CoreStore {
 
 	async init() {
 		await this.refresh();
-		await listen<CoreProgress>('core-progress', (e) => {
+		downloads.onRetry('core', (version) => this.installBackground(version));
+		await listen<DownloadProgress>('download-progress', (e) => {
+			if (e.payload.kind !== 'core') return;
 			this.progress = e.payload;
 			if (this.installing === null && e.payload.stage !== 'done') this.installing = e.payload.version;
-			this.track(e.payload);
 		});
-		await listen<CoreFinished>('core-finished', async (e) => {
+		await listen<DownloadFinished>('download-finished', async (e) => {
+			if (e.payload.kind !== 'core') return;
 			this.installing = null;
 			this.progress = null;
 			this.failure = e.payload.error;
-			downloads.finish(ENGINE, e.payload.error);
 			if (e.payload.version) this.announced = null;
 			await this.refresh();
 		});
-		await listen<string>('core-update', (e) => (this.announced = e.payload));
-	}
-
-	/** Mirrors engine progress into the global download list, including installs the backend started itself. */
-	private track(p: CoreProgress) {
-		if (!downloads.active.some((i) => i.id === ENGINE)) {
-			downloads.start({
-				id: ENGINE,
-				title: `${p.core} ${p.version}`,
-				detail: STAGES[p.stage],
-				cancel: () => this.cancel(),
-				retry: () => this.installBackground(p.version)
-			});
-		}
-		const sized = p.stage === 'download' && p.total > 0;
-		const percent = sized ? Math.min(100, (p.received / p.total) * 100) : p.stage === 'download' ? null : 100;
-		const detail = sized ? `${STAGES.download} ${Math.round(percent ?? 0)}%` : STAGES[p.stage];
-		downloads.update(ENGINE, { title: `${p.core} ${p.version}`, detail, percent });
+		await listen<UpdateAvailable>('update-available', (e) => {
+			if (e.payload.kind === 'core') this.announced = e.payload.version;
+		});
 	}
 
 	async refresh() {
@@ -98,12 +82,13 @@ class CoreStore {
 	/** Downloads in the backend, so it keeps going if the user leaves this page. */
 	async installBackground(version: string | null = null, allowUnverified = false) {
 		this.failure = null;
+		const id = `core:${this.status?.core.id ?? 'engine'}`;
 		downloads.start({
-			id: ENGINE,
+			id,
+			kind: 'core',
+			version,
 			title: version ? `${this.coreName} ${version}` : `${this.coreName} engine`,
-			detail: 'Starting',
-			cancel: () => this.cancel(),
-			retry: () => this.installBackground(version, allowUnverified)
+			detail: 'Starting'
 		});
 		this.installing = version ?? 'latest';
 		this.progress = null;
@@ -112,13 +97,13 @@ class CoreStore {
 			await coreApi.installBackground(version, allowUnverified);
 		} catch (e) {
 			this.installing = null;
-			downloads.finish(ENGINE, String(e));
+			downloads.finish(`core:${this.status?.core.id ?? 'engine'}`, String(e));
 			app.notify(String(e));
 		}
 	}
 
 	cancel() {
-		coreApi.cancel().catch(() => null);
+		downloadsApi.cancel().catch(() => null);
 	}
 
 	async setActive(id: string) {

@@ -4,6 +4,7 @@ mod commands;
 mod config;
 mod core;
 mod diagnostics;
+mod downloads;
 mod error;
 mod fsutil;
 mod logs;
@@ -136,7 +137,7 @@ pub fn run() {
             core::commands::core_set_active,
             core::commands::set_core_update_policy,
             core::commands::core_install_background,
-            core::commands::core_cancel,
+            downloads::download_cancel,
             core::commands::core_brew_upgrade,
         ])
         .build(tauri::generate_context!())

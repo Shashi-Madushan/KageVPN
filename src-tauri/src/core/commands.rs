@@ -1,19 +1,18 @@
 use std::process::Command;
-use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 
+use super::provider::{newest, Activation, CoreProvider};
 use super::releases::{self, Release};
 use super::version::Version;
-use super::{installer, resolve, should_auto_install, Channel, CoreInfo, CoreSettings, Installed, Source, UpdatePolicy};
+use super::{resolve, should_auto_install, Channel, CoreInfo, CoreSettings, Installed, Source, UpdatePolicy};
 use crate::app_config::{core_spec, CoreSpec, CORES};
-use crate::config::{self, ConfigInput, Mode};
+use crate::downloads::{self, Guard};
 use crate::error::{AppError, Result};
 use crate::session::State as Conn;
 use crate::state::AppState;
-use crate::notify;
 
 const CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const BREW_PATHS: [&str; 2] = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"];
@@ -78,7 +77,7 @@ pub fn core_status(state: State<AppState>) -> CoreStatus {
         system,
         installed: super::installed(&state.paths, spec),
         settings,
-        busy: state.core_busy.load(Ordering::SeqCst),
+        busy: state.downloads.is_busy(),
     }
 }
 
@@ -93,139 +92,13 @@ pub async fn core_check(state: State<'_, AppState>) -> Result<Vec<Release>> {
     Ok(releases)
 }
 
-/// Holds the "one core operation at a time" flag for as long as it lives.
-struct Busy(AppHandle);
-
-impl Busy {
-    fn acquire(app: &AppHandle) -> Result<Self> {
-        let state = app.state::<AppState>();
-        if state.core_busy.swap(true, Ordering::SeqCst) {
-            return Err(AppError::Invalid("another core operation is in progress".into()));
-        }
-        state.core_cancel.store(false, Ordering::SeqCst);
-        Ok(Self(app.clone()))
-    }
-}
-
-impl Drop for Busy {
-    fn drop(&mut self) {
-        self.0.state::<AppState>().core_busy.store(false, Ordering::SeqCst);
-    }
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Finished {
-    core: String,
-    version: Option<String>,
-    error: Option<String>,
-}
-
 /// Starts an install on a background task and returns at once. Progress arrives as
-/// `core-progress` events and the outcome as `core-finished`, so the UI can be left meanwhile.
+/// `download-progress` events and the outcome as `download-finished`.
 #[tauri::command]
 pub fn core_install_background(app: AppHandle, version: Option<String>, allow_unverified: Option<bool>) -> Result<()> {
-    let busy = Busy::acquire(&app)?;
     let spec = app.state::<AppState>().store.lock().unwrap().active_core();
-    tauri::async_runtime::spawn(async move {
-        let outcome = async {
-            let release = match &version {
-                Some(version) => find_release(spec, version).await?,
-                None => latest_stable(spec).await?,
-            };
-            install_release(&app, spec, &release, allow_unverified.unwrap_or(false), Activation::Now).await.map(|_| release.version)
-        }
-        .await;
-        drop(busy);
-        report(&app, spec, outcome);
-    });
-    Ok(())
-}
-
-#[tauri::command]
-pub fn core_cancel(state: State<AppState>) {
-    state.core_cancel.store(true, Ordering::SeqCst);
-}
-
-fn report(app: &AppHandle, spec: &CoreSpec, outcome: Result<String>) {
-    let core = spec.name.to_string();
-    let (title, body, finished) = match outcome {
-        Ok(version) => (
-            format!("{} engine ready", spec.name),
-            format!("Version {version} is installed."),
-            Finished { core, version: Some(version), error: None },
-        ),
-        Err(e) => (format!("{} download failed", spec.name), e.to_string(), Finished { core, version: None, error: Some(e.to_string()) }),
-    };
-    let _ = app.emit("core-finished", finished);
-    notify::send(app, &title, &body);
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Activation {
-    /// Make it the active engine immediately.
-    Now,
-    /// Make it active now if idle, otherwise on the next connect.
-    WhenIdle,
-}
-
-async fn find_release(spec: &CoreSpec, version: &str) -> Result<Release> {
-    releases::fetch(spec, Channel::Prerelease)
-        .await?
-        .into_iter()
-        .find(|r| r.version == version)
-        .ok_or_else(|| AppError::Invalid(format!("version {version} was not found")))
-}
-
-async fn latest_stable(spec: &CoreSpec) -> Result<Release> {
-    let found = releases::fetch(spec, Channel::Stable).await?;
-    newest(found).ok_or_else(|| AppError::Invalid(format!("no stable {} release was found for this Mac", spec.name)))
-}
-
-pub(crate) fn newest(releases: Vec<Release>) -> Option<Release> {
-    releases
-        .into_iter()
-        .filter_map(|r| Version::parse(&r.version).map(|v| (v, r)))
-        .max_by(|a, b| a.0.cmp(&b.0))
-        .map(|(_, r)| r)
-}
-
-async fn install_release(app: &AppHandle, spec: &CoreSpec, release: &Release, allow_unverified: bool, activation: Activation) -> Result<()> {
-    let state = app.state::<AppState>();
-
-    let check_config = {
-        let store = state.store.lock().unwrap();
-        let profiles = store.profiles().to_vec();
-        let routing = store.routing();
-        (!profiles.is_empty())
-            .then(|| {
-                config::build(&ConfigInput {
-                    profiles: &profiles,
-                    active_id: store.active_id(),
-                    auto: false,
-                    mode: Mode::Proxy,
-                    routing: &routing,
-                    log_path: &state.paths.log_file(),
-                    cache_path: &state.paths.cache_file(),
-                    secret: "check",
-                })
-                .ok()
-            })
-            .flatten()
-    };
-
-    installer::install(app, &state.paths, spec, release, allow_unverified, check_config).await?;
-
-    let idle = state.status.lock().unwrap().state == Conn::Disconnected;
-    let mut store = state.store.lock().unwrap();
-    let mut settings = store.core_settings_for(spec.id);
-    if activation == Activation::Now || idle {
-        settings.managed_version = Some(release.version.clone());
-        settings.pending_version = None;
-    } else {
-        settings.pending_version = Some(release.version.clone());
-    }
-    store.set_core_settings_for(spec.id, settings)
+    let provider = CoreProvider { spec, allow_unverified: allow_unverified.unwrap_or(false), activation: Activation::Now };
+    downloads::spawn_install(app, provider, version)
 }
 
 #[tauri::command]
@@ -331,15 +204,14 @@ pub fn spawn_background_check(app: AppHandle) {
 
         if let (Some((info, source)), Some(latest)) = (resolved, latest) {
             if Version::parse(&latest.version) > Version::parse(&info.version) {
-                if should_auto_install(settings.update_policy, settings.channel, source) && !state.core_busy.load(Ordering::SeqCst) {
-                    if let Ok(busy) = Busy::acquire(&app) {
-                        let outcome = install_release(&app, spec, &latest, false, Activation::WhenIdle).await.map(|_| latest.version.clone());
-                        drop(busy);
-                        report(&app, spec, outcome);
+                if should_auto_install(settings.update_policy, settings.channel, source) {
+                    if let Ok(guard) = Guard::acquire(&app) {
+                        let provider = CoreProvider { spec, allow_unverified: false, activation: Activation::WhenIdle };
+                        downloads::run_guarded(&app, &provider, Some(&latest.version), guard).await;
                     }
                 } else {
-                    let _ = app.emit("core-update", latest.version.clone());
-                    notify::send(&app, "sing-box update available", &format!("Version {} is ready to install. Open Home to update.", latest.version));
+                    let provider = CoreProvider { spec, allow_unverified: false, activation: Activation::Now };
+                    downloads::announce_available(&app, &provider, &latest.version);
                 }
             }
         }
