@@ -113,13 +113,16 @@ if (version !== current || readCargoVersion(readFileSync(cargoPath, 'utf8')) !==
 
 const bundleDir = file('src-tauri', 'target', 'release', 'bundle');
 const tarball = join(bundleDir, 'macos', `${productName}.app.tar.gz`);
+// The CLI checks the signature it just made against `plugins.updater.pubkey`, so hand it the key
+// from app_config.rs for this build only. tauri.conf.json keeps an empty placeholder.
+const keyOverride = ['--config', JSON.stringify({ plugins: { updater: { pubkey: compiledKey } } })];
 const signingEnv = { ...process.env, TAURI_SIGNING_PRIVATE_KEY: keyPath, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: signingPassword() };
 if (!opt['skip-build']) {
 	// The app bundle is all the updater needs. The .dmg (first installs only) is a separate,
 	// optional step because macOS can refuse the disk-image styling when run without a desktop session.
-	run('npm', ['run', 'tauri', '--', 'build', '--bundles', 'app'], { env: signingEnv });
+	run('npm', ['run', 'tauri', '--', 'build', '--bundles', 'app', ...keyOverride], { env: signingEnv });
 	if (opt.dmg) {
-		const made = spawnSync('npm', ['run', 'tauri', '--', 'build', '--bundles', 'dmg'], { cwd: root, stdio: 'inherit', env: signingEnv });
+		const made = spawnSync('npm', ['run', 'tauri', '--', 'build', '--bundles', 'dmg', ...keyOverride], { cwd: root, stdio: 'inherit', env: signingEnv });
 		if (made.status !== 0) console.warn('\nrelease: the .dmg could not be built, continuing without it');
 	}
 }
