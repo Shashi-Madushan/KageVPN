@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
+	import { appUpdate } from '$lib/appUpdate.svelte';
 	import { core } from '$lib/core.svelte';
-	import { STAGES } from '$lib/downloads.svelte';
+	import { downloads, STAGES } from '$lib/downloads.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import { usage } from '$lib/usage.svelte';
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, profileFlag } from '$lib/format';
@@ -91,6 +92,32 @@
 				<small>{core.status?.settings.pendingVersion ? `${core.status.settings.pendingVersion} is ready and applies on the next connect.` : 'Downloads in the background and is verified before it is used.'}</small>
 			</div>
 			<button onclick={() => core.installBackground(core.latestVersion)}>Update</button>
+		</div>
+	{/if}
+
+	{#if appUpdate.restartPending}
+		<div class="banner card info" role="status">
+			<div class="banner-text">
+				<strong>{app.info.name} {appUpdate.restartPending} is installed</strong>
+				<small>Restart to start using it.{app.locked ? ' This will disconnect the VPN.' : ''}</small>
+			</div>
+			<button class="primary" onclick={() => appUpdate.restart()}>Restart</button>
+		</div>
+	{:else if appUpdate.installing}
+		<div class="banner card info" role="status">
+			<div class="banner-text">
+				<strong>Downloading the {app.info.name} update…</strong>
+				<small>It installs when the download finishes. See the downloads menu for progress.</small>
+			</div>
+			<button onclick={() => downloads.items.find((i) => i.id === 'app')?.cancel?.()}>Cancel</button>
+		</div>
+	{:else if appUpdate.available}
+		<div class="banner card info">
+			<div class="banner-text">
+				<strong>{app.info.name} {appUpdate.available.version} is available</strong>
+				<small>{appUpdate.failure ?? 'Verified before it is installed. You choose when to restart.'}</small>
+			</div>
+			<button onclick={() => appUpdate.install()}>{appUpdate.failure ? 'Try again' : 'Update'}</button>
 		</div>
 	{/if}
 

@@ -1,4 +1,5 @@
 mod app_config;
+mod app_update;
 mod clash;
 mod commands;
 mod config;
@@ -36,6 +37,15 @@ use crate::state::AppState;
 const HIDDEN_FLAG: &str = "--hidden";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// The updater plugin, keyed from `app_config.rs`. Without a key it is left idle.
+fn updater_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry, tauri_plugin_updater::Config> {
+    let mut builder = tauri_plugin_updater::Builder::new();
+    if let Some(key) = app_config::APP_UPDATE_PUBKEY {
+        builder = builder.pubkey(key);
+    }
+    builder.build()
+}
+
 pub fn run() {
     #[allow(unused_mut)]
     let mut app = tauri::Builder::default()
@@ -51,6 +61,7 @@ pub fn run() {
                 })
                 .build(),
         )
+        .plugin(updater_plugin())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![HIDDEN_FLAG])))
         .setup(|app| {
             let paths = AppPaths::new(app.path().app_data_dir()?)?;
@@ -62,6 +73,7 @@ pub fn run() {
             tray::setup(app.handle())?;
             auto_connect(app.handle());
             core::commands::spawn_background_check(app.handle().clone());
+            app_update::spawn_background_check(app.handle().clone());
             usage::collector::spawn_maintenance(app.handle().clone());
             subscriptions::spawn_scheduler(app.handle().clone());
             reliability::apply_hotkey(app.handle());
@@ -81,6 +93,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            app_update::app_update_check,
+            app_update::app_update_install,
+            app_update::app_update_settings,
+            app_update::set_app_update_policy,
+            app_update::app_restart,
             feedback::feedback_preview,
             feedback::feedback_send,
             commands::snapshot,

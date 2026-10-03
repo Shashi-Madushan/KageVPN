@@ -473,3 +473,21 @@ export const feedbackApi = {
 	preview: (input: FeedbackInput) => invoke<string>('feedback_preview', { input }),
 	send: (input: FeedbackInput) => invoke<FeedbackResult>('feedback_send', { input })
 };
+
+export interface AppUpdateInfo {
+	version: string;
+	notes: string | null;
+}
+
+export interface AppUpdateSettings {
+	policy: UpdatePolicy;
+	lastCheck: number;
+}
+
+export const appUpdateApi = {
+	check: () => invoke<AppUpdateInfo | null>('app_update_check'),
+	install: () => invoke<void>('app_update_install'),
+	settings: () => invoke<AppUpdateSettings>('app_update_settings'),
+	setPolicy: (policy: UpdatePolicy) => invoke<void>('set_app_update_policy', { policy }),
+	restart: (force: boolean) => invoke<void>('app_restart', { force })
+};

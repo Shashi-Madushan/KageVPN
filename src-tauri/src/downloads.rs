@@ -6,17 +6,29 @@
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, Result};
 use crate::notify;
 use crate::state::AppState;
 
+/// What to do once a newer version is found.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdatePolicy {
+    /// Notify and let the user decide.
+    #[default]
+    Ask,
+    /// Download in the background and switch over while disconnected.
+    Auto,
+    /// Never check.
+    Off,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
-    #[allow(dead_code)] // used by the app updater
     App,
     Core,
 }
@@ -28,7 +40,6 @@ pub enum Stage {
     Verify,
     Extract,
     Check,
-    #[allow(dead_code)] // used by the app updater
     Install,
     Done,
 }
@@ -120,6 +131,7 @@ impl Drop for Guard {
 }
 
 /// Hands a provider one place to report progress and to learn the user cancelled.
+#[derive(Clone)]
 pub struct Reporter {
     app: AppHandle,
     id: String,

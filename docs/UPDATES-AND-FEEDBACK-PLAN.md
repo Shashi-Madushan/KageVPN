@@ -1,6 +1,6 @@
 # Plan: app updates, multi-core downloads, feedback
 
-Status: planned, not started. Revised to cover several core types and a backend feedback endpoint.
+Status: steps 1 to 5 are built (config file, core registry, download providers, feedback, app updater). Still needed before shipping: a release host, the updater signing key, and release tooling that builds, signs and publishes the update feed.
 
 ## 1. Single config file: `src-tauri/src/app_config.rs`
 

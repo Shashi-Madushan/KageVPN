@@ -6,6 +6,7 @@
 		title,
 		message,
 		confirmLabel = 'Delete',
+		danger = true,
 		onconfirm,
 		onclose
 	}: {
@@ -13,6 +14,7 @@
 		title: string;
 		message: string;
 		confirmLabel?: string;
+		danger?: boolean;
 		onconfirm: () => void;
 		onclose: () => void;
 	} = $props();
@@ -22,7 +24,7 @@
 	<p class="message">{message}</p>
 	{#snippet footer()}
 		<button class="btn" onclick={onclose}>Cancel</button>
-		<button class="btn danger-solid" onclick={onconfirm}>{confirmLabel}</button>
+		<button class="btn" class:danger-solid={danger} class:primary={!danger} onclick={onconfirm}>{confirmLabel}</button>
 	{/snippet}
 </Dialog>
 

@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
+	import type { UpdatePolicy } from '$lib/api';
+	import Select from './Select.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
+	import { appUpdate } from '$lib/appUpdate.svelte';
 	import { feedback } from '$lib/feedback.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 
@@ -15,6 +18,11 @@
 		);
 		restoring = false;
 	}
+	const policies = [
+		{ value: 'ask' as const, label: 'Ask me' },
+		{ value: 'auto' as const, label: 'Install automatically' },
+		{ value: 'off' as const, label: 'Do nothing' }
+	];
 </script>
 
 <div class="page">
@@ -66,6 +74,20 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if app.info.updatesConfigured}
+		<span class="caption">App updates</span>
+		<div class="settings card">
+			<div class="restore">
+				<span><strong>Version {app.info.version}</strong><small>{appUpdate.checkedMessage ?? 'Updates are checked once a day.'}</small></span>
+				<button class="btn" disabled={appUpdate.checking} onclick={() => appUpdate.check()}>{appUpdate.checking ? 'Checking…' : 'Check now'}</button>
+			</div>
+			<div class="restore">
+				<span><strong>When an update is available</strong><small>Automatic installs download in the background. Restarting is always your choice.</small></span>
+				<Select options={policies} value={appUpdate.policy} label="App update policy" onchange={(p: UpdatePolicy) => appUpdate.setPolicy(p)} />
+			</div>
+		</div>
+	{/if}
 
 	<span class="caption">Help</span>
 	<div class="settings card">

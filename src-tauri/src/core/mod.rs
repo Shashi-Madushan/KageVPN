@@ -26,18 +26,7 @@ pub enum Channel {
     Prerelease,
 }
 
-/// What to do once a newer engine is found.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum UpdatePolicy {
-    /// Notify and let the user decide.
-    #[default]
-    Ask,
-    /// Download in the background and switch over while disconnected.
-    Auto,
-    /// Never check.
-    Off,
-}
+pub use crate::downloads::UpdatePolicy;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]

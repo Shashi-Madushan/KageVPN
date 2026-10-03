@@ -4,6 +4,7 @@
 	import { importMessage } from '$lib/format';
 	import { header } from '$lib/header.svelte';
 	import { core } from '$lib/core.svelte';
+	import { appUpdate } from '$lib/appUpdate.svelte';
 	import { downloads } from '$lib/downloads.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
@@ -12,6 +13,7 @@
 	import DiagnosticsPage from '$lib/components/DiagnosticsPage.svelte';
 	import HomePage from '$lib/components/HomePage.svelte';
 	import DownloadsMenu from '$lib/components/DownloadsMenu.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import FeedbackDialog from '$lib/components/FeedbackDialog.svelte';
 	import EngineInstallDialog from '$lib/components/EngineInstallDialog.svelte';
 	import OnboardingDialog from '$lib/components/OnboardingDialog.svelte';
@@ -59,7 +61,7 @@
 	}
 
 	onMount(() => {
-		app.init();
+		app.init().then(() => appUpdate.init());
 		downloads.init();
 		core.init();
 		clipboardWatch.start();
@@ -141,6 +143,15 @@
 <OnboardingDialog onnavigate={(p) => (page = p)} />
 <EngineInstallDialog open={core.promptInstall} />
 <FeedbackDialog />
+<ConfirmDialog
+	open={appUpdate.confirmRestart}
+	title="Restart and disconnect?"
+	message="The VPN will disconnect while the app restarts into the new version. It does not reconnect on its own unless auto-connect is on."
+	confirmLabel="Restart"
+	danger={false}
+	onconfirm={() => appUpdate.restart(true)}
+	onclose={() => (appUpdate.confirmRestart = false)}
+/>
 
 <style>
 	.app {

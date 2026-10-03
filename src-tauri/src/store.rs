@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Mode;
 use crate::app_config::{core_spec, default_core, CoreSpec};
+use crate::app_update::AppUpdateSettings;
 use crate::core::{CoreSet, CoreSettings};
 use crate::error::{AppError, Result};
 use crate::fsutil;
@@ -38,6 +39,7 @@ struct Data {
     #[serde(skip_serializing_if = "Option::is_none")]
     core: Option<CoreSettings>,
     cores: CoreSet,
+    app_update: AppUpdateSettings,
     usage: UsageSettings,
     routing: RoutingSettings,
     reliability: ReliabilitySettings,
@@ -130,6 +132,15 @@ impl Store {
 
     pub fn core_settings_for(&self, id: &str) -> CoreSettings {
         self.data.cores.entries.get(id).cloned().unwrap_or_default()
+    }
+
+    pub fn app_update(&self) -> AppUpdateSettings {
+        self.data.app_update.clone()
+    }
+
+    pub fn set_app_update(&mut self, settings: AppUpdateSettings) -> Result<()> {
+        self.data.app_update = settings;
+        self.save()
     }
 
     pub fn usage_settings(&self) -> UsageSettings {

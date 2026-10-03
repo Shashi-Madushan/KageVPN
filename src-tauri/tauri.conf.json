@@ -71,6 +71,9 @@
     ]
   },
   "plugins": {
+    "updater": {
+      "pubkey": ""
+    },
     "deep-link": {
       "desktop": {
         "schemes": [
