@@ -12,7 +12,7 @@ pub const APP_SLUG: &str = "apzur-vpn";
 
 /// Bundle identifiers earlier builds used. Their data folders are moved to the current one on
 /// first launch, so a rename never loses saved servers.
-pub const LEGACY_IDENTIFIERS: &[&str] = &["com.shashi.ospreyvpn", "com.shashi.singboxgui"];
+pub const LEGACY_IDENTIFIERS: &[&str] = &["com.shashi.apzurvpn", "com.shashi.ospreyvpn", "com.shashi.singboxgui"];
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn user_agent() -> String {
