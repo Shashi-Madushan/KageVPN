@@ -130,7 +130,10 @@ pub fn run() {
             core::commands::core_install,
             core::commands::core_use,
             core::commands::core_remove,
-            core::commands::update_core_settings,
+            core::commands::set_core_channel,
+            core::commands::set_core_update_policy,
+            core::commands::core_install_background,
+            core::commands::core_cancel,
             core::commands::core_brew_upgrade,
         ])
         .build(tauri::generate_context!())

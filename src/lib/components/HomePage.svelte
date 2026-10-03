@@ -15,6 +15,8 @@
 
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
 
+	const STAGES = { download: 'Downloading', verify: 'Verifying', extract: 'Extracting', check: 'Checking', done: 'Done' };
+
 	const modes = [
 		{ value: 'tun' as const, label: 'Full System (TUN)' },
 		{ value: 'proxy' as const, label: 'Proxy Only' }
@@ -66,21 +68,30 @@
 </script>
 
 <div class="home">
-	{#if core.missing}
+	{#if core.downloading}
+		<div class="banner card info" role="status">
+			<div class="banner-text grow">
+				<strong>Downloading the sing-box engine…</strong>
+				<small>{core.progress ? STAGES[core.progress.stage] : 'Starting'}{core.percent !== null ? ` ${core.percent.toFixed(0)}%` : ''}. You can keep using the app.</small>
+				<div class="bar-track"><div class="bar-fill" class:indeterminate={core.percent === null} style:width={core.percent === null ? '100%' : `${core.percent}%`}></div></div>
+			</div>
+			<button onclick={() => core.cancel()}>Cancel</button>
+		</div>
+	{:else if core.missing}
 		<div class="banner card danger">
 			<div class="banner-text">
-				<strong>sing-box engine not installed</strong>
-				<small>The VPN core binary is missing, so connections cannot start.</small>
+				<strong>{core.failure ? 'Engine download failed' : 'The VPN engine is not installed'}</strong>
+				<small>{core.failure ?? 'Download sing-box once and connections can start. It is verified before it is used.'}</small>
 			</div>
-			<button class="primary" onclick={() => onnavigate('core')}>Install Engine</button>
+			<button class="primary" onclick={() => (core.promptInstall = true)}>{core.failure ? 'Try again' : 'Download engine'}</button>
 		</div>
-	{:else if core.updateAvailable && core.newest}
+	{:else if core.updateAvailable && core.latestVersion}
 		<div class="banner card info">
 			<div class="banner-text">
-				<strong>Core update available: {core.newest.version}</strong>
-				<small>A newer release is available from the sing-box repository.</small>
+				<strong>Engine update available: {core.latestVersion}</strong>
+				<small>{core.status?.settings.pendingVersion ? `${core.status.settings.pendingVersion} is ready and applies on the next connect.` : 'Downloads in the background and is verified before it is used.'}</small>
 			</div>
-			<button onclick={() => onnavigate('core')}>Update</button>
+			<button onclick={() => core.installBackground(core.latestVersion)}>Update</button>
 		</div>
 	{/if}
 
@@ -225,6 +236,29 @@
 	.banner.info {
 		border-color: var(--accent);
 		background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+	}
+	.banner-text.grow {
+		flex: 1;
+	}
+	.bar-track {
+		height: 4px;
+		border-radius: 2px;
+		background: var(--hairline);
+		overflow: hidden;
+		margin-top: 4px;
+	}
+	.bar-fill {
+		height: 100%;
+		background: var(--accent);
+		transition: width 0.2s;
+	}
+	.bar-fill.indeterminate {
+		animation: pulse 1.1s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		50% {
+			opacity: 0.35;
+		}
 	}
 	.banner-text {
 		display: grid;

@@ -332,6 +332,7 @@ export const api = {
 };
 
 export type Channel = 'stable' | 'prerelease';
+export type UpdatePolicy = 'ask' | 'auto' | 'off';
 
 export interface CoreInfo {
 	path: string;
@@ -353,6 +354,8 @@ export interface CoreSettings {
 	channel: Channel;
 	autoCheck: boolean;
 	lastCheck: number;
+	updatePolicy: UpdatePolicy;
+	pendingVersion: string | null;
 }
 
 export interface CoreStatus {
@@ -381,6 +384,11 @@ export interface CoreProgress {
 	total: number;
 }
 
+export interface CoreFinished {
+	version: string | null;
+	error: string | null;
+}
+
 export const coreApi = {
 	status: () => invoke<CoreStatus>('core_status'),
 	check: () => invoke<Release[]>('core_check'),
@@ -388,8 +396,10 @@ export const coreApi = {
 		invoke<void>('core_install', { version, allowUnverified }),
 	use: (version: string | null) => invoke<void>('core_use', { version }),
 	remove: (version: string) => invoke<void>('core_remove', { version }),
-	updateSettings: (channel: Channel, autoCheck: boolean) =>
-		invoke<void>('update_core_settings', { channel, autoCheck }),
+	installBackground: (version: string | null) => invoke<void>('core_install_background', { version }),
+	cancel: () => invoke<void>('core_cancel'),
+	setChannel: (channel: Channel) => invoke<void>('set_core_channel', { channel }),
+	setPolicy: (policy: UpdatePolicy) => invoke<void>('set_core_update_policy', { policy }),
 	brewUpgrade: () => invoke<string>('core_brew_upgrade')
 };
 

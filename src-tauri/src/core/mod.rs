@@ -28,6 +28,19 @@ pub enum Channel {
     Prerelease,
 }
 
+/// What to do once a newer engine is found.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdatePolicy {
+    /// Notify and let the user decide.
+    #[default]
+    Ask,
+    /// Download in the background and switch over while disconnected.
+    Auto,
+    /// Never check.
+    Off,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct CoreSettings {
@@ -35,12 +48,36 @@ pub struct CoreSettings {
     pub channel: Channel,
     pub auto_check: bool,
     pub last_check: u64,
+    pub update_policy: UpdatePolicy,
+    /// Installed in the background while connected; becomes active on the next connect.
+    pub pending_version: Option<String>,
 }
 
 impl Default for CoreSettings {
     fn default() -> Self {
-        Self { managed_version: None, channel: Channel::Stable, auto_check: true, last_check: 0 }
+        Self {
+            managed_version: None,
+            channel: Channel::Stable,
+            auto_check: true,
+            last_check: 0,
+            update_policy: UpdatePolicy::Ask,
+            pending_version: None,
+        }
     }
+}
+
+/// Makes a version installed in the background the active one, if it is still on disk.
+pub fn apply_pending(settings: &mut CoreSettings, paths: &AppPaths) -> bool {
+    let Some(version) = settings.pending_version.take() else { return false };
+    if managed_binary(paths, &version).is_file() {
+        settings.managed_version = Some(version);
+    }
+    true
+}
+
+/// Background updates only ever replace an engine this app manages itself.
+pub fn should_auto_install(policy: UpdatePolicy, channel: Channel, source: Source) -> bool {
+    policy == UpdatePolicy::Auto && channel == Channel::Stable && source == Source::Managed
 }
 
 #[derive(Clone, Copy, Serialize, PartialEq, Eq)]

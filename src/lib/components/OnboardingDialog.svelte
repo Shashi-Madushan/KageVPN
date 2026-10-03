@@ -56,7 +56,7 @@
 	}
 
 	function installEngine() {
-		onnavigate('core');
+		core.promptInstall = true;
 		onboarding.finish();
 	}
 
@@ -139,7 +139,7 @@
 				{#if step === 1}<p class="tip">You can also drop a text file, or use <em>Enter details manually</em> if you have the values.</p>{/if}
 				{#if step === last}<p class="tip">You can replay this tour any time from Settings.</p>{/if}
 				{#if step === last && core.missing}
-					<button class="btn" onclick={installEngine}>Install the engine first</button>
+					<button class="btn" onclick={installEngine}>Download the engine</button>
 				{/if}
 			</div>
 		{/key}

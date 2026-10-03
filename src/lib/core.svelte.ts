@@ -1,6 +1,6 @@
 import { listen } from '@tauri-apps/api/event';
 import { app } from './app.svelte';
-import { coreApi, type Channel, type CoreProgress, type CoreStatus, type Release } from './api';
+import { coreApi, type Channel, type CoreFinished, type CoreProgress, type CoreStatus, type Release, type UpdatePolicy } from './api';
 import { compareVersions } from './version';
 
 class CoreStore {
@@ -10,6 +10,10 @@ class CoreStore {
 	checking = $state(false);
 	installing = $state<string | null>(null);
 	checked = $state(false);
+	/** Newer version reported by the daily background check. */
+	announced = $state<string | null>(null);
+	failure = $state<string | null>(null);
+	promptInstall = $state(false);
 
 	activeVersion = $derived(this.status?.active?.version ?? null);
 	missing = $derived(this.status !== null && this.status.active === null);
@@ -19,13 +23,29 @@ class CoreStore {
 			null
 		)
 	);
+	latestVersion = $derived(this.newest?.version ?? this.announced);
 	updateAvailable = $derived(
-		this.newest !== null && this.activeVersion !== null && compareVersions(this.newest.version, this.activeVersion) > 0
+		this.activeVersion !== null && this.latestVersion !== null && compareVersions(this.latestVersion, this.activeVersion) > 0
+	);
+	downloading = $derived(this.installing !== null && this.installing !== 'brew');
+	percent = $derived(
+		this.progress && this.progress.total > 0 ? Math.min(100, (this.progress.received / this.progress.total) * 100) : null
 	);
 
 	async init() {
 		await this.refresh();
-		await listen<CoreProgress>('core-progress', (e) => (this.progress = e.payload));
+		await listen<CoreProgress>('core-progress', (e) => {
+			this.progress = e.payload;
+			if (this.installing === null && e.payload.stage !== 'done') this.installing = e.payload.version;
+		});
+		await listen<CoreFinished>('core-finished', async (e) => {
+			this.installing = null;
+			this.progress = null;
+			this.failure = e.payload.error;
+			if (e.payload.version) this.announced = null;
+			await this.refresh();
+		});
+		await listen<string>('core-update', (e) => (this.announced = e.payload));
 	}
 
 	async refresh() {
@@ -64,6 +84,24 @@ class CoreStore {
 		if (ok) app.notify(`sing-box ${version} installed and selected. It applies on the next connect.`, 'info');
 	}
 
+	/** Downloads in the backend, so it keeps going if the user leaves this page. */
+	async installBackground(version: string | null = null) {
+		this.failure = null;
+		this.installing = version ?? 'latest';
+		this.progress = null;
+		this.promptInstall = false;
+		try {
+			await coreApi.installBackground(version);
+		} catch (e) {
+			this.installing = null;
+			app.notify(String(e));
+		}
+	}
+
+	cancel() {
+		coreApi.cancel().catch(() => null);
+	}
+
 	async use(version: string | null) {
 		await this.run(() => coreApi.use(version));
 		await this.refresh();
@@ -77,15 +115,14 @@ class CoreStore {
 
 	async setChannel(channel: Channel) {
 		if (!this.status) return;
-		await this.run(() => coreApi.updateSettings(channel, this.status!.settings.autoCheck));
+		await this.run(() => coreApi.setChannel(channel));
 		this.releases = [];
 		this.checked = false;
 		await this.refresh();
 	}
 
-	async setAutoCheck(autoCheck: boolean) {
-		if (!this.status) return;
-		await this.run(() => coreApi.updateSettings(this.status!.settings.channel, autoCheck));
+	async setPolicy(policy: UpdatePolicy) {
+		await this.run(() => coreApi.setPolicy(policy));
 		await this.refresh();
 	}
 

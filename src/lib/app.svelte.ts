@@ -125,6 +125,14 @@ class AppStore {
 
 	async toggle() {
 		if (this.busy) return;
+		if (!this.connected) {
+			// Without an engine connecting can only fail, so offer the download instead.
+			const { core } = await import('./core.svelte');
+			if (core.missing) {
+				core.promptInstall = true;
+				return;
+			}
+		}
 		await this.run(this.connected ? api.disconnect : api.connect);
 	}
 

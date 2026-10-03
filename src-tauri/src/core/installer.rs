@@ -7,12 +7,13 @@ use flate2::read::GzDecoder;
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use super::releases::Release;
 use super::{inspect, Manifest, Source, BINARY_NAME, MANIFEST_NAME};
 use crate::error::{AppError, Result};
 use crate::paths::AppPaths;
+use crate::state::AppState;
 use crate::singbox;
 
 const PROGRESS_STEP: u64 = 256 * 1024;
@@ -117,7 +118,11 @@ async fn download(app: &AppHandle, release: &Release, destination: &Path) -> Res
     let mut hasher = Sha256::new();
     let (mut received, mut last_emit) = (0u64, 0u64);
 
+    let cancel = &app.state::<AppState>().core_cancel;
     while let Some(chunk) = response.chunk().await? {
+        if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(AppError::Launch("download cancelled".into()));
+        }
         hasher.update(&chunk);
         file.write_all(&chunk)?;
         received += chunk.len() as u64;

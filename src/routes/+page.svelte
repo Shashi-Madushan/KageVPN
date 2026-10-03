@@ -10,6 +10,7 @@
 	import CorePage from '$lib/components/CorePage.svelte';
 	import DiagnosticsPage from '$lib/components/DiagnosticsPage.svelte';
 	import HomePage from '$lib/components/HomePage.svelte';
+	import EngineInstallDialog from '$lib/components/EngineInstallDialog.svelte';
 	import OnboardingDialog from '$lib/components/OnboardingDialog.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import LogView from '$lib/components/LogView.svelte';
@@ -131,6 +132,7 @@
 </div>
 
 <OnboardingDialog onnavigate={(p) => (page = p)} />
+<EngineInstallDialog open={core.promptInstall} />
 
 <style>
 	.app {

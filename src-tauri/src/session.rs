@@ -126,7 +126,14 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     let state = app.state::<AppState>();
     let paths = &state.paths;
 
-    let core_settings = state.store.lock().unwrap().core_settings();
+    let core_settings = {
+        let mut store = state.store.lock().unwrap();
+        let mut settings = store.core_settings();
+        if core::apply_pending(&mut settings, paths) {
+            let _ = store.set_core_settings(settings.clone());
+        }
+        settings
+    };
     let (binary, _) = core::resolve(paths, &core_settings)?;
     if net::proxy_port_open().await {
         return Err(AppError::Launch(format!(

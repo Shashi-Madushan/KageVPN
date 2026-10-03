@@ -5,11 +5,17 @@
 	import { compareVersions } from '$lib/version';
 	import HeaderActions from './HeaderActions.svelte';
 	import Segmented from './Segmented.svelte';
-	import type { Channel, Release } from '$lib/api';
+	import Select from './Select.svelte';
+	import type { Channel, Release, UpdatePolicy } from '$lib/api';
 
 	const channels = [
 		{ value: 'stable' as const, label: 'Stable' },
 		{ value: 'prerelease' as const, label: 'Pre-release' }
+	];
+	const policies = [
+		{ value: 'ask' as const, label: 'Ask me' },
+		{ value: 'auto' as const, label: 'Install automatically' },
+		{ value: 'off' as const, label: 'Do nothing' }
 	];
 	const STAGES = { download: 'Downloading', verify: 'Verifying checksum', extract: 'Extracting', check: 'Checking config', done: 'Done' };
 
@@ -192,10 +198,10 @@
 	<div class="section">
 		<div class="section-head"><span class="caption">Updates</span></div>
 		<div class="group">
-			<label class="item">
-				<span class="grow">Check for updates automatically<span class="sub">Once a day. Nothing installs without you.</span></span>
-				<input type="checkbox" checked={status?.settings.autoCheck ?? true} onchange={(e) => core.setAutoCheck(e.currentTarget.checked)} />
-			</label>
+			<div class="item">
+				<span class="grow">When an update is available<span class="sub">Checked once a day. Automatic installs only replace the engine this app downloaded, and take effect while disconnected.</span></span>
+				<Select options={policies} value={status?.settings.updatePolicy ?? 'ask'} label="Update policy" onchange={(p: UpdatePolicy) => core.setPolicy(p)} />
+			</div>
 			<div class="item">
 				<span class="grow">Upgrade with Homebrew<span class="sub mono">brew upgrade sing-box</span></span>
 				<button class="btn" disabled={core.installing !== null || app.locked} onclick={() => core.brewUpgrade()}>
