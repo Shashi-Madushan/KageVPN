@@ -19,8 +19,9 @@ pub fn user_agent() -> String {
 
 /// URL of the update manifest. `None` disables app updates.
 pub const APP_UPDATE_FEED: Option<&str> = None;
-/// Public key the update manifest signature is checked against.
-pub const APP_UPDATE_PUBKEY: Option<&str> = None;
+/// Public half of the release signing key (`~/.tauri/singbox-gui-updater.key`, see docs/RELEASING.md).
+/// Updates are only installed if they were signed with the matching private key.
+pub const APP_UPDATE_PUBKEY: Option<&str> = Some("dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwOEQzQTc1Q0VGQzM0QjIKUldTeU5Qek9kVHFORUppZS9qVklzUmd6OGtOR1VreVRGNURRdXE1N253WlJHczVBS0N0czJYWjYK");
 
 // ── Feedback ────────────────────────────────────────────────────────────────
 
