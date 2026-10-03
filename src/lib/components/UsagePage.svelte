@@ -99,23 +99,20 @@
 		const value = (rowTotal(row) / sum) * 100;
 		return value > 0 && value < 1 ? '<1%' : `${Math.round(value)}%`;
 	};
-	const hueOf = (text: string) => [...text].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 
-	/** Friendly title, optional note and avatar for one breakdown row. */
+	/** Plain display name for one breakdown row. */
 	function describe(kind: 'app' | 'domain' | 'profile', row: TopRow) {
 		if (kind === 'profile') {
 			const name = profileName(row.key);
 			const server = app.profiles.find((p) => p.id === row.key)?.server ?? '';
-			return { title: name, note: null as string | null, glyph: profileFlag(name, server), hue: hueOf(name) };
+			return { title: name, note: null as string | null, flag: profileFlag(name, server) };
 		}
 		if (kind === 'app') {
 			// macOS reports apps as "Name (owner)"; the owner only matters for system processes.
 			const match = row.key.match(/^(.*?)\s*\(([^)]+)\)$/);
-			const title = match ? match[1] : row.key;
-			return { title, note: match?.[2] === 'root' ? 'system' : null, glyph: title.charAt(0).toUpperCase(), hue: hueOf(title) };
+			return { title: match ? match[1] : row.key, note: match?.[2] === 'root' ? 'system' : null, flag: null };
 		}
-		const host = row.key.replace(/^www\./, '');
-		return { title: row.key, note: null, glyph: host.charAt(0).toUpperCase(), hue: hueOf(host) };
+		return { title: row.key, note: null, flag: null };
 	}
 
 	const tabs = $derived([
@@ -229,28 +226,35 @@
 		{#if usage.hasDimensionFilter}<small>Per-app and per-site figures are estimates and are recorded hourly.</small>{/if}
 	</section>
 
-	<section class="card breakdown">
-		<div class="chart-head">
+	<section class="section breakdown">
+		<div class="section-head">
 			<span class="caption">Breakdown</span>
 			<Segmented options={tabs.map((t) => ({ value: t.value, label: t.label }))} value={tab} label="Breakdown by" onchange={(v) => (tab = v)} />
 		</div>
 		{#if current.rows.length}
 			{@const max = maxOf(current.rows)}
-			<div class="tiles">
-				{#each current.rows as row, i (row.key)}
+			<div class="group table" role="table" aria-label="Usage by {current.label.toLowerCase()}">
+				<div class="row th" role="row">
+					<span role="columnheader">{current.label.slice(0, -1)}</span>
+					<span class="num down" role="columnheader">Download</span>
+					<span class="num up" role="columnheader">Upload</span>
+					<span class="num" role="columnheader">Total</span>
+					<span class="shr" role="columnheader">Share</span>
+				</div>
+				{#each current.rows as row (row.key)}
 					{@const info = describe(tab, row)}
-					<button class="tile" onclick={() => pick(tab, row)} title="Show only {info.title}">
-						<span class="avatar" style:--h={info.hue} aria-hidden="true">{info.glyph}</span>
-						<span class="who">
-							<span class="title">{info.title}{#if info.note}<span class="note">{info.note}</span>{/if}</span>
-							<span class="sub tabular"><span class="d">↓ {formatBytes(row.down)}</span><span class="u">↑ {formatBytes(row.up)}</span></span>
+					<button class="row" role="row" onclick={() => pick(tab, row)} title="Show only {info.title}">
+						<span class="name" role="cell">
+							{#if info.flag}<span class="flag" aria-hidden="true">{info.flag}</span>{/if}
+							<span class="text">{info.title}</span>
+							{#if info.note}<span class="tag">{info.note}</span>{/if}
 						</span>
-						<span class="amount">
-							<strong class="tabular">{formatBytes(rowTotal(row))}</strong>
-							<small class="tabular">{percentOf(row, current.rows)}</small>
-						</span>
-						<span class="meter" role="img" aria-label="{percentOf(row, current.rows)} of the traffic shown">
-							<i class="d" style:width="{(row.down / max) * 100}%"></i><i class="u" style:width="{(row.up / max) * 100}%"></i>
+						<span class="num down tabular" role="cell">{formatBytes(row.down)}</span>
+						<span class="num up tabular" role="cell">{formatBytes(row.up)}</span>
+						<span class="num strong tabular" role="cell">{formatBytes(rowTotal(row))}</span>
+						<span class="shr" role="cell" aria-label="{percentOf(row, current.rows)} of the traffic shown">
+							<span class="track"><i style:width="{(rowTotal(row) / max) * 100}%"></i></span>
+							<span class="pct tabular">{percentOf(row, current.rows)}</span>
 						</span>
 					</button>
 				{/each}
@@ -476,8 +480,7 @@
 	.quota.over .meter div {
 		background: var(--danger);
 	}
-	.chart-card,
-	.breakdown {
+	.chart-card {
 		padding: 14px 16px;
 		display: grid;
 		gap: 10px;
@@ -510,104 +513,106 @@
 		margin: 10px 0;
 		font-size: 12px;
 	}
-	.tiles {
+	.breakdown {
+		container-type: inline-size;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-		gap: 10px;
+		gap: 8px;
 	}
-	.tile {
+	.breakdown .row {
 		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-columns: minmax(0, 1fr) 92px 92px 92px 150px;
 		align-items: center;
-		gap: 8px 12px;
-		padding: 12px 14px;
-		border: 1px solid var(--hairline);
-		border-radius: 12px;
-		background: var(--surface-strong);
+		gap: 12px;
+		width: 100%;
+		min-height: 40px;
+		padding: 8px 14px;
+		border: 0;
+		background: none;
+		color: inherit;
 		text-align: left;
-		transition: border-color 0.15s, background 0.15s;
 	}
-	.tile:hover {
-		border-color: var(--accent);
+	.breakdown .row + .row {
+		border-top: 1px solid var(--hairline);
 	}
-	.avatar {
-		display: grid;
-		place-items: center;
-		width: 36px;
-		height: 36px;
-		border-radius: 10px;
-		font-size: 16px;
-		font-weight: 700;
-		/* Mixing in the text colour keeps the letter readable in both themes. */
-		color: color-mix(in srgb, hsl(var(--h) 65% 48%) 62%, var(--fg));
-		background: hsl(var(--h) 70% 50% / 0.18);
+	.breakdown button.row:hover {
+		background: var(--hairline);
 	}
-	.who {
-		display: grid;
-		gap: 2px;
-		min-width: 0;
+	.breakdown .th {
+		min-height: 30px;
+		padding-block: 4px;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--fg-muted);
+		background: color-mix(in srgb, var(--hairline) 50%, transparent);
 	}
-	.title {
+	.name {
 		display: flex;
 		align-items: center;
 		gap: 6px;
 		min-width: 0;
+	}
+	.name .text {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.tag {
+		flex: none;
+		font-size: 11px;
+		color: var(--fg-muted);
+	}
+	.num {
+		text-align: right;
+		color: var(--fg-muted);
+		font-size: 12px;
+	}
+	.num.strong {
+		color: var(--fg);
+		font-size: 13px;
 		font-weight: 600;
 	}
-	.note {
-		flex: none;
-		padding: 1px 6px;
-		border-radius: 999px;
-		background: var(--hairline);
-		color: var(--fg-muted);
-		font-size: 11px;
-		font-weight: 500;
-	}
-	.sub {
+	.shr {
 		display: flex;
+		align-items: center;
 		gap: 10px;
-		font-size: 12px;
-		color: var(--fg-muted);
 	}
-	.sub .d::first-letter {
-		color: var(--down);
-	}
-	.sub .u::first-letter {
-		color: var(--up);
-	}
-	.amount {
-		display: grid;
-		justify-items: end;
-		gap: 1px;
-	}
-	.amount strong {
-		font-size: 14px;
-	}
-	.amount small {
-		font-size: 12px;
-		color: var(--fg-muted);
-	}
-	.meter {
-		grid-column: 1 / -1;
-		display: flex;
-		height: 10px;
-		border-radius: 5px;
+	.track {
+		flex: 1;
+		height: 6px;
+		border-radius: 3px;
 		background: var(--hairline);
 		overflow: hidden;
 	}
-	.meter i {
+	.track i {
 		display: block;
 		height: 100%;
-		min-width: 0;
+		border-radius: 3px;
+		background: var(--accent);
 	}
-	.meter .d {
-		background: var(--down);
+	.pct {
+		width: 34px;
+		text-align: right;
+		font-size: 12px;
+		color: var(--fg-muted);
 	}
-	.meter .u {
-		background: var(--up);
+	@container (max-width: 640px) {
+		.breakdown .row {
+			grid-template-columns: minmax(0, 1fr) 92px 130px;
+		}
+		.num.down,
+		.num.up {
+			display: none;
+		}
+	}
+	@container (max-width: 420px) {
+		.breakdown .row {
+			grid-template-columns: minmax(0, 1fr) 80px 70px;
+		}
+		.track {
+			display: none;
+		}
 	}
 	.settings {
 		padding: 0;
