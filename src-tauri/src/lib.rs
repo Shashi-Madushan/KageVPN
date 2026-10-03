@@ -1,3 +1,4 @@
+mod app_config;
 mod clash;
 mod commands;
 mod config;
@@ -52,6 +53,7 @@ pub fn run() {
         .setup(|app| {
             let paths = AppPaths::new(app.path().app_data_dir()?)?;
             app.manage(AppState::new(paths));
+            core::migrate_layout(&app.state::<AppState>().paths, &app_config::SING_BOX);
             notify::setup(app.handle());
             warn_if_data_was_recovered(app.handle());
             logs::spawn_tailer(app.handle().clone());
@@ -76,6 +78,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            commands::app_info,
             commands::snapshot,
             commands::import_text,
             commands::save_profile,
@@ -130,6 +133,7 @@ pub fn run() {
             core::commands::core_use,
             core::commands::core_remove,
             core::commands::set_core_channel,
+            core::commands::core_set_active,
             core::commands::set_core_update_policy,
             core::commands::core_install_background,
             core::commands::core_cancel,

@@ -9,11 +9,7 @@ use tauri::{AppHandle, Emitter};
 use crate::config::MIXED_PORT;
 use crate::error::{AppError, Result};
 
-const IP_URL: &str = "https://ipwho.is/";
-const DNS_URL: &str = "http://edns.ip-api.com/json";
-const PING_URL: &str = "http://cp.cloudflare.com/generate_204";
-const DOWN_URL: &str = "https://speed.cloudflare.com/__down?bytes=100000000";
-const UP_URL: &str = "https://speed.cloudflare.com/__up";
+use crate::app_config::urls::{CONNECTION_PROBE as PING_URL, DNS_LEAK as DNS_URL, IP_DETAILS as IP_URL, SPEED_DOWNLOAD as DOWN_URL, SPEED_UPLOAD as UP_URL};
 
 /// Each of the download and upload phases is time-boxed so slow and fast links both finish quickly.
 const PHASE_SECONDS: f64 = 8.0;

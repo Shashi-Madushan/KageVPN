@@ -23,6 +23,9 @@
 	let expanded = $state<string | null>(null);
 
 	const status = $derived(core.status);
+	const coreOptions = $derived(
+		(status?.cores ?? []).map((c) => ({ value: c.id, label: c.runnable ? c.name : `${c.name} (download only)` }))
+	);
 	const installedVersions = $derived(new Set(status?.installed.map((i) => i.version)));
 	const managedActive = $derived(status?.settings.managedVersion ?? null);
 	const percent = $derived(
@@ -58,6 +61,18 @@
 </HeaderActions>
 
 <div class="page">
+	{#if status && status.cores.length > 1}
+		<div class="section">
+			<div class="section-head"><span class="caption">Core</span></div>
+			<div class="group">
+				<div class="item">
+					<span class="grow">Core used for connections<span class="sub">Each core keeps its own versions and update settings.</span></span>
+					<Select options={coreOptions} value={status.core.id} label="Core" disabled={app.locked || busy} onchange={(id: string) => core.setActive(id)} />
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<div class="section">
 		<div class="section-head"><span class="caption">Active engine</span></div>
 		<div class="group">
@@ -65,7 +80,7 @@
 				{@const info = status.active}
 				<div class="item">
 					<span class="label">Version</span>
-					<span class="grow mono tabular">sing-box {info.version}</span>
+					<span class="grow mono tabular">{status.core.name} {info.version}</span>
 					{#if info.missingTags.length || info.outdated}
 						<span class="state warn">Needs a newer build</span>
 					{:else if core.updateAvailable && core.newest}
@@ -87,14 +102,14 @@
 				<div class="item">
 					<span class="label">Features</span>
 					<span class="grow features">
-						{#each ['with_clash_api', 'with_utls'] as tag (tag)}
+						{#each status.core.requiredFeatures as tag (tag)}
 							{@const missing = info.missingTags.includes(tag)}
 							<span class="mono" class:missing>{missing ? '✕' : '✓'} {tag.replace('with_', '')}</span>
 						{/each}
 					</span>
 				</div>
 				{#if info.missingTags.length || info.outdated}
-					<div class="item note"><span class="grow">This engine is missing required features or is older than 1.12. Install a managed version below.</span></div>
+					<div class="item note"><span class="grow">This engine is missing required features or is older than {status.core.minVersion}. Install a managed version below.</span></div>
 				{/if}
 			{:else}
 				<div class="item">

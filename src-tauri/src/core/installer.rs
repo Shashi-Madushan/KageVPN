@@ -10,7 +10,8 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::releases::Release;
-use super::{inspect, Manifest, Source, BINARY_NAME, MANIFEST_NAME};
+use super::{inspect, Manifest, Source, MANIFEST_NAME};
+use crate::app_config::CoreSpec;
 use crate::error::{AppError, Result};
 use crate::paths::AppPaths;
 use crate::state::AppState;
@@ -32,6 +33,7 @@ pub enum Stage {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Progress {
+    pub core: String,
     pub version: String,
     pub stage: Stage,
     pub received: u64,
@@ -41,6 +43,7 @@ pub struct Progress {
 pub async fn install(
     app: &AppHandle,
     paths: &AppPaths,
+    spec: &CoreSpec,
     release: &Release,
     allow_unverified: bool,
     check_config: Option<Value>,
@@ -51,11 +54,11 @@ pub async fn install(
         ));
     }
 
-    let staging = paths.core_dir().join(format!(".staging-{}", release.version));
+    let staging = paths.core_dir_for(spec.id).join(format!(".staging-{}", release.version));
     let _ = fs::remove_dir_all(&staging);
     fs::create_dir_all(&staging)?;
 
-    let result = run(app, paths, release, &staging, check_config).await;
+    let result = run(app, paths, spec, release, &staging, check_config).await;
     if result.is_err() {
         let _ = fs::remove_dir_all(&staging);
     }
@@ -65,29 +68,30 @@ pub async fn install(
 async fn run(
     app: &AppHandle,
     paths: &AppPaths,
+    spec: &CoreSpec,
     release: &Release,
     staging: &Path,
     check_config: Option<Value>,
 ) -> Result<()> {
     let archive = staging.join(ARCHIVE_NAME);
-    let archive_sha256 = download(app, release, &archive).await?;
+    let archive_sha256 = download(app, spec, release, &archive).await?;
 
-    emit(app, release, Stage::Verify, 0, 0);
+    emit(app, spec, release, Stage::Verify, 0, 0);
     if let Some(expected) = &release.sha256 {
         if !expected.eq_ignore_ascii_case(&archive_sha256) {
             return Err(AppError::Launch("checksum mismatch, the download was rejected".into()));
         }
     }
 
-    emit(app, release, Stage::Extract, 0, 0);
-    let binary = staging.join(BINARY_NAME);
-    let (archive_path, binary_path) = (archive.clone(), binary.clone());
-    tauri::async_runtime::spawn_blocking(move || extract_binary(&archive_path, &binary_path))
+    emit(app, spec, release, Stage::Extract, 0, 0);
+    let binary = staging.join(spec.binary_name);
+    let (archive_path, binary_path, name) = (archive.clone(), binary.clone(), spec.binary_name);
+    tauri::async_runtime::spawn_blocking(move || extract_binary(name, &archive_path, &binary_path))
         .await
         .map_err(|e| AppError::Launch(e.to_string()))??;
 
-    emit(app, release, Stage::Check, 0, 0);
-    verify_binary(&binary, staging, check_config)?;
+    emit(app, spec, release, Stage::Check, 0, 0);
+    verify_binary(spec, &binary, staging, check_config)?;
 
     let manifest = Manifest {
         version: release.version.clone(),
@@ -98,16 +102,16 @@ async fn run(
     fs::write(staging.join(MANIFEST_NAME), serde_json::to_vec_pretty(&manifest)?)?;
     fs::remove_file(&archive)?;
 
-    let target = paths.core_dir().join(&release.version);
+    let target = paths.core_dir_for(spec.id).join(&release.version);
     let _ = fs::remove_dir_all(&target);
     fs::rename(staging, &target)?;
-    emit(app, release, Stage::Done, 0, 0);
+    emit(app, spec, release, Stage::Done, 0, 0);
     Ok(())
 }
 
-async fn download(app: &AppHandle, release: &Release, destination: &Path) -> Result<String> {
+async fn download(app: &AppHandle, spec: &CoreSpec, release: &Release, destination: &Path) -> Result<String> {
     let mut response = reqwest::Client::builder()
-        .user_agent(concat!("singbox-gui/", env!("CARGO_PKG_VERSION")))
+        .user_agent(crate::app_config::user_agent())
         .build()?
         .get(&release.url)
         .send()
@@ -128,19 +132,19 @@ async fn download(app: &AppHandle, release: &Release, destination: &Path) -> Res
         received += chunk.len() as u64;
         if received - last_emit >= PROGRESS_STEP {
             last_emit = received;
-            emit(app, release, Stage::Download, received, release.size);
+            emit(app, spec, release, Stage::Download, received, release.size);
         }
     }
-    emit(app, release, Stage::Download, received, release.size);
+    emit(app, spec, release, Stage::Download, received, release.size);
     Ok(hex(&hasher.finalize()))
 }
 
-pub fn extract_binary(archive: &Path, destination: &Path) -> Result<()> {
+pub fn extract_binary(binary_name: &str, archive: &Path, destination: &Path) -> Result<()> {
     let mut tar = tar::Archive::new(GzDecoder::new(File::open(archive)?));
     for entry in tar.entries()? {
         let mut entry = entry?;
         let is_binary = entry.header().entry_type().is_file()
-            && entry.path()?.file_name().is_some_and(|name| name == BINARY_NAME);
+            && entry.path()?.file_name().is_some_and(|name| name == binary_name);
         if is_binary {
             let mut out = File::create(destination)?;
             std::io::copy(&mut entry, &mut out)?;
@@ -148,18 +152,19 @@ pub fn extract_binary(archive: &Path, destination: &Path) -> Result<()> {
             return Ok(());
         }
     }
-    Err(AppError::Launch("the archive does not contain a sing-box binary".into()))
+    Err(AppError::Launch(format!("the archive does not contain a {binary_name} binary")))
 }
 
-fn verify_binary(binary: &Path, staging: &Path, check_config: Option<Value>) -> Result<()> {
-    let info = inspect(binary, Source::Managed)?;
+fn verify_binary(spec: &CoreSpec, binary: &Path, staging: &Path, check_config: Option<Value>) -> Result<()> {
+    let info = inspect(spec, binary, Source::Managed)?;
     if !info.missing_tags.is_empty() {
         return Err(AppError::Launch(format!("missing build features: {}", info.missing_tags.join(", "))));
     }
     if info.outdated {
         return Err(AppError::Launch(format!("version {} is older than the supported minimum", info.version)));
     }
-    if let Some(config) = check_config {
+    // Validating a config is a sing-box subcommand, so only cores with a runtime adapter do it.
+    if let Some(config) = check_config.filter(|_| spec.runnable) {
         let path = staging.join("check.json");
         fs::write(&path, serde_json::to_vec(&config)?)?;
         let result = singbox::check(binary, &path);
@@ -194,8 +199,8 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn emit(app: &AppHandle, release: &Release, stage: Stage, received: u64, total: u64) {
-    let progress = Progress { version: release.version.clone(), stage, received, total };
+fn emit(app: &AppHandle, spec: &CoreSpec, release: &Release, stage: Stage, received: u64, total: u64) {
+    let progress = Progress { core: spec.name.to_string(), version: release.version.clone(), stage, received, total };
     let _ = app.emit("core-progress", progress);
 }
 

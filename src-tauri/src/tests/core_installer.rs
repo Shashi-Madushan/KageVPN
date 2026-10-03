@@ -26,7 +26,7 @@ fn extracts_the_binary_from_a_nested_folder() {
     let dir = scratch("extract");
     let archive = make_archive(&dir, "sing-box-1.0.0-darwin-arm64/sing-box");
     let out = dir.join("sing-box");
-    extract_binary(&archive, &out).unwrap();
+    extract_binary("sing-box", &archive, &out).unwrap();
     assert!(out.is_file());
 }
 
@@ -34,7 +34,7 @@ fn extracts_the_binary_from_a_nested_folder() {
 fn fails_when_binary_is_missing() {
     let dir = scratch("missing");
     let archive = make_archive(&dir, "sing-box-1.0.0-darwin-arm64/LICENSE");
-    assert!(extract_binary(&archive, &dir.join("sing-box")).is_err());
+    assert!(extract_binary("sing-box", &archive, &dir.join("sing-box")).is_err());
 }
 
 #[test]

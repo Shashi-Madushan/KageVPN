@@ -4,13 +4,14 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Mode;
-use crate::core::CoreSettings;
+use crate::app_config::{core_spec, default_core, CoreSpec};
+use crate::core::{CoreSet, CoreSettings};
 use crate::error::{AppError, Result};
 use crate::fsutil;
 use crate::profile::Profile;
 use crate::settings::{AutoSettings, ReliabilitySettings, RoutingSettings, Subscription, UsageSettings};
 
-const SCHEMA_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -33,7 +34,10 @@ struct Data {
     active_id: Option<String>,
     mode: Mode,
     settings: Settings,
-    core: CoreSettings,
+    /// Single-core layout from schema 2; read once and moved into `cores`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    core: Option<CoreSettings>,
+    cores: CoreSet,
     usage: UsageSettings,
     routing: RoutingSettings,
     reliability: ReliabilitySettings,
@@ -77,6 +81,9 @@ impl Store {
             let backup = format!("data.v{}.json", self.data.schema_version.max(1));
             let _ = fs::copy(&self.path, self.path.with_file_name(backup));
         }
+        if let Some(legacy) = self.data.core.take() {
+            self.data.cores.entries.entry(default_core().id.to_string()).or_insert(legacy);
+        }
         self.data.schema_version = SCHEMA_VERSION;
         let _ = self.save();
     }
@@ -105,8 +112,24 @@ impl Store {
         self.data.settings
     }
 
+    /// The core that runs connections. An unknown saved id falls back to the default core.
+    pub fn active_core(&self) -> &'static CoreSpec {
+        core_spec(&self.data.cores.active).unwrap_or_else(default_core)
+    }
+
+    pub fn set_active_core(&mut self, id: &str) -> Result<()> {
+        let spec = core_spec(id).ok_or_else(|| AppError::Invalid(format!("unknown core {id}")))?;
+        self.data.cores.active = spec.id.to_string();
+        self.save()
+    }
+
+    /// The active core's settings.
     pub fn core_settings(&self) -> CoreSettings {
-        self.data.core.clone()
+        self.core_settings_for(self.active_core().id)
+    }
+
+    pub fn core_settings_for(&self, id: &str) -> CoreSettings {
+        self.data.cores.entries.get(id).cloned().unwrap_or_default()
     }
 
     pub fn usage_settings(&self) -> UsageSettings {
@@ -135,7 +158,11 @@ impl Store {
     }
 
     pub fn set_core_settings(&mut self, settings: CoreSettings) -> Result<()> {
-        self.data.core = settings;
+        self.set_core_settings_for(self.active_core().id, settings)
+    }
+
+    pub fn set_core_settings_for(&mut self, id: &str, settings: CoreSettings) -> Result<()> {
+        self.data.cores.entries.insert(id.to_string(), settings);
         self.save()
     }
 

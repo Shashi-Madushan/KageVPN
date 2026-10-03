@@ -9,8 +9,7 @@ use crate::error::{AppError, Result};
 
 const TCP_TIMEOUT: Duration = Duration::from_secs(5);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
-const PROBE_URL: &str = "http://cp.cloudflare.com/generate_204";
-const IP_URL: &str = "https://api.ipify.org";
+use crate::app_config::urls::{CONNECTION_PROBE as PROBE_URL, EXIT_IP as IP_URL};
 
 pub async fn tcp_latency(host: &str, port: u16) -> Result<u64> {
     let started = Instant::now();

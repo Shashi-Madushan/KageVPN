@@ -286,6 +286,7 @@ export interface Snapshot {
 }
 
 export const api = {
+	appInfo: () => invoke<AppInfo>('app_info'),
 	snapshot: () => invoke<Snapshot>('snapshot'),
 	importText: (text: string) => invoke<ImportSummary>('import_text', { text }),
 	saveProfile: (profile: Profile) => invoke<Profile>('save_profile', { profile }),
@@ -358,7 +359,25 @@ export interface CoreSettings {
 	pendingVersion: string | null;
 }
 
+export interface CoreRef {
+	id: string;
+	name: string;
+	/** False for cores the app can download but cannot run connections with yet. */
+	runnable: boolean;
+	minVersion: string;
+	requiredFeatures: string[];
+}
+
+export interface AppInfo {
+	name: string;
+	version: string;
+	updatesConfigured: boolean;
+	feedbackConfigured: boolean;
+}
+
 export interface CoreStatus {
+	core: CoreRef;
+	cores: CoreRef[];
 	active: CoreInfo | null;
 	error: string | null;
 	system: CoreInfo | null;
@@ -378,6 +397,7 @@ export interface Release {
 }
 
 export interface CoreProgress {
+	core: string;
 	version: string;
 	stage: 'download' | 'verify' | 'extract' | 'check' | 'done';
 	received: number;
@@ -385,6 +405,7 @@ export interface CoreProgress {
 }
 
 export interface CoreFinished {
+	core: string;
 	version: string | null;
 	error: string | null;
 }
@@ -397,6 +418,7 @@ export const coreApi = {
 	installBackground: (version: string | null, allowUnverified = false) =>
 		invoke<void>('core_install_background', { version, allowUnverified }),
 	cancel: () => invoke<void>('core_cancel'),
+	setActive: (id: string) => invoke<void>('core_set_active', { id }),
 	setChannel: (channel: Channel) => invoke<void>('set_core_channel', { channel }),
 	setPolicy: (policy: UpdatePolicy) => invoke<void>('set_core_update_policy', { policy }),
 	brewUpgrade: () => invoke<string>('core_brew_upgrade')

@@ -71,7 +71,7 @@
 	{#if core.downloading}
 		<div class="banner card info" role="status">
 			<div class="banner-text grow">
-				<strong>Downloading the sing-box engine…</strong>
+				<strong>Downloading the {core.coreName} engine…</strong>
 				<small>{core.progress ? STAGES[core.progress.stage] : 'Starting'}{core.percent !== null ? ` ${core.percent.toFixed(0)}%` : ''}. You can keep using the app.</small>
 				<div class="bar-track"><div class="bar-fill" class:indeterminate={core.percent === null} style:width={core.percent === null ? '100%' : `${core.percent}%`}></div></div>
 			</div>
@@ -81,7 +81,7 @@
 		<div class="banner card danger">
 			<div class="banner-text">
 				<strong>{core.failure ? 'Engine download failed' : 'The VPN engine is not installed'}</strong>
-				<small>{core.failure ?? 'Download sing-box once and connections can start. It is verified before it is used.'}</small>
+				<small>{core.failure ?? 'Download {core.coreName} once and connections can start. It is verified before it is used.'}</small>
 			</div>
 			<button class="primary" onclick={() => (core.promptInstall = true)}>{core.failure ? 'Try again' : 'Download engine'}</button>
 		</div>

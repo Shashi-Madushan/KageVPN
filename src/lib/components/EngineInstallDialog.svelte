@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
 	import { formatBytes } from '$lib/format';
 	import Dialog from './Dialog.svelte';
@@ -25,11 +26,11 @@
 
 <Dialog {open} title="Download the VPN engine" subtitle="One-time setup" width={420} onclose={close}>
 	<p class="text">
-		SingBox GUI needs the sing-box engine to connect. It will be downloaded from the official SagerNet release on GitHub, checked against its published checksum, and kept inside this app's own folder.
+		{app.info.name} needs the {core.coreName} engine to connect. It will be downloaded from the project's official releases, checked against its published checksum, and kept inside this app's own folder.
 	</p>
 	<p class="meta">
 		{#if release}
-			sing-box {release.version}{release.size ? ` · ${formatBytes(release.size)}` : ''}
+			{core.coreName} {release.version}{release.size ? ` · ${formatBytes(release.size)}` : ''}
 		{:else if error}
 			<span class="bad">{error}</span>
 		{:else}

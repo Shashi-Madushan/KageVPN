@@ -1,6 +1,7 @@
 import { listen } from '@tauri-apps/api/event';
 import {
 	api,
+	type AppInfo,
 	type AutoSettings,
 	type Hint,
 	type ImportSummary,
@@ -46,6 +47,8 @@ class AppStore {
 	pendingImport = $state<string | null>(null);
 	/** True once the first snapshot from the backend has been applied. */
 	loaded = $state(false);
+	/** Name, version and feature switches; the source of truth is `app_config.rs`. */
+	info = $state<AppInfo>({ name: '', version: '', updatesConfigured: false, feedbackConfigured: false });
 
 	activeProfile = $derived(this.profiles.find((p) => p.id === this.activeId) ?? null);
 	busy = $derived(this.status.state === 'connecting');
@@ -55,6 +58,7 @@ class AppStore {
 	hint = $derived<Hint | null>(this.logs.findLast((l) => l.hint)?.hint ?? null);
 
 	async init() {
+		this.info = await api.appInfo();
 		const snap = await api.snapshot();
 		this.profiles = snap.profiles;
 		this.activeId = snap.activeId;
@@ -111,7 +115,7 @@ class AppStore {
 	}
 
 	notify(message: string, kind: NoticeKind = 'error') {
-		const title = kind === 'error' ? 'SingBox Error' : 'SingBox GUI';
+		const title = kind === 'error' ? `${this.info.name} Error` : this.info.name;
 		api.notifyOs(title, message).catch(() => null);
 	}
 

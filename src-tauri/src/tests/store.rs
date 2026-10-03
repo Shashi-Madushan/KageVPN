@@ -106,3 +106,34 @@ fn import_skips_profiles_that_are_already_saved() {
     assert_eq!(store.profiles().len(), 2);
     let _ = fs::remove_dir_all(path.parent().unwrap());
 }
+
+#[test]
+fn single_core_settings_from_schema_two_move_under_the_default_core() {
+    let path = temp_path("core-migrate");
+    fs::write(
+        &path,
+        r#"{"schemaVersion":2,"core":{"managedVersion":"1.12.0","channel":"prerelease","autoCheck":false}}"#,
+    )
+    .unwrap();
+
+    let store = Store::load(path.clone());
+    let settings = store.core_settings();
+    assert_eq!(settings.managed_version.as_deref(), Some("1.12.0"));
+    assert_eq!(settings.channel, crate::core::Channel::Prerelease);
+    assert_eq!(store.active_core().id, "sing-box");
+
+    let saved = fs::read_to_string(&path).unwrap();
+    assert!(!saved.contains("\"core\":"), "the legacy key is dropped once migrated: {saved}");
+    assert!(saved.contains("\"cores\""));
+}
+
+#[test]
+fn unknown_core_ids_are_rejected_and_a_stale_saved_id_falls_back() {
+    let path = temp_path("core-unknown");
+    let mut store = Store::load(path.clone());
+    assert!(store.set_active_core("nope").is_err());
+    drop(store);
+
+    fs::write(&path, r#"{"schemaVersion":3,"cores":{"active":"removed-core"}}"#).unwrap();
+    assert_eq!(Store::load(path).active_core().id, "sing-box");
+}

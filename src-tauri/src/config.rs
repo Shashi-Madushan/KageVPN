@@ -10,9 +10,7 @@ use crate::settings::{Action, DnsProvider, DnsSettings, RouteMode, RoutingSettin
 pub const MIXED_PORT: u16 = 2080;
 pub const CLASH_PORT: u16 = 19090;
 const MAX_NODES: usize = 150;
-const PROBE_URL: &str = "http://cp.cloudflare.com/generate_204";
-const GEOIP_URL: &str = "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-";
-const GEOSITE_URL: &str = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-";
+use crate::app_config::urls::{CONNECTION_PROBE as PROBE_URL, GEOIP_RULE_SETS as GEOIP_URL, GEOSITE_RULE_SETS as GEOSITE_URL};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

@@ -32,7 +32,7 @@ fn input<'a>(profiles: &'a [Profile], routing: &'a RoutingSettings, mode: Mode) 
 
 #[test]
 fn generated_configs_pass_singbox_check() {
-    let Ok(binary) = crate::singbox::locate() else { return };
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
     let profiles = [profile()];
     let routing = RoutingSettings::default();
     for mode in [Mode::Tun, Mode::Proxy] {

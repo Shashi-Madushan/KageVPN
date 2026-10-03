@@ -21,6 +21,11 @@ impl AppPaths {
         self.data_dir.join("core")
     }
 
+    /// Where one core's downloaded versions live: `core/<id>/<version>/`.
+    pub fn core_dir_for(&self, core_id: &str) -> PathBuf {
+        self.core_dir().join(core_id)
+    }
+
     pub fn usage_db(&self) -> PathBuf {
         self.data_dir.join("usage.db")
     }

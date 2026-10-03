@@ -2,6 +2,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_autostart::ManagerExt;
 
+use crate::app_config;
 use crate::config::Mode;
 use crate::diagnostics::{self, Diagnostics, SpeedResult};
 use crate::error::{AppError, Result};
@@ -46,6 +47,26 @@ pub struct ImportSummary {
 pub struct NodeLatency {
     id: String,
     ms: Option<u64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppInfo {
+    name: &'static str,
+    version: &'static str,
+    updates_configured: bool,
+    feedback_configured: bool,
+}
+
+/// Identity and feature switches from `app_config.rs`, so the UI never hardcodes them.
+#[tauri::command]
+pub fn app_info() -> AppInfo {
+    AppInfo {
+        name: app_config::APP_NAME,
+        version: app_config::APP_VERSION,
+        updates_configured: app_config::APP_UPDATE_FEED.is_some() && app_config::APP_UPDATE_PUBKEY.is_some(),
+        feedback_configured: app_config::FEEDBACK_ENDPOINT.is_some(),
+    }
 }
 
 #[tauri::command]

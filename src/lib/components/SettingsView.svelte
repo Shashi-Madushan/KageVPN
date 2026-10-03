@@ -69,12 +69,15 @@
 	<span class="caption">Help</span>
 	<div class="settings card">
 		<div class="restore">
+			<span><strong>{app.info.name}</strong><small>Version {app.info.version}</small></span>
+		</div>
+		<div class="restore">
 			<span><strong>Welcome tour</strong><small>A quick walkthrough of adding a server and connecting.</small></span>
 			<button class="btn" onclick={() => onboarding.show()}>Show tour</button>
 		</div>
 	</div>
 
-	<button class="btn quit" onclick={() => app.quit()}>Quit SingBox GUI</button>
+	<button class="btn quit" onclick={() => app.quit()}>Quit {app.info.name}</button>
 </div>
 
 <style>

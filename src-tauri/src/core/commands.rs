@@ -8,18 +8,43 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use super::releases::{self, Release};
 use super::version::Version;
 use super::{installer, resolve, should_auto_install, Channel, CoreInfo, CoreSettings, Installed, Source, UpdatePolicy};
+use crate::app_config::{core_spec, CoreSpec, CORES};
 use crate::config::{self, ConfigInput, Mode};
 use crate::error::{AppError, Result};
 use crate::session::State as Conn;
 use crate::state::AppState;
-use crate::{notify, singbox};
+use crate::notify;
 
 const CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const BREW_PATHS: [&str; 2] = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"];
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CoreRef {
+    id: &'static str,
+    name: &'static str,
+    runnable: bool,
+    min_version: &'static str,
+    required_features: &'static [&'static str],
+}
+
+impl From<&CoreSpec> for CoreRef {
+    fn from(spec: &CoreSpec) -> Self {
+        Self {
+            id: spec.id,
+            name: spec.name,
+            runnable: spec.runnable,
+            min_version: spec.min_version,
+            required_features: spec.required_features,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CoreStatus {
+    core: CoreRef,
+    cores: Vec<CoreRef>,
     active: Option<CoreInfo>,
     error: Option<String>,
     system: Option<CoreInfo>,
@@ -28,22 +53,30 @@ pub struct CoreStatus {
     busy: bool,
 }
 
+/// The core that connections use, with its settings; commands act on this one.
+fn active_core(state: &AppState) -> (&'static CoreSpec, CoreSettings) {
+    let store = state.store.lock().unwrap();
+    (store.active_core(), store.core_settings())
+}
+
 #[tauri::command]
 pub fn core_status(state: State<AppState>) -> CoreStatus {
-    let settings = state.store.lock().unwrap().core_settings();
-    let system = singbox::locate().ok().and_then(|path| super::inspect(&path, Source::System).ok());
-    let (active, error) = match resolve(&state.paths, &settings) {
-        Ok((path, source)) => match super::inspect(&path, source) {
+    let (spec, settings) = active_core(&state);
+    let system = super::locate(spec).ok().and_then(|path| super::inspect(spec, &path, Source::System).ok());
+    let (active, error) = match resolve(&state.paths, spec, &settings) {
+        Ok((path, source)) => match super::inspect(spec, &path, source) {
             Ok(info) => (Some(info), None),
             Err(e) => (None, Some(e.to_string())),
         },
         Err(e) => (None, Some(e.to_string())),
     };
     CoreStatus {
+        core: spec.into(),
+        cores: CORES.iter().map(CoreRef::from).collect(),
         active,
         error,
         system,
-        installed: super::installed(&state.paths),
+        installed: super::installed(&state.paths, spec),
         settings,
         busy: state.core_busy.load(Ordering::SeqCst),
     }
@@ -51,12 +84,12 @@ pub fn core_status(state: State<AppState>) -> CoreStatus {
 
 #[tauri::command]
 pub async fn core_check(state: State<'_, AppState>) -> Result<Vec<Release>> {
-    let channel = state.store.lock().unwrap().core_settings().channel;
-    let releases = releases::fetch(channel).await?;
+    let (spec, settings) = active_core(&state);
+    let releases = releases::fetch(spec, settings.channel).await?;
     let mut store = state.store.lock().unwrap();
-    let mut settings = store.core_settings();
+    let mut settings = store.core_settings_for(spec.id);
     settings.last_check = now_secs();
-    store.set_core_settings(settings)?;
+    store.set_core_settings_for(spec.id, settings)?;
     Ok(releases)
 }
 
@@ -83,6 +116,7 @@ impl Drop for Busy {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Finished {
+    core: String,
     version: Option<String>,
     error: Option<String>,
 }
@@ -92,17 +126,18 @@ struct Finished {
 #[tauri::command]
 pub fn core_install_background(app: AppHandle, version: Option<String>, allow_unverified: Option<bool>) -> Result<()> {
     let busy = Busy::acquire(&app)?;
+    let spec = app.state::<AppState>().store.lock().unwrap().active_core();
     tauri::async_runtime::spawn(async move {
         let outcome = async {
             let release = match &version {
-                Some(version) => find_release(version).await?,
-                None => latest_stable().await?,
+                Some(version) => find_release(spec, version).await?,
+                None => latest_stable(spec).await?,
             };
-            install_release(&app, &release, allow_unverified.unwrap_or(false), Activation::Now).await.map(|_| release.version)
+            install_release(&app, spec, &release, allow_unverified.unwrap_or(false), Activation::Now).await.map(|_| release.version)
         }
         .await;
         drop(busy);
-        report(&app, outcome);
+        report(&app, spec, outcome);
     });
     Ok(())
 }
@@ -112,17 +147,18 @@ pub fn core_cancel(state: State<AppState>) {
     state.core_cancel.store(true, Ordering::SeqCst);
 }
 
-fn report(app: &AppHandle, outcome: Result<String>) {
+fn report(app: &AppHandle, spec: &CoreSpec, outcome: Result<String>) {
+    let core = spec.name.to_string();
     let (title, body, finished) = match outcome {
         Ok(version) => (
-            "sing-box engine ready",
+            format!("{} engine ready", spec.name),
             format!("Version {version} is installed."),
-            Finished { version: Some(version), error: None },
+            Finished { core, version: Some(version), error: None },
         ),
-        Err(e) => ("sing-box download failed", e.to_string(), Finished { version: None, error: Some(e.to_string()) }),
+        Err(e) => (format!("{} download failed", spec.name), e.to_string(), Finished { core, version: None, error: Some(e.to_string()) }),
     };
     let _ = app.emit("core-finished", finished);
-    notify::send(app, title, &body);
+    notify::send(app, &title, &body);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -133,17 +169,17 @@ enum Activation {
     WhenIdle,
 }
 
-async fn find_release(version: &str) -> Result<Release> {
-    releases::fetch(Channel::Prerelease)
+async fn find_release(spec: &CoreSpec, version: &str) -> Result<Release> {
+    releases::fetch(spec, Channel::Prerelease)
         .await?
         .into_iter()
         .find(|r| r.version == version)
         .ok_or_else(|| AppError::Invalid(format!("version {version} was not found")))
 }
 
-async fn latest_stable() -> Result<Release> {
-    let found = releases::fetch(Channel::Stable).await?;
-    newest(found).ok_or_else(|| AppError::Invalid("no stable sing-box release was found for this Mac".into()))
+async fn latest_stable(spec: &CoreSpec) -> Result<Release> {
+    let found = releases::fetch(spec, Channel::Stable).await?;
+    newest(found).ok_or_else(|| AppError::Invalid(format!("no stable {} release was found for this Mac", spec.name)))
 }
 
 pub(crate) fn newest(releases: Vec<Release>) -> Option<Release> {
@@ -154,7 +190,7 @@ pub(crate) fn newest(releases: Vec<Release>) -> Option<Release> {
         .map(|(_, r)| r)
 }
 
-async fn install_release(app: &AppHandle, release: &Release, allow_unverified: bool, activation: Activation) -> Result<()> {
+async fn install_release(app: &AppHandle, spec: &CoreSpec, release: &Release, allow_unverified: bool, activation: Activation) -> Result<()> {
     let state = app.state::<AppState>();
 
     let check_config = {
@@ -178,24 +214,25 @@ async fn install_release(app: &AppHandle, release: &Release, allow_unverified: b
             .flatten()
     };
 
-    installer::install(app, &state.paths, release, allow_unverified, check_config).await?;
+    installer::install(app, &state.paths, spec, release, allow_unverified, check_config).await?;
 
     let idle = state.status.lock().unwrap().state == Conn::Disconnected;
     let mut store = state.store.lock().unwrap();
-    let mut settings = store.core_settings();
+    let mut settings = store.core_settings_for(spec.id);
     if activation == Activation::Now || idle {
         settings.managed_version = Some(release.version.clone());
         settings.pending_version = None;
     } else {
         settings.pending_version = Some(release.version.clone());
     }
-    store.set_core_settings(settings)
+    store.set_core_settings_for(spec.id, settings)
 }
 
 #[tauri::command]
 pub fn core_use(state: State<AppState>, version: Option<String>) -> Result<()> {
+    let (spec, _) = active_core(&state);
     if let Some(version) = &version {
-        if !super::managed_binary(&state.paths, version).is_file() {
+        if !super::managed_binary(&state.paths, spec, version).is_file() {
             return Err(AppError::Invalid(format!("version {version} is not installed")));
         }
     }
@@ -207,15 +244,29 @@ pub fn core_use(state: State<AppState>, version: Option<String>) -> Result<()> {
 
 #[tauri::command]
 pub fn core_remove(state: State<AppState>, version: String) -> Result<()> {
-    let active = state.store.lock().unwrap().core_settings().managed_version;
+    let (spec, settings) = active_core(&state);
+    let active = settings.managed_version;
     if active.as_deref() == Some(version.as_str()) {
         return Err(AppError::Invalid("switch to another core before removing this one".into()));
     }
     if Version::parse(&version).is_none() {
         return Err(AppError::Invalid("invalid version".into()));
     }
-    std::fs::remove_dir_all(state.paths.core_dir().join(version))?;
+    std::fs::remove_dir_all(state.paths.core_dir_for(spec.id).join(version))?;
     Ok(())
+}
+
+/// Chooses which core runs connections. Only cores with a runtime adapter can be chosen.
+#[tauri::command]
+pub fn core_set_active(state: State<AppState>, id: String) -> Result<()> {
+    let spec = core_spec(&id).ok_or_else(|| AppError::Invalid(format!("unknown core {id}")))?;
+    if !spec.runnable {
+        return Err(AppError::Invalid(format!("{} can be downloaded but cannot run connections yet", spec.name)));
+    }
+    if state.status.lock().unwrap().state != Conn::Disconnected {
+        return Err(AppError::Invalid("disconnect before switching cores".into()));
+    }
+    state.store.lock().unwrap().set_active_core(spec.id)
 }
 
 #[tauri::command]
@@ -264,27 +315,27 @@ pub async fn core_brew_upgrade() -> Result<String> {
 pub fn spawn_background_check(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
-        let settings = state.store.lock().unwrap().core_settings();
+        let (spec, settings) = active_core(&state);
         if !settings.auto_check
             || settings.update_policy == UpdatePolicy::Off
             || now_secs().saturating_sub(settings.last_check) < CHECK_INTERVAL_SECS
         {
             return;
         }
-        let Ok(releases) = releases::fetch(settings.channel).await else { return };
+        let Ok(releases) = releases::fetch(spec, settings.channel).await else { return };
 
-        let resolved = resolve(&state.paths, &settings)
+        let resolved = resolve(&state.paths, spec, &settings)
             .ok()
-            .and_then(|(path, source)| super::inspect(&path, source).ok().map(|info| (info, source)));
+            .and_then(|(path, source)| super::inspect(spec, &path, source).ok().map(|info| (info, source)));
         let latest = newest(releases);
 
         if let (Some((info, source)), Some(latest)) = (resolved, latest) {
             if Version::parse(&latest.version) > Version::parse(&info.version) {
                 if should_auto_install(settings.update_policy, settings.channel, source) && !state.core_busy.load(Ordering::SeqCst) {
                     if let Ok(busy) = Busy::acquire(&app) {
-                        let outcome = install_release(&app, &latest, false, Activation::WhenIdle).await.map(|_| latest.version.clone());
+                        let outcome = install_release(&app, spec, &latest, false, Activation::WhenIdle).await.map(|_| latest.version.clone());
                         drop(busy);
-                        report(&app, outcome);
+                        report(&app, spec, outcome);
                     }
                 } else {
                     let _ = app.emit("core-update", latest.version.clone());
@@ -293,9 +344,9 @@ pub fn spawn_background_check(app: AppHandle) {
             }
         }
         let mut store = state.store.lock().unwrap();
-        let mut updated = store.core_settings();
+        let mut updated = store.core_settings_for(spec.id);
         updated.last_check = now_secs();
-        let _ = store.set_core_settings(updated);
+        let _ = store.set_core_settings_for(spec.id, updated);
     });
 }
 

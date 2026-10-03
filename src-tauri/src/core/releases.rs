@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::Channel;
+use crate::app_config::CoreSpec;
 use crate::error::{AppError, Result};
 
-const RELEASES_URL: &str = "https://api.github.com/repos/SagerNet/sing-box/releases?per_page=30";
 const MAX_RESULTS: usize = 12;
 
 #[derive(Deserialize)]
@@ -35,19 +35,19 @@ pub struct Release {
     pub sha256: Option<String>,
 }
 
-pub fn asset_name(version: &str) -> String {
+pub fn asset_name(spec: &CoreSpec, version: &str) -> String {
     let arch = match std::env::consts::ARCH {
         "aarch64" => "arm64",
         _ => "amd64",
     };
-    format!("sing-box-{version}-darwin-{arch}.tar.gz")
+    (spec.asset_name)(version, arch)
 }
 
-pub async fn fetch(channel: Channel) -> Result<Vec<Release>> {
+pub async fn fetch(spec: &CoreSpec, channel: Channel) -> Result<Vec<Release>> {
     let response = reqwest::Client::builder()
-        .user_agent(concat!("singbox-gui/", env!("CARGO_PKG_VERSION")))
+        .user_agent(crate::app_config::user_agent())
         .build()?
-        .get(RELEASES_URL)
+        .get(spec.releases_api)
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?;
@@ -58,16 +58,16 @@ pub async fn fetch(channel: Channel) -> Result<Vec<Release>> {
         return Err(AppError::Launch("GitHub rate limit reached, try again later".into()));
     }
     let releases: Vec<GithubRelease> = response.error_for_status()?.json().await?;
-    Ok(select(releases, channel))
+    Ok(select(spec, releases, channel))
 }
 
-fn select(releases: Vec<GithubRelease>, channel: Channel) -> Vec<Release> {
+fn select(spec: &CoreSpec, releases: Vec<GithubRelease>, channel: Channel) -> Vec<Release> {
     releases
         .into_iter()
         .filter(|r| channel == Channel::Prerelease || !r.prerelease)
         .filter_map(|release| {
             let version = release.tag_name.trim_start_matches('v').to_string();
-            let wanted = asset_name(&version);
+            let wanted = asset_name(spec, &version);
             let asset = release.assets.into_iter().find(|a| a.name == wanted)?;
             Some(Release {
                 version,

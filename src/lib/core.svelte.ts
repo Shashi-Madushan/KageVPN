@@ -19,6 +19,7 @@ class CoreStore {
 	failure = $state<string | null>(null);
 	promptInstall = $state(false);
 
+	coreName = $derived(this.status?.core.name ?? 'Engine');
 	activeVersion = $derived(this.status?.active?.version ?? null);
 	missing = $derived(this.status !== null && this.status.active === null);
 	newest = $derived(
@@ -59,7 +60,7 @@ class CoreStore {
 		if (!downloads.active.some((i) => i.id === ENGINE)) {
 			downloads.start({
 				id: ENGINE,
-				title: `sing-box ${p.version}`,
+				title: `${p.core} ${p.version}`,
 				detail: STAGES[p.stage],
 				cancel: () => this.cancel(),
 				retry: () => this.installBackground(p.version)
@@ -68,7 +69,7 @@ class CoreStore {
 		const sized = p.stage === 'download' && p.total > 0;
 		const percent = sized ? Math.min(100, (p.received / p.total) * 100) : p.stage === 'download' ? null : 100;
 		const detail = sized ? `${STAGES.download} ${Math.round(percent ?? 0)}%` : STAGES[p.stage];
-		downloads.update(ENGINE, { title: `sing-box ${p.version}`, detail, percent });
+		downloads.update(ENGINE, { title: `${p.core} ${p.version}`, detail, percent });
 	}
 
 	async refresh() {
@@ -99,7 +100,7 @@ class CoreStore {
 		this.failure = null;
 		downloads.start({
 			id: ENGINE,
-			title: version ? `sing-box ${version}` : 'sing-box engine',
+			title: version ? `${this.coreName} ${version}` : `${this.coreName} engine`,
 			detail: 'Starting',
 			cancel: () => this.cancel(),
 			retry: () => this.installBackground(version, allowUnverified)
@@ -118,6 +119,14 @@ class CoreStore {
 
 	cancel() {
 		coreApi.cancel().catch(() => null);
+	}
+
+	async setActive(id: string) {
+		await this.run(() => coreApi.setActive(id));
+		this.releases = [];
+		this.checked = false;
+		this.announced = null;
+		await this.refresh();
 	}
 
 	async use(version: string | null) {

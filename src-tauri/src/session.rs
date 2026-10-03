@@ -126,15 +126,16 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     let state = app.state::<AppState>();
     let paths = &state.paths;
 
-    let core_settings = {
+    let (spec, core_settings) = {
         let mut store = state.store.lock().unwrap();
+        let spec = store.active_core();
         let mut settings = store.core_settings();
-        if core::apply_pending(&mut settings, paths) {
+        if core::apply_pending(&mut settings, paths, spec) {
             let _ = store.set_core_settings(settings.clone());
         }
-        settings
+        (spec, settings)
     };
-    let (binary, _) = core::resolve(paths, &core_settings)?;
+    let (binary, _) = core::resolve(paths, spec, &core_settings)?;
     if net::proxy_port_open().await {
         return Err(AppError::Launch(format!(
             "port {} is already in use, is another sing-box running?",

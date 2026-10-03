@@ -39,7 +39,7 @@ static SHOWN: Mutex<Option<Frame>> = Mutex::new(None);
 static SMOOTHED: Mutex<Option<(f64, f64)>> = Mutex::new(None);
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, OPEN, "Open SingBox GUI", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, OPEN, format!("Open {}", crate::app_config::APP_NAME), true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, TOGGLE, "Connect", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, QUIT, "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(

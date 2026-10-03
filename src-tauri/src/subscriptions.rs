@@ -35,7 +35,7 @@ pub fn validate_url(url: &str) -> Result<()> {
 async fn fetch(url: &str) -> Result<(Vec<Profile>, Option<UserInfo>, usize)> {
     validate_url(url)?;
     let response = reqwest::Client::builder()
-        .user_agent(concat!("singbox-gui/", env!("CARGO_PKG_VERSION")))
+        .user_agent(crate::app_config::user_agent())
         .timeout(Duration::from_secs(20))
         .build()?
         .get(url.trim())
