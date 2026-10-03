@@ -1,4 +1,4 @@
-# PRD: Osprey VPN — a minimal sing-box VPN manager for macOS
+# PRD: Apzur VPN — a minimal sing-box VPN manager for macOS
 
 | | |
 |---|---|

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    osprey_vpn_lib::run()
+    apzur_vpn_lib::run()
 }

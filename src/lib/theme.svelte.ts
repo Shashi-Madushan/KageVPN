@@ -2,7 +2,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
-const KEY = 'osprey-vpn.theme';
+const KEY = 'apzur-vpn.theme';
 
 function read(): ThemeMode {
 	try {

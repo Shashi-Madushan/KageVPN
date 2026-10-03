@@ -15,7 +15,7 @@ fn make_archive(dir: &Path, entry_name: &str) -> std::path::PathBuf {
 }
 
 fn scratch(name: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("osprey-vpn-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("apzur-vpn-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir

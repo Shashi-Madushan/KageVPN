@@ -14,9 +14,9 @@ const RECONNECT_DELAYS: [u64; 4] = [2, 5, 15, 30];
 const WATCHDOG_INTERVAL: Duration = Duration::from_secs(30);
 const WATCHDOG_FAILURES: u32 = 3;
 const HOTKEY: &str = "CommandOrControl+Alt+V";
-const PF_ANCHOR: &str = "com.apple/250.OspreyVPN";
+const PF_ANCHOR: &str = "com.apple/250.ApzurVPN";
 /// Anchor used before the rename; still flushed so an old kill switch can never strand the network.
-const LEGACY_PF_ANCHOR: &str = "com.apple/250.SingBoxGUI";
+const LEGACY_PF_ANCHORS: [&str; 2] = ["com.apple/250.OspreyVPN", "com.apple/250.SingBoxGUI"];
 
 pub fn on_connected(app: &AppHandle, pid: u32) {
     if app.state::<AppState>().store.lock().unwrap().reliability().watchdog {
@@ -96,9 +96,12 @@ pub fn hotkey_label() -> &'static str {
 
 /// Removes the kill switch firewall rules. Needs one administrator prompt.
 pub async fn restore_network() -> Result<()> {
-    let script = format!(
-        "do shell script \"pfctl -a '{PF_ANCHOR}' -F all; pfctl -a '{LEGACY_PF_ANCHOR}' -F all\" with administrator privileges"
-    );
+    let flush = std::iter::once(PF_ANCHOR)
+        .chain(LEGACY_PF_ANCHORS)
+        .map(|anchor| format!("pfctl -a '{anchor}' -F all"))
+        .collect::<Vec<_>>()
+        .join("; ");
+    let script = format!("do shell script \"{flush}\" with administrator privileges");
     let output = tauri::async_runtime::spawn_blocking(move || Command::new("osascript").arg("-e").arg(script).output())
         .await
         .map_err(|e| AppError::Launch(e.to_string()))??;

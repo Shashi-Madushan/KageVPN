@@ -1,4 +1,4 @@
-# Osprey VPN — UI/UX Audit & Design Improvement Plan
+# Apzur VPN — UI/UX Audit & Design Improvement Plan
 
 Scope: Tauri + SvelteKit desktop VPN manager (main window 780×580 min 680×480, 320×460 tray popover).
 Method: design-critique framework (hierarchy, usability, consistency, accessibility) applied to the code in `src/`.
@@ -30,7 +30,7 @@ Method: design-critique framework (hierarchy, usability, consistency, accessibil
 
 Sources: [Tom's Guide on NordVPN's redesign](https://www.tomsguide.com/computing/vpns/nordvpn-redesigns-its-desktop-app-heres-whats-new), [TechRadar](https://www.techradar.com/vpn/vpn-services/nordvpns-desktop-apps-just-got-a-new-look-heres-all-you-need-to-know), [NordVPN blog](https://nordvpn.com/blog/desktop-app-redesign-2026/), [Comparitech Proton vs Mullvad](https://comparitech.com/blog/vpn-privacy/proton-vpn-vs-mullvad-vpn), [CyberInsider Surfshark vs Mullvad](https://cyberinsider.com/vpn/comparison/surfshark-vs-mullvad/).
 
-| App | Pattern | Takeaway for Osprey VPN |
+| App | Pattern | Takeaway for Apzur VPN |
 |-----|---------|--------------------------|
 | NordVPN | Search-first server picker replaced the long country list; recommended location shown on launch; map confirms location; stats dashboard; guided first minutes. | Status-first Home with the recommended/active server surfaced; search in the server picker; keep onboarding. |
 | Proton VPN | Map or list server selection; tabs keep UI uncluttered, but kill switch / protections were buried. | Surface protections (kill switch, auto-reconnect, mode) as chips on Home, not only in Settings. |

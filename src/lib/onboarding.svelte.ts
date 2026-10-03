@@ -1,4 +1,4 @@
-const KEY = 'osprey-vpn.onboarding-seen';
+const KEY = 'apzur-vpn.onboarding-seen';
 
 function read(): boolean {
 	try {

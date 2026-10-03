@@ -44,7 +44,7 @@ test('platform keys and artifact names match what the updater looks up', () => {
 	assert.equal(platformKey('arm64'), 'darwin-aarch64');
 	assert.equal(platformKey('x64'), 'darwin-x86_64');
 	assert.throws(() => platformKey('ia32'));
-	assert.equal(artifactName('osprey-vpn', '1.0.0', 'darwin-aarch64', 'app.tar.gz'), 'osprey-vpn_1.0.0_aarch64.app.tar.gz');
+	assert.equal(artifactName('apzur-vpn', '1.0.0', 'darwin-aarch64', 'app.tar.gz'), 'apzur-vpn_1.0.0_aarch64.app.tar.gz');
 });
 
 test('the manifest carries the signature and url for this platform', () => {

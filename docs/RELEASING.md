@@ -6,8 +6,8 @@ How a new version of the app gets built, signed and offered to people who alread
 
 | Piece | Where | Notes |
 |---|---|---|
-| Private signing key | `~/.tauri/osprey-vpn-updater.key` | Never committed (`*.key` is git-ignored). Password-protected. |
-| Key password | macOS Keychain, item `osprey-vpn-updater-key` | Or set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for the run. |
+| Private signing key | `~/.tauri/apzur-vpn-updater.key` | Never committed (`*.key` is git-ignored). Password-protected. |
+| Key password | macOS Keychain, item `apzur-vpn-updater-key` | Or set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for the run. |
 | Public key | `APP_UPDATE_PUBKEY` in `src-tauri/src/app_config.rs` | Compiled into every build. Installed apps only accept updates signed by the matching private key. |
 | Update feed URL | `APP_UPDATE_FEED` in `app_config.rs` | `None` until you pick a host. While it is `None` the app never checks for updates. |
 | Release script | `scripts/release.mjs` (`npm run release`) | Builds, signs and stages; publishes only with `--publish`. |
@@ -18,8 +18,8 @@ If the private key or its password is lost, no installed copy can ever accept an
 and the only way out is asking everyone to reinstall by hand. Keep copies of both somewhere safe
 and separate (a password manager is ideal):
 
-- the file `~/.tauri/osprey-vpn-updater.key`
-- the password: `security find-generic-password -s osprey-vpn-updater-key -w`
+- the file `~/.tauri/apzur-vpn-updater.key`
+- the password: `security find-generic-password -s apzur-vpn-updater-key -w`
 
 Anyone who gets both can publish updates that every installed copy will trust. Do not share
 them, and do not paste them into chats, issues or CI logs.

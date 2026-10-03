@@ -7,12 +7,12 @@
 
 // ── Identity ────────────────────────────────────────────────────────────────
 
-pub const APP_NAME: &str = "Osprey VPN";
-pub const APP_SLUG: &str = "osprey-vpn";
+pub const APP_NAME: &str = "Apzur VPN";
+pub const APP_SLUG: &str = "apzur-vpn";
 
 /// Bundle identifiers earlier builds used. Their data folders are moved to the current one on
 /// first launch, so a rename never loses saved servers.
-pub const LEGACY_IDENTIFIERS: &[&str] = &["com.shashi.singboxgui"];
+pub const LEGACY_IDENTIFIERS: &[&str] = &["com.shashi.ospreyvpn", "com.shashi.singboxgui"];
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn user_agent() -> String {
@@ -23,7 +23,7 @@ pub fn user_agent() -> String {
 
 /// URL of the update manifest. `None` disables app updates.
 pub const APP_UPDATE_FEED: Option<&str> = None;
-/// Public half of the release signing key (`~/.tauri/osprey-vpn-updater.key`, see docs/RELEASING.md).
+/// Public half of the release signing key (`~/.tauri/apzur-vpn-updater.key`, see docs/RELEASING.md).
 /// Updates are only installed if they were signed with the matching private key.
 pub const APP_UPDATE_PUBKEY: Option<&str> = Some("dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwOEQzQTc1Q0VGQzM0QjIKUldTeU5Qek9kVHFORUppZS9qVklzUmd6OGtOR1VreVRGNURRdXE1N253WlJHczVBS0N0czJYWjYK");
 

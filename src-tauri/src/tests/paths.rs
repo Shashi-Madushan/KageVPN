@@ -1,7 +1,7 @@
 use super::*;
 
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("osprey-paths-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("apzur-paths-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
@@ -49,5 +49,19 @@ fn an_empty_new_folder_does_not_block_the_move_and_a_missing_old_one_is_fine() {
     fs::create_dir_all(&new).unwrap();
     assert!(adopt_legacy_dir(&new, std::slice::from_ref(&old)).unwrap());
     assert!(new.join("data.json").is_file());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn when_several_old_folders_exist_the_first_listed_wins() {
+    let root = scratch("order");
+    let (newer, older, new) = (root.join("newer"), root.join("older"), root.join("new"));
+    for (dir, text) in [(&newer, "newer"), (&older, "older")] {
+        fs::create_dir_all(dir).unwrap();
+        fs::write(dir.join("data.json"), text).unwrap();
+    }
+    assert!(adopt_legacy_dir(&new, &[newer.clone(), older.clone()]).unwrap());
+    assert_eq!(fs::read(new.join("data.json")).unwrap(), b"newer");
+    assert!(older.exists(), "the other old folder is left untouched");
     let _ = fs::remove_dir_all(root);
 }

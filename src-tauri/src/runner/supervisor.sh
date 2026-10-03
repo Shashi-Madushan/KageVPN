@@ -4,7 +4,7 @@
 # kill-switch IP list is given (even "-"), traffic is blocked if sing-box dies
 # on its own, until the stop file appears or the parent exits.
 bin="$1"; config="$2"; stop="$3"; parent="$4"; ips="$5"
-anchor="com.apple/250.OspreyVPN"
+anchor="com.apple/250.ApzurVPN"
 token=""
 
 engage_block() {
