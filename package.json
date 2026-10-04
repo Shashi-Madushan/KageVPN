@@ -11,6 +11,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
+    "build:app": "tauri build --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
     "release": "node scripts/release.mjs",
     "test:scripts": "node --test scripts/tests/*.test.mjs",
     "screenshots": "UPDATE_FIXTURES=1 cargo test --manifest-path src-tauri/Cargo.toml demo_protocols_fixture -q && node scripts/screenshots/capture.mjs"

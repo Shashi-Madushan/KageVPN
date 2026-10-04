@@ -158,10 +158,10 @@ npm run tauri dev          # run the app with hot reload
 Build an app bundle:
 
 ```bash
-npm run tauri build -- --bundles app
+npm run build:app
 ```
 
-The result is in `src-tauri/target/release/bundle/macos/`. (`--bundles dmg` also works on a normal desktop session.)
+The result is in `src-tauri/target/release/bundle/macos/`. This is an unsigned local build. A plain `npm run tauri build` asks for the update signing key (`TAURI_SIGNING_PRIVATE_KEY`) because the project is set up to produce signed update archives; use `npm run release` for that (see [docs/RELEASING.md](docs/RELEASING.md)).
 
 ### Checks
 
