@@ -3,17 +3,58 @@ use url::Url;
 use uuid::Uuid;
 
 use super::common::{self, invalid, Params};
-use super::{Obfs, Profile, Protocol, ProtocolSpec, Security};
+use super::{Obfs, Profile, ProtocolDef, ProtocolId, Secret, Security};
 use crate::error::Result;
 
-pub static SPEC: ProtocolSpec = ProtocolSpec {
-    protocol: Protocol::Hysteria2,
-    schemes: &["hysteria2", "hy2"],
-    parse,
-    to_link,
-    validate,
-    outbound,
-};
+pub const ID: ProtocolId = ProtocolId("hysteria2");
+
+pub struct Hysteria2;
+
+impl ProtocolDef for Hysteria2 {
+    fn id(&self) -> &'static str {
+        ID.as_str()
+    }
+
+    fn label(&self) -> &'static str {
+        "Hysteria2"
+    }
+
+    fn schemes(&self) -> &'static [&'static str] {
+        &["hysteria2", "hy2"]
+    }
+
+    fn parse(&self, link: &str) -> Result<Profile> {
+        parse(link)
+    }
+
+    fn to_link(&self, profile: &Profile) -> String {
+        to_link(profile)
+    }
+
+    fn validate(&self, profile: &Profile) -> Result<()> {
+        validate(profile)
+    }
+
+    fn outbound(&self, profile: &Profile) -> Value {
+        outbound(profile)
+    }
+
+    fn identity(&self, profile: &Profile) -> String {
+        format!("{}|{}|{}", profile.server, profile.port, profile.password)
+    }
+
+    fn secrets(&self, profile: &Profile) -> Vec<Secret> {
+        let mut secrets = common::secrets(profile, &[(&profile.password, "[password]")]);
+        if let Some(obfs) = &profile.obfs {
+            secrets.push(Secret::new(obfs.password.clone(), "[password]"));
+        }
+        secrets
+    }
+
+    fn summary(&self, _profile: &Profile) -> String {
+        "Hysteria2".to_string()
+    }
+}
 
 const OBFS_SALAMANDER: &str = "salamander";
 
@@ -43,7 +84,7 @@ fn parse(link: &str) -> Result<Profile> {
 
     Ok(Profile {
         id: Uuid::new_v4().to_string(),
-        protocol: Protocol::Hysteria2,
+        protocol: ID,
         name: common::name_of(url.fragment(), &server),
         server,
         port: url.port().unwrap_or(common::DEFAULT_PORT),

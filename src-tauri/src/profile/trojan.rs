@@ -3,17 +3,54 @@ use url::Url;
 use uuid::Uuid;
 
 use super::common::{self, invalid, Params};
-use super::{Profile, Protocol, ProtocolSpec, Security};
+use super::{Profile, ProtocolDef, ProtocolId, Secret, Security};
 use crate::error::Result;
 
-pub static SPEC: ProtocolSpec = ProtocolSpec {
-    protocol: Protocol::Trojan,
-    schemes: &["trojan"],
-    parse,
-    to_link,
-    validate,
-    outbound,
-};
+pub const ID: ProtocolId = ProtocolId("trojan");
+
+pub struct Trojan;
+
+impl ProtocolDef for Trojan {
+    fn id(&self) -> &'static str {
+        ID.as_str()
+    }
+
+    fn label(&self) -> &'static str {
+        "Trojan"
+    }
+
+    fn schemes(&self) -> &'static [&'static str] {
+        &["trojan"]
+    }
+
+    fn parse(&self, link: &str) -> Result<Profile> {
+        parse(link)
+    }
+
+    fn to_link(&self, profile: &Profile) -> String {
+        to_link(profile)
+    }
+
+    fn validate(&self, profile: &Profile) -> Result<()> {
+        validate(profile)
+    }
+
+    fn outbound(&self, profile: &Profile) -> Value {
+        outbound(profile)
+    }
+
+    fn identity(&self, profile: &Profile) -> String {
+        format!("{}|{}|{}", profile.server, profile.port, profile.password)
+    }
+
+    fn secrets(&self, profile: &Profile) -> Vec<Secret> {
+        common::secrets(profile, &[(&profile.password, "[password]")])
+    }
+
+    fn summary(&self, profile: &Profile) -> String {
+        format!("Trojan · {}", common::transport_name(profile.transport.kind))
+    }
+}
 
 fn parse(link: &str) -> Result<Profile> {
     let url = Url::parse(link.trim()).map_err(|e| invalid(format!("not a valid link: {e}")))?;
@@ -30,7 +67,7 @@ fn parse(link: &str) -> Result<Profile> {
 
     Ok(Profile {
         id: Uuid::new_v4().to_string(),
-        protocol: Protocol::Trojan,
+        protocol: ID,
         name: common::name_of(url.fragment(), &server),
         server,
         port: url.port().unwrap_or(common::DEFAULT_PORT),

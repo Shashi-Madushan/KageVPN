@@ -5,7 +5,7 @@ const LINK: &str = "trojan://p%40ss%3Aword@t.example.com:8443?security=tls&sni=f
 #[test]
 fn parses_password_transport_and_name() {
     let p = parse(LINK).unwrap();
-    assert_eq!((p.protocol, p.port, p.name.as_str()), (Protocol::Trojan, 8443, "Trojan WS"));
+    assert_eq!((p.protocol.as_str(), p.port, p.name.as_str()), ("trojan", 8443, "Trojan WS"));
     assert_eq!(p.password, "p@ss:word");
     assert_eq!(p.sni.as_deref(), Some("front.example.com"));
     assert_eq!(p.transport.path.as_deref(), Some("/ws"));

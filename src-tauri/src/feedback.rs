@@ -109,30 +109,11 @@ pub fn build_report(ctx: Context, input: FeedbackInput, report_id: String, sent_
 pub fn redact(text: &str, profiles: &[Profile], home: Option<&str>) -> String {
     let mut out = text.to_string();
     for profile in profiles {
-        let mut secrets: Vec<(&str, &str)> = vec![
-            (&profile.server, "[server]"),
-            (&profile.uuid, "[uuid]"),
-        ];
-        secrets.push((&profile.password, "[password]"));
-        if let Some(v) = &profile.obfs {
-            secrets.push((&v.password, "[password]"));
-        }
-        if let Some(v) = &profile.sni {
-            secrets.push((v, "[sni]"));
-        }
-        if let Some(v) = &profile.pinned_key {
-            secrets.push((v, "[key]"));
-        }
-        if let Some(reality) = &profile.reality {
-            secrets.push((&reality.public_key, "[key]"));
-            secrets.push((&reality.short_id, "[id]"));
-        }
-        if let Some(v) = &profile.transport.host {
-            secrets.push((v, "[host]"));
-        }
-        for (secret, label) in secrets {
-            if secret.trim().len() >= 4 {
-                out = replace_ignore_case(&out, secret.trim(), label);
+        let mut secrets = vec![crate::profile::Secret::new(profile.server.clone(), "[server]")];
+        secrets.extend(crate::profile::def(profile.protocol).secrets(profile));
+        for secret in secrets {
+            if secret.value.trim().len() >= 4 {
+                out = replace_ignore_case(&out, secret.value.trim(), secret.label);
             }
         }
     }

@@ -4,17 +4,54 @@ use url::Url;
 use uuid::Uuid;
 
 use super::common::{self, invalid, Params};
-use super::{Profile, ProtocolSpec, Protocol, Reality, Security};
+use super::{Profile, ProtocolDef, ProtocolId, Reality, Secret, Security};
 use crate::error::Result;
 
-pub static SPEC: ProtocolSpec = ProtocolSpec {
-    protocol: Protocol::Vless,
-    schemes: &["vless"],
-    parse: parse_vless,
-    to_link,
-    validate,
-    outbound,
-};
+pub const ID: ProtocolId = ProtocolId("vless");
+
+pub struct Vless;
+
+impl ProtocolDef for Vless {
+    fn id(&self) -> &'static str {
+        ID.as_str()
+    }
+
+    fn label(&self) -> &'static str {
+        "VLESS"
+    }
+
+    fn schemes(&self) -> &'static [&'static str] {
+        &["vless"]
+    }
+
+    fn parse(&self, link: &str) -> Result<Profile> {
+        parse_vless(link)
+    }
+
+    fn to_link(&self, profile: &Profile) -> String {
+        to_link(profile)
+    }
+
+    fn validate(&self, profile: &Profile) -> Result<()> {
+        validate(profile)
+    }
+
+    fn outbound(&self, profile: &Profile) -> Value {
+        outbound(profile)
+    }
+
+    fn identity(&self, profile: &Profile) -> String {
+        format!("{}|{}|{}", profile.server, profile.port, profile.uuid)
+    }
+
+    fn secrets(&self, profile: &Profile) -> Vec<Secret> {
+        common::secrets(profile, &[(&profile.uuid, "[uuid]")])
+    }
+
+    fn summary(&self, profile: &Profile) -> String {
+        format!("{} · {}", if profile.security == Security::Reality { "Reality" } else { "TLS" }, common::transport_name(profile.transport.kind))
+    }
+}
 
 pub fn parse_vless(link: &str) -> Result<Profile> {
     let url = Url::parse(link.trim()).map_err(|e| invalid(format!("not a valid link: {e}")))?;
@@ -45,7 +82,7 @@ pub fn parse_vless(link: &str) -> Result<Profile> {
 
     Ok(Profile {
         id: Uuid::new_v4().to_string(),
-        protocol: Protocol::Vless,
+        protocol: ID,
         name: common::name_of(url.fragment(), &server),
         server,
         port: url.port().unwrap_or(common::DEFAULT_PORT),

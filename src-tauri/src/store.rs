@@ -299,7 +299,7 @@ impl Store {
     /// Syncs a subscription's profiles with a fresh list. Profiles are matched by
     /// server, port and UUID so ids, names, groups and favorites survive a refresh.
     pub fn sync_subscription(&mut self, subscription_id: &str, fresh: Vec<Profile>) -> Result<(usize, usize)> {
-        let key = |p: &Profile| (p.protocol, p.server.clone(), p.port, p.uuid.clone(), p.password.clone());
+        let key = |p: &Profile| (p.protocol, crate::profile::def(p.protocol).identity(p));
         let (mut added, mut kept) = (0, Vec::new());
 
         for mut profile in fresh {

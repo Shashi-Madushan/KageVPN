@@ -7,7 +7,7 @@ use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC
 use serde_json::{json, Value};
 use url::Url;
 
-use super::{Profile, Security, Transport, TransportKind};
+use super::{Profile, Secret, Security, Transport, TransportKind};
 use crate::error::{AppError, Result};
 
 pub const DEFAULT_PORT: u16 = 443;
@@ -226,4 +226,21 @@ pub fn base_outbound(kind: &str, profile: &Profile) -> Value {
         outbound["transport"] = transport;
     }
     outbound
+}
+
+/// The values a TLS profile exposes besides its credential: the front domain, certificate and
+/// Reality keys, and the transport host. `credentials` are the protocol's own secrets.
+pub fn secrets(profile: &Profile, credentials: &[(&str, &'static str)]) -> Vec<Secret> {
+    let mut secrets: Vec<Secret> = credentials.iter().map(|(value, label)| Secret::new(*value, label)).collect();
+    let optional = [
+        (&profile.sni, "[sni]"),
+        (&profile.pinned_key, "[key]"),
+        (&profile.transport.host, "[host]"),
+    ];
+    secrets.extend(optional.into_iter().filter_map(|(value, label)| value.as_deref().map(|v| Secret::new(v, label))));
+    if let Some(reality) = &profile.reality {
+        secrets.push(Secret::new(reality.public_key.clone(), "[key]"));
+        secrets.push(Secret::new(reality.short_id.clone(), "[id]"));
+    }
+    secrets
 }

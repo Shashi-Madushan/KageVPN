@@ -5,7 +5,7 @@ const LINK: &str = "hysteria2://auth%20pass@h.example.com:8443/?sni=front.exampl
 #[test]
 fn parses_auth_obfuscation_and_flags() {
     let p = parse(LINK).unwrap();
-    assert_eq!((p.protocol, p.port, p.name.as_str()), (Protocol::Hysteria2, 8443, "HY2 Node"));
+    assert_eq!((p.protocol.as_str(), p.port, p.name.as_str()), ("hysteria2", 8443, "HY2 Node"));
     assert_eq!(p.password, "auth pass");
     assert_eq!(p.obfs, Some(Obfs { kind: "salamander".into(), password: "mask".into() }));
     assert!(p.allow_insecure);
