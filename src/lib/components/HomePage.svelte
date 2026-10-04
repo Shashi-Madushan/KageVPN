@@ -2,6 +2,7 @@
 	import { app } from '$lib/app.svelte';
 	import { privacy } from '$lib/privacy.svelte';
 	import { protocols } from '$lib/protocols.svelte';
+	import PrivacyToggle from './PrivacyToggle.svelte';
 	import Sensitive from './Sensitive.svelte';
 	import { appUpdate } from '$lib/appUpdate.svelte';
 	import { core } from '$lib/core.svelte';
@@ -151,6 +152,7 @@
 						{#if app.exitIp}
 							<button class="ip-chip mono" onclick={copyExitIp} title="Copy IP address"><Sensitive>{app.exitIp}</Sensitive></button>
 						{/if}
+						{#if app.exitIp}<PrivacyToggle />{/if}
 						{#if app.delayMs !== null}
 							<span class="delay-chip tabular">{app.delayMs} ms</span>
 						{/if}

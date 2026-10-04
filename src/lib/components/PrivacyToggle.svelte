@@ -11,18 +11,19 @@
 	title={privacy.hidden ? 'Show addresses' : 'Hide addresses'}
 	onclick={() => privacy.toggle()}
 >
-	<Icon name={privacy.hidden ? 'eye-off' : 'eye'} size={15} />
+	<Icon name={privacy.hidden ? 'eye-off' : 'eye'} size={13} />
 </button>
 
 <style>
 	.eye {
 		display: grid;
 		place-items: center;
-		width: 28px;
-		height: 28px;
+		flex: none;
+		width: 22px;
+		height: 22px;
 		padding: 0;
 		border: 1px solid transparent;
-		border-radius: 8px;
+		border-radius: 6px;
 		background: transparent;
 		color: var(--fg-muted);
 	}

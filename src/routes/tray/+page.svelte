@@ -52,7 +52,6 @@
 </script>
 
 <div class="popover">
-	<div class="eye-slot"><PrivacyToggle /></div>
 	<button class="close-btn" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
 
 	<section class="hero">
@@ -71,7 +70,7 @@
 				<span class="dim">Add a server to get started</span>
 			{/if}
 		</p>
-		{#if app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive>{app.exitIp}</Sensitive></span>{/if}
+		{#if app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive>{app.exitIp}</Sensitive><PrivacyToggle /></span>{/if}
 	</section>
 
 	{#if app.profiles.length}
@@ -138,11 +137,6 @@
 		overflow: hidden;
 		box-sizing: border-box;
 	}
-	.eye-slot {
-		position: absolute;
-		top: 8px;
-		left: 8px;
-	}
 	.close-btn {
 		position: absolute;
 		top: 8px;
@@ -207,6 +201,9 @@
 		margin-right: 8px;
 	}
 	.ip {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
 		font-size: 11px;
 		color: var(--fg-muted);
 		user-select: text;
