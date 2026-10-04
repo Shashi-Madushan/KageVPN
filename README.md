@@ -4,7 +4,7 @@
 
 **A clean, native-feeling VPN manager for macOS, powered by [sing-box](https://sing-box.sagernet.org).**
 
-Import your VLESS servers, connect with one click, and see exactly where your traffic goes.
+Import your VLESS, Trojan, Shadowsocks or Hysteria2 servers, connect with one click, and see exactly where your traffic goes.
 
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%2B%20Svelte-blue)
@@ -18,13 +18,13 @@ Import your VLESS servers, connect with one click, and see exactly where your tr
 
 ## What it is
 
-Apzur VPN is a desktop app that sits in your menu bar and manages a [sing-box](https://sing-box.sagernet.org) tunnel for you. You bring a VLESS server (a `vless://` link or a subscription URL from your provider); the app turns it into a working connection, keeps it healthy, and shows you what it is doing.
+Apzur VPN is a desktop app that sits in your menu bar and manages a [sing-box](https://sing-box.sagernet.org) tunnel for you. You bring a server (a `vless://`, `trojan://`, `ss://` or `hysteria2://` link, or a subscription URL from your provider); the app turns it into a working connection, keeps it healthy, and shows you what it is doing.
 
-It is for people who already have a VLESS server or provider and want a polished Mac app instead of hand-editing config files. It does not sell or provide VPN servers.
+It is for people who already have a VLESS, Trojan, Shadowsocks or Hysteria2 server or provider and want a polished Mac app instead of hand-editing config files. It does not sell or provide VPN servers.
 
 ## Install
 
-> **Requirements:** a Mac (Apple Silicon or Intel) and a VLESS server or subscription. The app downloads the sing-box engine for you on first run.
+> **Requirements:** a Mac (Apple Silicon or Intel) and a server link or subscription. The app downloads the sing-box engine for you on first run.
 
 1. **Download** the latest `.dmg` from the [Releases page](../../releases).
 2. **Open** the disk image and drag **Apzur VPN** into your **Applications** folder.
@@ -62,7 +62,7 @@ Then open the app normally. You only need to do this once per downloaded version
 
 1. A short **welcome tour** explains the basics. You can replay it from **Settings → Help**.
 2. **Download the engine.** If sing-box is not installed, the app offers to download the official release, checks its published checksum, and keeps it in its own folder. If you already installed sing-box with Homebrew, the app uses that and skips the prompt.
-3. **Add a server.** Paste a `vless://` link (or several), drop a text file, or add a subscription URL.
+3. **Add a server.** Paste a server link (or several, mixed protocols are fine), drop a text file, or add a subscription URL.
 4. **Connect.** Press the big power button. In **Full System (TUN)** mode macOS asks for your administrator password once so the app can create the tunnel.
 
 ### Uninstall
@@ -84,7 +84,7 @@ Then open the app normally. You only need to do this once per downloaded version
 
 - **One-click connection** with a clear status: protected, connecting or not protected, plus session time, exit IP and latency.
 - **Two modes.** *Full System (TUN)* sends all of your Mac's traffic through the VPN. *Proxy Only* runs a local proxy on `127.0.0.1:2080` for just the apps you point at it.
-- **VLESS with TLS or Reality**, over TCP, WebSocket, gRPC or HTTPUpgrade.
+- **Four protocols.** VLESS (TLS or Reality), Trojan, Shadowsocks (including the 2022 ciphers) and Hysteria2 (with Salamander obfuscation). VLESS and Trojan run over TCP, WebSocket, gRPC or HTTPUpgrade.
 - **Menu-bar app** with live download and upload speed beside the icon, and a compact popover to connect, switch mode and see traffic.
 - **Optional global shortcut** (⌥⌘V, off by default) to connect or disconnect from anywhere.
 - **Launch at login** and **connect on launch**.
@@ -187,7 +187,7 @@ npm run screenshots        # needs Chrome, Brave or Edge; writes docs/images
 | `src-tauri/src/downloads.rs` | Shared download manager used by the engine and app updater |
 | `src-tauri/src/app_update.rs` | Signed app updates |
 | `src-tauri/src/feedback.rs` | Feedback reports and redaction |
-| `src-tauri/src/profile/` | VLESS link parsing |
+| `src-tauri/src/profile/` | One module per protocol (link parsing, validation, sing-box outbound) behind a registry in `mod.rs` |
 | `src-tauri/src/config.rs`, `session.rs`, `runner/` | sing-box config generation and process control |
 | `src-tauri/src/tests/` | Rust unit tests |
 | `scripts/` | Release and screenshot tooling |

@@ -113,6 +113,10 @@ pub fn redact(text: &str, profiles: &[Profile], home: Option<&str>) -> String {
             (&profile.server, "[server]"),
             (&profile.uuid, "[uuid]"),
         ];
+        secrets.push((&profile.password, "[password]"));
+        if let Some(v) = &profile.obfs {
+            secrets.push((&v.password, "[password]"));
+        }
         if let Some(v) = &profile.sni {
             secrets.push((v, "[sni]"));
         }

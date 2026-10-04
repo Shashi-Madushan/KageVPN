@@ -8,7 +8,7 @@ use tokio::time::sleep;
 
 use crate::error::{AppError, Result};
 use crate::notify;
-use crate::profile::{parse_many, Profile};
+use crate::profile::{contains_link, parse_many, Profile};
 use crate::settings::UserInfo;
 use crate::state::AppState;
 
@@ -55,14 +55,14 @@ async fn fetch(url: &str) -> Result<(Vec<Profile>, Option<UserInfo>, usize)> {
     let text = decode_body(&String::from_utf8_lossy(&body));
     let (profiles, errors) = parse_many(&text);
     if profiles.is_empty() {
-        return Err(AppError::Invalid("no VLESS links were found in this subscription".into()));
+        return Err(AppError::Invalid("no supported server links were found in this subscription".into()));
     }
     Ok((profiles, user_info, errors.len()))
 }
 
 /// Subscriptions are either a plain list of links or the same list base64-encoded.
 fn decode_body(text: &str) -> String {
-    if text.to_ascii_lowercase().contains("vless://") {
+    if contains_link(text) {
         return text.to_string();
     }
     let compact: String = text.split_whitespace().collect();

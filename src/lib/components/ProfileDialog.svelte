@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { app } from '$lib/app.svelte';
-	import { blankProfile, type Profile, type TransportKind } from '$lib/api';
+	import { blankProfile, type Profile, type Protocol, type TransportKind } from '$lib/api';
+	import { PROTOCOLS, protocolInfo } from '$lib/protocols';
 	import Select from './Select.svelte';
 	import Dialog from './Dialog.svelte';
 	import Segmented from './Segmented.svelte';
@@ -14,6 +15,8 @@
 	let saving = $state(false);
 
 	const creating = $derived(!draft.id);
+	const info = $derived(protocolInfo(draft.protocol));
+	const protocolOptions = PROTOCOLS.map((p) => ({ value: p.id, label: p.label }));
 	const fingerprints = ['chrome', 'firefox', 'safari', 'ios', 'android', 'edge', 'random'];
 	const transports: { value: TransportKind; label: string }[] = [
 		{ value: 'tcp', label: 'TCP' },
@@ -40,6 +43,21 @@
 	const text = (value: string | null) => value ?? '';
 	const orNull = (value: string) => (value.trim() === '' ? null : value.trim());
 
+	function setProtocol(protocol: Protocol) {
+		draft.protocol = protocol;
+		draft.security = protocol === 'shadowsocks' ? 'none' : 'tls';
+		draft.reality = null;
+		draft.method = protocol === 'shadowsocks' ? (draft.method ?? 'aes-256-gcm') : null;
+		if (protocol !== 'vless') draft.flow = null;
+		if (protocol !== 'vless') draft.packetEncoding = null;
+		if (protocol !== 'hysteria2') draft.obfs = null;
+		draft.fingerprint = protocol === 'vless' || protocol === 'trojan' ? (draft.fingerprint ?? 'chrome') : null;
+	}
+
+	function setObfsPassword(password: string) {
+		draft.obfs = password ? { kind: 'salamander', password } : null;
+	}
+
 	function setSecurity(security: 'tls' | 'reality') {
 		draft.security = security;
 		draft.reality = security === 'reality' ? (draft.reality ?? { publicKey: '', shortId: '' }) : null;
@@ -53,6 +71,7 @@
 			name: draft.name.trim(),
 			server: draft.server.trim(),
 			uuid: draft.uuid.trim(),
+			password: draft.password,
 			alpn: alpn.split(',').map((a) => a.trim()).filter(Boolean),
 			sni: orNull(text(draft.sni)),
 			flow: orNull(text(draft.flow)),
@@ -72,10 +91,11 @@
 
 	const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 	const uuidBad = $derived(draft.uuid.trim() !== '' && !UUID.test(draft.uuid.trim()));
+	const credentialOk = $derived(info.usesPassword ? draft.password !== '' && (draft.protocol !== 'shadowsocks' || !!draft.method) : UUID.test(draft.uuid.trim()));
 	const ready = $derived(
 		draft.name.trim() !== '' &&
 			draft.server.trim() !== '' &&
-			UUID.test(draft.uuid.trim()) &&
+			credentialOk &&
 			draft.port >= 1 &&
 			draft.port <= 65535 &&
 			(draft.security !== 'reality' || (draft.reality?.publicKey.trim() ?? '') !== '')
@@ -92,6 +112,12 @@
 	<form id="server-form" onsubmit={(e) => (e.preventDefault(), save())}>
 		<section>
 			<h3 class="caption">Connection</h3>
+			{#if creating}
+				<div class="field">
+					<span class="field-label">Protocol</span>
+					<Segmented options={protocolOptions} value={draft.protocol} label="Protocol" onchange={setProtocol} />
+				</div>
+			{/if}
 			<label class="field">
 				<span class="field-label">Name</span>
 				<input class="input" bind:value={draft.name} required placeholder="e.g. Frankfurt" />
@@ -106,11 +132,24 @@
 					<input class="input" type="number" min="1" max="65535" bind:value={draft.port} />
 				</label>
 			</div>
-			<label class="field">
-				<span class="field-label">User ID (UUID)</span>
-				<input class="input mono" class:invalid={uuidBad} bind:value={draft.uuid} required spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000" />
-				{#if uuidBad}<span class="field-error">This is not a valid UUID.</span>{/if}
-			</label>
+			{#if info.usesPassword}
+				{#if draft.protocol === 'shadowsocks'}
+					<div class="field">
+						<span class="field-label">Encryption</span>
+						<Select value={draft.method ?? ''} onchange={(v) => (draft.method = v)} label="Encryption method" options={app.info.shadowsocksMethods.map((m) => ({ value: m, label: m }))} />
+					</div>
+				{/if}
+				<label class="field">
+					<span class="field-label">Password</span>
+					<input class="input mono" bind:value={draft.password} required spellcheck="false" autocomplete="off" />
+				</label>
+			{:else}
+				<label class="field">
+					<span class="field-label">User ID (UUID)</span>
+					<input class="input mono" class:invalid={uuidBad} bind:value={draft.uuid} required spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000" />
+					{#if uuidBad}<span class="field-error">This is not a valid UUID.</span>{/if}
+				</label>
+			{/if}
 			<label class="field">
 				<span class="field-label">Group <em>optional</em></span>
 				<input class="input" list="group-options" value={text(draft.group)} oninput={(e) => (draft.group = e.currentTarget.value)} placeholder="Ungrouped" />
@@ -118,9 +157,12 @@
 			</label>
 		</section>
 
+		{#if info.usesTls}
 		<section>
 			<h3 class="caption">Security</h3>
-			<Segmented options={securities} value={draft.security} label="Security" onchange={setSecurity} />
+			{#if draft.protocol === 'vless'}
+				<Segmented options={securities} value={draft.security === 'reality' ? 'reality' : 'tls'} label="Security" onchange={setSecurity} />
+			{/if}
 			<label class="field">
 				<span class="field-label">Server name (SNI) <em>optional</em></span>
 				<input class="input" value={text(draft.sni)} oninput={(e) => (draft.sni = e.currentTarget.value)} placeholder={draft.server || 'Same as the address'} spellcheck="false" />
@@ -137,8 +179,25 @@
 					</label>
 				</div>
 			{/if}
+			{#if draft.protocol === 'hysteria2'}
+				<label class="field">
+					<span class="field-label">Obfuscation password <em>optional</em></span>
+					<input class="input mono" value={draft.obfs?.password ?? ''} oninput={(e) => setObfsPassword(e.currentTarget.value)} spellcheck="false" autocomplete="off" />
+				</label>
+			{/if}
+			{#if draft.security !== 'reality'}
+				<label class="check">
+					<input type="checkbox" bind:checked={draft.allowInsecure} />
+					<span>Skip certificate check</span>
+				</label>
+				{#if draft.allowInsecure}
+					<p class="warn">Anyone on the network could impersonate this server. Only use this for a server you run yourself.</p>
+				{/if}
+			{/if}
 		</section>
+		{/if}
 
+		{#if info.usesTransport}
 		<section>
 			<h3 class="caption">Transport</h3>
 			<Segmented options={transports} value={draft.transport.kind} label="Transport" onchange={(k) => (draft.transport.kind = k)} />
@@ -160,15 +219,20 @@
 				</label>
 			{/if}
 		</section>
+		{/if}
 
+		{#if info.usesTls}
 		<details class="advanced">
 			<summary>Advanced options</summary>
 			<div class="advanced-body">
 				<div class="field-row even">
+					{#if draft.protocol !== 'hysteria2'}
 					<div class="field">
 						<span class="field-label">Fingerprint</span>
 						<Select value={draft.fingerprint ?? ''} onchange={(v) => (draft.fingerprint = v)} label="TLS fingerprint" options={fingerprints.map((f) => ({ value: f, label: f }))} />
 					</div>
+					{/if}
+					{#if draft.protocol === 'vless'}
 					<div class="field">
 						<span class="field-label">Flow</span>
 						<Select
@@ -178,14 +242,16 @@
 							onchange={(v) => (draft.flow = v || null)}
 						/>
 					</div>
+					{/if}
 				</div>
 				<div class="field-row even">
-					{#if draft.security === 'tls'}
+					{#if draft.security !== 'reality'}
 						<label class="field">
 							<span class="field-label">ALPN</span>
 							<input class="input mono" bind:value={alpn} placeholder="h2,http/1.1" spellcheck="false" />
 						</label>
 					{/if}
+					{#if draft.protocol === 'vless'}
 					<div class="field">
 						<span class="field-label">Packet encoding</span>
 						<Select
@@ -195,9 +261,11 @@
 							onchange={(v) => (draft.packetEncoding = v || null)}
 						/>
 					</div>
+					{/if}
 				</div>
 			</div>
 		</details>
+		{/if}
 
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
 	</form>
@@ -242,6 +310,18 @@
 		display: grid;
 		gap: 10px;
 		margin-top: 10px;
+	}
+	.check {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 13px;
+	}
+	.warn {
+		margin: 0;
+		font-size: 12px;
+		line-height: 1.45;
+		color: var(--warn);
 	}
 	.error {
 		margin: 0;

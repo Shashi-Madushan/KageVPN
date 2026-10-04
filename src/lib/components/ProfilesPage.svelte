@@ -3,6 +3,7 @@
 	import { api, blankProfile, type Profile, type Subscription } from '$lib/api';
 	import { clickOutside, focusOnMount } from '$lib/actions';
 	import { app } from '$lib/app.svelte';
+	import { describe } from '$lib/protocols';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import { formatBytes, latencyLabel, latencyTone, profileFlag, stripFlag } from '$lib/format';
 	import HeaderActions from './HeaderActions.svelte';
@@ -151,7 +152,7 @@
 	{#if app.profiles.length === 0}
 		<div class="empty">
 			<h2>No servers yet</h2>
-			<p>Paste a <span class="mono">vless://</span> link to get started, or add a subscription from your provider.</p>
+			<p>Paste a server link (VLESS, Trojan, Shadowsocks or Hysteria2) to get started, or add a subscription from your provider.</p>
 			<div class="empty-actions">
 				<button class="btn primary" onclick={openImport}>Add server</button>
 				<button class="btn" onclick={() => (showSubForm = true)}>Add subscription</button>
@@ -223,7 +224,7 @@
 									<small class="mono">{profile.server}:{profile.port}</small>
 								</span>
 							</button>
-							<span class="proto">{profile.security === 'reality' ? 'Reality' : 'TLS'} · {profile.transport.kind}</span>
+							<span class="proto">{describe(profile)}</span>
 							<span class="spark"><MiniSpark values={app.latencyHistory[profile.id] ?? []} /></span>
 							<button class="ping" onclick={() => app.ping(profile.id)} title="Test latency">
 								{#if latencyTone(app.latency[profile.id]) === 'idle' && !app.latency[profile.id]}

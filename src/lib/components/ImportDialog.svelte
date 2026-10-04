@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ANY_LINK, isServerLink } from '$lib/protocols';
 	import { app } from '$lib/app.svelte';
 	import { importMessage } from '$lib/format';
 	import Dialog from './Dialog.svelte';
@@ -15,7 +16,7 @@
 	let busy = $state(false);
 	let fileInput: HTMLInputElement;
 
-	const found = $derived(text.split(/\s+/).filter((t) => /^vless:\/\//i.test(t)).length);
+	const found = $derived(text.split(/\s+/).filter((t) => isServerLink(t)).length);
 
 	$effect(() => {
 		if (open) {
@@ -29,7 +30,7 @@
 	async function pasteFromClipboard() {
 		try {
 			const clip = (await navigator.clipboard.readText()).trim();
-			if (/vless:\/\//i.test(clip)) text = clip;
+			if (ANY_LINK.test(clip)) text = clip;
 		} catch {
 			// clipboard access can be denied; the user can paste manually
 		}
@@ -69,7 +70,7 @@
 	}
 </script>
 
-<Dialog {open} title="Add server" subtitle="Paste one or more vless:// links, or drop a text file." onclose={() => (open = false)}>
+<Dialog {open} title="Add server" subtitle="Paste one or more server links, or drop a text file." onclose={() => (open = false)}>
 	<div
 		class="drop"
 		class:dragging
@@ -79,13 +80,13 @@
 		role="region"
 		aria-label="Drop a file with links"
 	>
-		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…" aria-label="VLESS links"></textarea>
+		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…  trojan://…  ss://…  hysteria2://…" aria-label="Server links"></textarea>
 		{#if dragging}<div class="overlay">Drop the file to load its links</div>{/if}
 	</div>
 
 	<div class="meta">
 		<span class="found" class:ok={found > 0}>
-			{#if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No vless:// links found{:else}Nothing pasted yet{/if}
+			{#if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No supported links found{:else}Nothing pasted yet{/if}
 		</span>
 		<span class="links">
 			<input type="file" accept=".txt,.json,text/plain" hidden bind:this={fileInput} onchange={(e) => loadFile(e.currentTarget.files?.[0])} />

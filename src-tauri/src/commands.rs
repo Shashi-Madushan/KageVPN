@@ -57,6 +57,7 @@ pub struct AppInfo {
     version: &'static str,
     updates_configured: bool,
     feedback_configured: bool,
+    shadowsocks_methods: &'static [&'static str],
 }
 
 /// Identity and feature switches from `app_config.rs`, so the UI never hardcodes them.
@@ -68,6 +69,7 @@ pub fn app_info() -> AppInfo {
         version: app_config::APP_VERSION,
         updates_configured: app_config::APP_UPDATE_FEED.is_some() && app_config::APP_UPDATE_PUBKEY.is_some(),
         feedback_configured: app_config::FEEDBACK_ENDPOINT.is_some(),
+        shadowsocks_methods: crate::profile::shadowsocks_methods(),
     }
 }
 
@@ -97,7 +99,7 @@ pub fn snapshot(app: AppHandle, state: State<AppState>) -> Snapshot {
 pub fn import_text(state: State<AppState>, text: String) -> Result<ImportSummary> {
     let (profiles, failed) = parse_many(&text);
     if profiles.is_empty() {
-        let reason = failed.into_iter().next().unwrap_or_else(|| "no vless:// links were found".into());
+        let reason = failed.into_iter().next().unwrap_or_else(|| "no supported server links were found".into());
         return Err(AppError::Invalid(reason));
     }
     let (added, duplicates) = state.store.lock().unwrap().import_unique(profiles)?;

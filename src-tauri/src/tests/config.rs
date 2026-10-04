@@ -30,10 +30,23 @@ fn input<'a>(profiles: &'a [Profile], routing: &'a RoutingSettings, mode: Mode) 
     }
 }
 
+/// One profile per protocol, so the real `sing-box check` vets every outbound shape.
+fn every_protocol() -> Vec<Profile> {
+    let links = [
+        "trojan://secret@t.example.com:443?security=tls&type=ws&path=%2Fws&host=cdn.example.com&alpn=h2",
+        "ss://YWVzLTI1Ni1nY206cGE1NXdvcmQ@s.example.com:8388",
+        "ss://2022-blake3-aes-128-gcm:YWJjZGVmZ2hpamtsbW5vcA%3D%3D@s.example.com:8389",
+        "hysteria2://auth@h.example.com:443/?sni=h.example.com&obfs=salamander&obfs-password=mask&insecure=1",
+    ];
+    let mut profiles = vec![profile()];
+    profiles.extend(links.iter().map(|link| crate::profile::parse_many(link).0.remove(0)));
+    profiles
+}
+
 #[test]
 fn generated_configs_pass_singbox_check() {
     let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
-    let profiles = [profile()];
+    let profiles = every_protocol();
     let routing = RoutingSettings::default();
     for mode in [Mode::Tun, Mode::Proxy] {
         let path = std::env::temp_dir().join(format!("apzur-vpn-test-{mode:?}.json"));

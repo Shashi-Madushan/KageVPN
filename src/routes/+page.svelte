@@ -114,7 +114,7 @@
 		</header>
 		{#if clipboardWatch.offer}
 			<div class="offer card">
-				<span>A <span class="mono">vless://</span> link was copied.</span>
+				<span>A server link was copied.</span>
 				<span class="spacer"></span>
 				<button onclick={() => clipboardWatch.dismiss()}>Dismiss</button>
 				<button class="primary" onclick={importOffer}>Import</button>

@@ -5,7 +5,8 @@ export type Mode = 'tun' | 'proxy';
 export type ConnState = 'disconnected' | 'connecting' | 'connected';
 export type Level = 'debug' | 'info' | 'warn' | 'error';
 
-export type Security = 'tls' | 'reality';
+export type Protocol = 'vless' | 'trojan' | 'shadowsocks' | 'hysteria2';
+export type Security = 'tls' | 'reality' | 'none';
 export type TransportKind = 'tcp' | 'ws' | 'grpc' | 'httpupgrade';
 
 export interface Transport {
@@ -20,12 +21,25 @@ export interface Reality {
 	shortId: string;
 }
 
+export interface Obfs {
+	kind: string;
+	password: string;
+}
+
 export interface Profile {
 	id: string;
+	protocol: Protocol;
 	name: string;
 	server: string;
 	port: number;
+	/** VLESS user id. */
 	uuid: string;
+	/** Trojan, Shadowsocks and Hysteria2 password. */
+	password: string;
+	/** Shadowsocks cipher. */
+	method: string | null;
+	obfs: Obfs | null;
+	allowInsecure: boolean;
 	security: Security;
 	sni: string | null;
 	fingerprint: string | null;
@@ -43,10 +57,15 @@ export interface Profile {
 export function blankProfile(): Profile {
 	return {
 		id: '',
+		protocol: 'vless',
 		name: '',
 		server: '',
 		port: 443,
 		uuid: '',
+		password: '',
+		method: null,
+		obfs: null,
+		allowInsecure: false,
 		security: 'tls',
 		sni: null,
 		fingerprint: 'chrome',
@@ -374,6 +393,7 @@ export interface AppInfo {
 	version: string;
 	updatesConfigured: boolean;
 	feedbackConfigured: boolean;
+	shadowsocksMethods: string[];
 }
 
 export interface CoreStatus {

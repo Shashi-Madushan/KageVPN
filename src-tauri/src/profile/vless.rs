@@ -1,12 +1,20 @@
-use std::collections::HashMap;
-
 use base64::{engine::general_purpose::STANDARD, Engine};
-use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC};
+use serde_json::{json, Value};
 use url::Url;
 use uuid::Uuid;
 
-use super::{Profile, Reality, Security, Transport, TransportKind};
-use crate::error::{AppError, Result};
+use super::common::{self, invalid, Params};
+use super::{Profile, ProtocolSpec, Protocol, Reality, Security};
+use crate::error::Result;
+
+pub static SPEC: ProtocolSpec = ProtocolSpec {
+    protocol: Protocol::Vless,
+    schemes: &["vless"],
+    parse: parse_vless,
+    to_link,
+    validate,
+    outbound,
+};
 
 pub fn parse_vless(link: &str) -> Result<Profile> {
     let url = Url::parse(link.trim()).map_err(|e| invalid(format!("not a valid link: {e}")))?;
@@ -15,136 +23,86 @@ pub fn parse_vless(link: &str) -> Result<Profile> {
     }
 
     let user_id = Uuid::parse_str(url.username()).map_err(|_| invalid("link has no valid UUID"))?;
-    let server = url
-        .host_str()
-        .map(|h| h.trim_matches(['[', ']']))
-        .filter(|h| !h.is_empty())
-        .ok_or_else(|| invalid("link has no server"))?;
-    let params: HashMap<_, _> = url.query_pairs().collect();
-    let param = |key: &str| params.get(key).filter(|v| !v.is_empty()).map(|v| v.to_string());
+    let server = common::server_of(&url)?;
+    let params = Params::of(&url);
 
-    if let Some(encryption) = param("encryption").filter(|e| e != "none") {
+    if let Some(encryption) = params.get("encryption").filter(|e| e != "none") {
         let shown: String = encryption.chars().take(24).collect();
         return Err(invalid(format!("VLESS encryption '{shown}' is not supported, only encryption=none")));
     }
-    let security = match param("security").as_deref() {
+    let security = match params.get("security").as_deref() {
         Some("tls") => Security::Tls,
         Some("reality") => Security::Reality,
         _ => return Err(invalid("only security=tls or reality is supported")),
     };
-    let kind = match param("type").as_deref() {
-        None | Some("tcp") => TransportKind::Tcp,
-        Some("ws") => TransportKind::Ws,
-        Some("grpc") => TransportKind::Grpc,
-        Some("httpupgrade") => TransportKind::Httpupgrade,
-        Some(other) => return Err(invalid(format!("transport '{other}' is not supported"))),
-    };
-
     let reality = match security {
         Security::Reality => Some(Reality {
-            public_key: param("pbk").ok_or_else(|| invalid("Reality link has no public key (pbk)"))?,
-            short_id: param("sid").unwrap_or_default(),
+            public_key: params.get("pbk").ok_or_else(|| invalid("Reality link has no public key (pbk)"))?,
+            short_id: params.get("sid").unwrap_or_default(),
         }),
-        Security::Tls => None,
+        _ => None,
     };
-
-    let name = url
-        .fragment()
-        .map(|f| percent_decode_str(f).decode_utf8_lossy().into_owned())
-        .filter(|n| !n.is_empty())
-        .unwrap_or_else(|| server.to_string());
 
     Ok(Profile {
         id: Uuid::new_v4().to_string(),
-        name,
-        server: server.to_string(),
-        port: url.port().unwrap_or(443),
+        protocol: Protocol::Vless,
+        name: common::name_of(url.fragment(), &server),
+        server,
+        port: url.port().unwrap_or(common::DEFAULT_PORT),
         uuid: user_id.to_string(),
         security,
-        sni: param("sni"),
-        fingerprint: param("fp").or_else(|| (security == Security::Reality).then(|| "chrome".into())),
-        alpn: param("alpn").map(|a| a.split(',').map(str::to_string).collect()).unwrap_or_default(),
-        flow: param("flow"),
+        sni: params.get("sni"),
+        fingerprint: params.get("fp").or_else(|| (security == Security::Reality).then(|| "chrome".into())),
+        alpn: common::alpn_of(&params),
+        flow: params.get("flow"),
         pinned_key: match security {
-            Security::Tls => param("pcs").and_then(|hex| hex_to_base64(&hex)),
-            Security::Reality => None,
+            Security::Tls => params.get("pcs").and_then(|hex| hex_to_base64(&hex)),
+            _ => None,
         },
-        transport: Transport {
-            kind,
-            path: param("path"),
-            host: param("host"),
-            service_name: param("serviceName"),
-        },
+        transport: common::transport_of(&params)?,
         reality,
-        packet_encoding: param("packetEncoding").or_else(|| param("pe")),
-        group: None,
-        favorite: false,
-        subscription_id: None,
+        packet_encoding: params.first(&["packetEncoding", "pe"]),
+        allow_insecure: params.flag(&["allowInsecure", "insecure"]),
+        ..Profile::default()
     })
 }
 
-/// Parses every `vless://` token in a block of text, returning profiles and the errors.
-pub fn parse_many(text: &str) -> (Vec<Profile>, Vec<String>) {
-    let mut profiles = Vec::new();
-    let mut errors = Vec::new();
-    for token in text.split_whitespace().filter(|t| is_vless_link(t)) {
-        match parse_vless(token) {
-            Ok(profile) => profiles.push(profile),
-            Err(error) => errors.push(error.to_string()),
-        }
-    }
-    (profiles, errors)
-}
-
-/// Schemes are case-insensitive, so `VLESS://` counts too.
-pub fn is_vless_link(token: &str) -> bool {
-    token.get(..8).is_some_and(|scheme| scheme.eq_ignore_ascii_case("vless://"))
-}
-
 pub fn to_link(profile: &Profile) -> String {
-    let mut query = url::form_urlencoded::Serializer::new(String::new());
+    let mut query = common::query();
     query.append_pair("encryption", "none");
     query.append_pair("security", if profile.security == Security::Reality { "reality" } else { "tls" });
-    let mut optional = |key: &str, value: &Option<String>| {
-        if let Some(value) = value.as_deref().filter(|v| !v.is_empty()) {
-            query.append_pair(key, value);
-        }
-    };
-    optional("sni", &profile.sni);
-    optional("fp", &profile.fingerprint);
-    optional("flow", &profile.flow);
-    optional("packetEncoding", &profile.packet_encoding);
-    optional("path", &profile.transport.path);
-    optional("host", &profile.transport.host);
-    optional("serviceName", &profile.transport.service_name);
-    if !profile.alpn.is_empty() {
-        query.append_pair("alpn", &profile.alpn.join(","));
-    }
-    query.append_pair(
-        "type",
-        match profile.transport.kind {
-            TransportKind::Tcp => "tcp",
-            TransportKind::Ws => "ws",
-            TransportKind::Grpc => "grpc",
-            TransportKind::Httpupgrade => "httpupgrade",
-        },
-    );
+    common::push(&mut query, "flow", &profile.flow);
+    common::push(&mut query, "packetEncoding", &profile.packet_encoding);
+    common::push_tls_and_transport(&mut query, profile);
     if let Some(reality) = &profile.reality {
         query.append_pair("pbk", &reality.public_key);
         if !reality.short_id.is_empty() {
             query.append_pair("sid", &reality.short_id);
         }
     }
+    common::build_link("vless", &profile.uuid, profile, &query.finish())
+}
 
-    let host = if profile.server.contains(':') { format!("[{}]", profile.server) } else { profile.server.clone() };
-    format!(
-        "vless://{}@{}:{}?{}#{}",
-        profile.uuid,
-        host,
-        profile.port,
-        query.finish(),
-        utf8_percent_encode(&profile.name, NON_ALPHANUMERIC)
-    )
+fn validate(profile: &Profile) -> Result<()> {
+    if Uuid::parse_str(&profile.uuid).is_err() {
+        return Err(invalid("UUID is not valid"));
+    }
+    if profile.security == Security::Reality && profile.reality.as_ref().is_none_or(|r| r.public_key.trim().is_empty()) {
+        return Err(invalid("Reality needs a public key"));
+    }
+    common::check_transport(profile)
+}
+
+fn outbound(profile: &Profile) -> Value {
+    let mut outbound = common::base_outbound("vless", profile);
+    outbound["uuid"] = json!(profile.uuid);
+    if let Some(flow) = profile.flow.as_deref().filter(|f| !f.is_empty()) {
+        outbound["flow"] = json!(flow);
+    }
+    if let Some(encoding) = profile.packet_encoding.as_deref().filter(|e| !e.is_empty()) {
+        outbound["packet_encoding"] = json!(encoding);
+    }
+    outbound
 }
 
 /// `pcs` is a certificate hash while sing-box pins public keys, so this value is a
@@ -158,10 +116,6 @@ fn hex_to_base64(hex: &str) -> Option<String> {
         .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
         .collect();
     bytes.map(|b| STANDARD.encode(b))
-}
-
-fn invalid(message: impl Into<String>) -> AppError {
-    AppError::Invalid(message.into())
 }
 
 #[cfg(test)]

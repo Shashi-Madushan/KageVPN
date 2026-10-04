@@ -14,7 +14,7 @@ function install(opts) {
 	const UUID = '11111111-2222-4333-8444-555555555555';
 
 	const city = (id, name, host, group, extra = {}) => ({
-		id, name, server: host, port: 443, uuid: UUID, security: 'reality', sni: 'www.example.org', fingerprint: 'chrome',
+		id, protocol: 'vless', name, server: host, port: 443, uuid: UUID, password: '', method: null, obfs: null, allowInsecure: false, security: 'reality', sni: 'www.example.org', fingerprint: 'chrome',
 		alpn: [], flow: 'xtls-rprx-vision', pinnedKey: null, transport: { kind: 'tcp', path: null, host: null, serviceName: null },
 		reality: { publicKey: 'DEMOPUBLICKEYDEMOPUBLICKEYDEMOPUBLICKEY00', shortId: 'a1b2c3d4' }, packetEncoding: null,
 		group, favorite: false, subscriptionId: null, ...extra
@@ -23,10 +23,10 @@ function install(opts) {
 		? [
 				city('p1', 'Frankfurt, Germany', 'de1.example.com', 'Europe', { favorite: true }),
 				city('p2', 'Amsterdam, Netherlands', 'nl1.example.com', 'Europe'),
-				city('p3', 'London, United Kingdom', 'uk1.example.com', 'Europe'),
+				city('p3', 'London, United Kingdom', 'uk1.example.com', 'Europe', { protocol: 'trojan', uuid: '', password: 'demo', security: 'tls', flow: null, reality: null, fingerprint: 'chrome', transport: { kind: 'ws', path: '/', host: null, serviceName: null } }),
 				city('p4', 'New York, United States', 'us1.example.com', 'Americas', { favorite: true }),
-				city('p5', 'Singapore', 'sg1.example.com', 'Asia'),
-				city('p6', 'Tokyo, Japan', 'jp1.example.com', 'Asia'),
+				city('p5', 'Singapore', 'sg1.example.com', 'Asia', { protocol: 'hysteria2', uuid: '', password: 'demo', security: 'tls', flow: null, reality: null, fingerprint: null }),
+				city('p6', 'Tokyo, Japan', 'jp1.example.com', 'Asia', { protocol: 'shadowsocks', uuid: '', password: 'demo', method: 'aes-256-gcm', security: 'none', flow: null, reality: null, fingerprint: null }),
 				city('p7', 'Sydney, Australia', 'au1.example.com', 'Oceania')
 			]
 		: [];
@@ -121,7 +121,7 @@ function install(opts) {
 	window.__demoEmit = emit;
 
 	const handlers = {
-		app_info: () => ({ name: opts.name, brand: 'Apzur', version: opts.version, updatesConfigured: false, feedbackConfigured: false }),
+		app_info: () => ({ name: opts.name, brand: 'Apzur', version: opts.version, updatesConfigured: false, feedbackConfigured: false, shadowsocksMethods: ['2022-blake3-aes-128-gcm', 'aes-256-gcm', 'chacha20-ietf-poly1305'] }),
 		snapshot: () => snapshot,
 		app_update_settings: () => ({ policy: 'ask', lastCheck: 0 }),
 		test_all: () => profiles.map((p) => ({ id: p.id, ms: pings[p.id] })),

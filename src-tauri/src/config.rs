@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::error::{AppError, Result};
-use crate::profile::{Profile, Security, TransportKind};
+use crate::profile::Profile;
 use crate::settings::{Action, DnsProvider, DnsSettings, RouteMode, RoutingSettings, Rule, RuleKind, RuleSetKind};
 
 pub const MIXED_PORT: u16 = 2080;
@@ -56,7 +56,7 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
         .map(node_tag)
         .unwrap_or_else(|| tags[0].clone());
 
-    let mut outbounds: Vec<Value> = nodes.iter().map(|p| outbound(p)).collect();
+    let mut outbounds: Vec<Value> = nodes.iter().map(|p| p.outbound(&node_tag(&p.id))).collect();
     outbounds.push(if input.auto {
         json!({
             "type": "urltest", "tag": "proxy", "outbounds": tags,
@@ -117,79 +117,6 @@ fn select_nodes<'a>(input: &ConfigInput<'a>) -> Vec<&'a Profile> {
         }
     }
     nodes
-}
-
-fn outbound(profile: &Profile) -> Value {
-    let mut tls = json!({
-        "enabled": true,
-        "server_name": profile.sni.as_deref().unwrap_or(&profile.server),
-    });
-    if !profile.alpn.is_empty() {
-        tls["alpn"] = json!(profile.alpn);
-    }
-    if let Some(fingerprint) = &profile.fingerprint {
-        tls["utls"] = json!({ "enabled": true, "fingerprint": fingerprint });
-    }
-    match (profile.security, &profile.reality) {
-        (Security::Reality, Some(reality)) => {
-            tls["reality"] = json!({
-                "enabled": true,
-                "public_key": reality.public_key,
-                "short_id": reality.short_id,
-            });
-        }
-        _ => {
-            if let Some(key) = &profile.pinned_key {
-                tls["certificate_public_key_sha256"] = json!([key]);
-            }
-        }
-    }
-
-    let mut outbound = json!({
-        "type": "vless",
-        "tag": node_tag(&profile.id),
-        "server": profile.server,
-        "server_port": profile.port,
-        "uuid": profile.uuid,
-        "tls": tls,
-    });
-    if let Some(flow) = profile.flow.as_deref().filter(|f| !f.is_empty()) {
-        outbound["flow"] = json!(flow);
-    }
-    if let Some(encoding) = profile.packet_encoding.as_deref().filter(|e| !e.is_empty()) {
-        outbound["packet_encoding"] = json!(encoding);
-    }
-    if let Some(transport) = transport(profile) {
-        outbound["transport"] = transport;
-    }
-    outbound
-}
-
-fn transport(profile: &Profile) -> Option<Value> {
-    let t = &profile.transport;
-    let path = t.path.as_deref().filter(|p| !p.is_empty());
-    let host = t.host.as_deref().filter(|h| !h.is_empty());
-    match t.kind {
-        TransportKind::Tcp => None,
-        TransportKind::Ws => {
-            let mut value = json!({ "type": "ws", "path": path.unwrap_or("/") });
-            if let Some(host) = host {
-                value["headers"] = json!({ "Host": host });
-            }
-            Some(value)
-        }
-        TransportKind::Grpc => Some(json!({
-            "type": "grpc",
-            "service_name": t.service_name.as_deref().unwrap_or_default(),
-        })),
-        TransportKind::Httpupgrade => {
-            let mut value = json!({ "type": "httpupgrade", "path": path.unwrap_or("/") });
-            if let Some(host) = host {
-                value["host"] = json!(host);
-            }
-            Some(value)
-        }
-    }
 }
 
 fn route_rules(routing: &RoutingSettings) -> Vec<Value> {
