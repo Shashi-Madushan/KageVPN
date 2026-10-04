@@ -16,7 +16,7 @@ Each protocol is one module in `src-tauri/src/profile/` that implements `Protoco
    - `blank`: a new server with defaults. Optionally `normalize` to clear settings that no longer apply before saving.
 2. **List it in `REGISTRY`** in `profile/mod.rs`.
 3. **Define a settings struct** in the module (`#[serde(rename_all = "camelCase", default)]`) holding everything the protocol needs, reusing `common::Tls` and `common::Transport` where they fit. Build profiles with `Profile::build(ID, name, server, port, &settings)` and read them with `profile.settings_as::<YourSettings>()`. Nothing else stores or compares these fields: duplicate detection compares the whole settings object. Editor field keys are paths inside it, such as `tls.sni`.
-4. **Add `tests/profile_<name>.rs`** and a sample link to `every_protocol()` in `tests/config.rs`. That test runs the real `sing-box check` when sing-box is installed, which catches wrong outbound field names.
+4. **Add `tests/profile_<name>.rs`** for the protocol's own edge cases (odd link styles, links it must reject).
 5. **Provide `sample()`** (an example link). The conformance suite in `tests/profile_conformance.rs` and the real `sing-box check` then cover round-trips, identity, secret redaction, editor keys and the outbound shape without further test code.
 6. **Refresh the screenshot fixture:** `UPDATE_FIXTURES=1 cargo test demo_protocols_fixture`.
 
