@@ -28,7 +28,7 @@ mod tray;
 mod traffic;
 mod usage;
 
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -92,11 +92,8 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // Closing the main window destroys it (and its WebView); the tray recreates it.
             tray::handle_window_event(window, event);
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
-            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
@@ -174,7 +171,12 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-    app.run(|_, _| {});
+    app.run(|_, event| {
+        // The app lives in the menu bar: destroying the last window must not quit it.
+        if let tauri::RunEvent::ExitRequested { api, code: None, .. } = event {
+            api.prevent_exit();
+        }
+    });
 }
 
 fn auto_connect(app: &tauri::AppHandle) {

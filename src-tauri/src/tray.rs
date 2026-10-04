@@ -5,7 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Listener, Manager, PhysicalPosition, Rect, Window, WindowEvent};
+use tauri::{
+    AppHandle, Listener, Manager, PhysicalPosition, Rect, WebviewWindow, WebviewWindowBuilder, Window,
+    WindowEvent,
+};
 
 use crate::session::{self, State, Status};
 use crate::{notify, speed_icon};
@@ -20,8 +23,11 @@ const QUIT: &str = "quit";
 const POPOVER_GAP: f64 = 6.0;
 const SCREEN_MARGIN: f64 = 8.0;
 const REOPEN_GUARD_MS: u64 = 250;
+/// A hidden popover keeps its WebView for this long, then is destroyed to free memory.
+const POPOVER_IDLE_MS: u64 = 60_000;
 
 static LAST_BLUR_MS: AtomicU64 = AtomicU64::new(0);
+static POPOVER_GEN: AtomicU64 = AtomicU64::new(0);
 
 /// Smoothing factor for the menu bar rates: higher reacts faster, lower is calmer.
 const RATE_SMOOTHING: f64 = 0.45;
@@ -177,9 +183,21 @@ fn format_rate(bytes_per_second: u64) -> String {
     }
 }
 
+/// The window with this label, building it from `tauri.conf.json` when it does not exist.
+///
+/// Windows are declared with `create: false` and destroyed when hidden, so the WebView (tens of
+/// megabytes of WebKit helper processes) only exists while the user can see it.
+fn window_or_create(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
+    if let Some(window) = app.get_webview_window(label) {
+        return Some(window);
+    }
+    let config = app.config().app.windows.iter().find(|c| c.label == label)?.clone();
+    WebviewWindowBuilder::from_config(app, &config).ok()?.build().ok()
+}
+
 pub fn show_main_window(app: &AppHandle) {
     hide_popover(app);
-    if let Some(window) = app.get_webview_window("main") {
+    if let Some(window) = window_or_create(app, "main") {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
@@ -189,25 +207,48 @@ pub fn show_main_window(app: &AppHandle) {
 pub fn hide_popover(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(POPOVER) {
         let _ = window.hide();
+        schedule_popover_destroy(app);
     }
+}
+
+/// Destroys the hidden popover after `POPOVER_IDLE_MS` unless it was shown again meanwhile.
+fn schedule_popover_destroy(app: &AppHandle) {
+    let generation = POPOVER_GEN.fetch_add(1, Ordering::Relaxed) + 1;
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(POPOVER_IDLE_MS)).await;
+        if POPOVER_GEN.load(Ordering::Relaxed) != generation {
+            return;
+        }
+        if let Some(window) = app.get_webview_window(POPOVER) {
+            if !window.is_visible().unwrap_or(false) {
+                let _ = window.destroy();
+            }
+        }
+    });
 }
 
 pub fn handle_window_event(window: &Window, event: &WindowEvent) {
     if window.label() == POPOVER && matches!(event, WindowEvent::Focused(false)) {
         LAST_BLUR_MS.store(now_ms(), Ordering::Relaxed);
         let _ = window.hide();
+        schedule_popover_destroy(window.app_handle());
     }
 }
 
 fn toggle_popover(app: &AppHandle, anchor: Rect) {
-    let Some(window) = app.get_webview_window(POPOVER) else { return };
-    if window.is_visible().unwrap_or(false) {
-        let _ = window.hide();
-        return;
+    if let Some(window) = app.get_webview_window(POPOVER) {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+            schedule_popover_destroy(app);
+            return;
+        }
     }
     if now_ms().saturating_sub(LAST_BLUR_MS.load(Ordering::Relaxed)) < REOPEN_GUARD_MS {
         return;
     }
+    POPOVER_GEN.fetch_add(1, Ordering::Relaxed);
+    let Some(window) = window_or_create(app, POPOVER) else { return };
     place_below(app, &window, anchor);
     let _ = window.show();
     let _ = window.set_focus();
