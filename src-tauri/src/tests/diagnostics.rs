@@ -15,3 +15,17 @@ fn converts_bytes_over_time_to_megabits() {
     assert!((rate - 100.0).abs() < 1e-9);
     assert!(mbps_between(0, Duration::from_secs(1)) == 0.0);
 }
+
+#[test]
+fn a_refused_speed_test_says_so_instead_of_claiming_the_server_is_unreachable() {
+    assert!(no_data_message(0).contains("could not be reached"));
+    assert!(no_data_message(403).contains("refused") && no_data_message(403).contains("403"));
+}
+
+#[test]
+fn each_download_request_asks_for_a_size_the_speed_server_accepts() {
+    // Cloudflare answers 403 to very large requests (100 MB was refused), and the worker loops
+    // for as long as the phase runs, so a smaller size loses nothing.
+    let bytes: u64 = DOWN_URL.rsplit('=').next().unwrap().parse().unwrap();
+    assert!(bytes <= 50_000_000, "{DOWN_URL}");
+}

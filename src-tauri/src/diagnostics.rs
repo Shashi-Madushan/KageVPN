@@ -15,6 +15,9 @@ use crate::app_config::urls::{CONNECTION_PROBE as PING_URL, DNS_LEAK as DNS_URL,
 const PHASE_SECONDS: f64 = 8.0;
 const DOWN_STREAMS: usize = 4;
 const UP_STREAMS: usize = 3;
+/// The HTTP status of the last request the speed test server refused, or 0.
+static REFUSED_STATUS: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
+
 const UP_CHUNK: usize = 192 * 1024;
 const PING_SAMPLES: usize = 6;
 const SAMPLE_EVERY: Duration = Duration::from_millis(150);
@@ -202,13 +205,14 @@ where
     }
     let total = bytes.load(Ordering::Relaxed);
     if total == 0 {
-        return Err(AppError::Invalid("the speed test server could not be reached through the tunnel".into()));
+        return Err(AppError::Invalid(no_data_message(REFUSED_STATUS.load(Ordering::Relaxed))));
     }
     Ok(mbps_between(total, started.elapsed()))
 }
 
 pub async fn speed_test(app: &AppHandle) -> Result<SpeedResult> {
     CANCELLED.store(false, Ordering::Relaxed);
+    REFUSED_STATUS.store(0, Ordering::Relaxed);
     emit(app, "ping", 0.0, 0.0, None, None);
     let ping = measure_ping(app).await?;
 
@@ -220,7 +224,10 @@ pub async fn speed_test(app: &AppHandle) -> Result<SpeedResult> {
                 let Ok(response) = client.get(DOWN_URL).send().await else { return };
                 let mut response = match response.error_for_status() {
                     Ok(r) => r,
-                    Err(_) => return,
+                    Err(error) => {
+                        note_refusal(&error);
+                        return;
+                    }
                 };
                 while let Ok(Some(chunk)) = response.chunk().await {
                     bytes.fetch_add(chunk.len() as u64, Ordering::Relaxed);
@@ -239,7 +246,8 @@ pub async fn speed_test(app: &AppHandle) -> Result<SpeedResult> {
         async move {
             while !stop.load(Ordering::Relaxed) {
                 let sent = client.post(UP_URL).body(vec![0u8; UP_CHUNK]).send().await.and_then(|r| r.error_for_status());
-                if sent.is_err() {
+                if let Err(error) = sent {
+                    note_refusal(&error);
                     return;
                 }
                 bytes.fetch_add(UP_CHUNK as u64, Ordering::Relaxed);
@@ -250,6 +258,21 @@ pub async fn speed_test(app: &AppHandle) -> Result<SpeedResult> {
 
     emit(app, "done", 0.0, 1.0, Some(ping.0), Some(ping.1));
     Ok(SpeedResult { down_mbps, up_mbps, ping_ms: ping.0, jitter_ms: ping.1 })
+}
+
+fn note_refusal(error: &reqwest::Error) {
+    if let Some(status) = error.status() {
+        REFUSED_STATUS.store(status.as_u16(), Ordering::Relaxed);
+    }
+}
+
+/// What to tell the user when a phase moved no data: the server answered with an error, or it
+/// never answered at all.
+fn no_data_message(refused_status: u16) -> String {
+    match refused_status {
+        0 => "the speed test server could not be reached through the tunnel".to_string(),
+        status => format!("the speed test server refused the request (HTTP {status})"),
+    }
 }
 
 /// Median latency and the average change between consecutive samples (jitter), in milliseconds.

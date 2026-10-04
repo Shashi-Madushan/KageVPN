@@ -96,7 +96,7 @@ pub mod urls {
     pub const IP_DETAILS: &str = "https://ipwho.is/";
     /// Shows which DNS resolver answered, for leak checks.
     pub const DNS_LEAK: &str = "http://edns.ip-api.com/json";
-    pub const SPEED_DOWNLOAD: &str = "https://speed.cloudflare.com/__down?bytes=100000000";
+    pub const SPEED_DOWNLOAD: &str = "https://speed.cloudflare.com/__down?bytes=25000000";
     pub const SPEED_UPLOAD: &str = "https://speed.cloudflare.com/__up";
     /// Prefixes for per-country and per-category rule sets; the file name is appended.
     pub const GEOIP_RULE_SETS: &str = "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-";
