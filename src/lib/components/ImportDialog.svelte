@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { readText } from '@tauri-apps/plugin-clipboard-manager';
 	import { protocols } from '$lib/protocols.svelte';
 	import { app } from '$lib/app.svelte';
 	import { importMessage } from '$lib/format';
@@ -27,9 +28,11 @@
 		}
 	});
 
+	// The app's clipboard plugin reads silently. The web clipboard API makes macOS show a
+	// floating "Paste" bubble over the button every time this dialog opens.
 	async function pasteFromClipboard() {
 		try {
-			const clip = (await navigator.clipboard.readText()).trim();
+			const clip = ((await readText()) ?? '').trim();
 			if (protocols.hasLink(clip)) text = clip;
 		} catch {
 			// clipboard access can be denied; the user can paste manually
