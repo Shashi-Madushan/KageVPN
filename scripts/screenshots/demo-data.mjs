@@ -137,7 +137,8 @@ function install(opts) {
 				vless: { uuid: '', security: 'tls', flow: null, packetEncoding: null, transport: tcp, tls: tls() },
 				trojan: { password: '', transport: tcp, tls: tls() },
 				shadowsocks: { method: 'aes-256-gcm', password: '' },
-				hysteria2: { password: '', obfs: null, tls: tls({ fingerprint: null }) }
+				hysteria2: { password: '', obfs: null, tls: tls({ fingerprint: null }) },
+				vmess: { uuid: '', security: 'auto', tlsEnabled: false, transport: tcp, tls: tls() }
 			}[a.protocol];
 			return { ...base, port: a.protocol === 'shadowsocks' ? 8388 : 443, settings };
 		},

@@ -15,6 +15,7 @@ mod links;
 mod shadowsocks;
 mod trojan;
 mod vless;
+mod vmess;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -112,7 +113,7 @@ pub trait ProtocolDef: Sync {
     fn normalize(&self, _profile: &mut Profile) {}
 }
 
-pub static REGISTRY: &[&dyn ProtocolDef] = &[&vless::Vless, &trojan::Trojan, &shadowsocks::Shadowsocks, &hysteria2::Hysteria2];
+pub static REGISTRY: &[&dyn ProtocolDef] = &[&vless::Vless, &trojan::Trojan, &shadowsocks::Shadowsocks, &hysteria2::Hysteria2, &vmess::Vmess];
 
 pub fn def(protocol: ProtocolId) -> &'static dyn ProtocolDef {
     *REGISTRY.iter().find(|d| d.id() == protocol.0).expect("every ProtocolId comes from REGISTRY")

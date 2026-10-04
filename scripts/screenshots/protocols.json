@@ -678,5 +678,264 @@
         "pattern": null
       }
     ]
+  },
+  {
+    "id": "vmess",
+    "label": "VMess",
+    "schemes": [
+      "vmess"
+    ],
+    "fields": [
+      {
+        "key": "uuid",
+        "label": "User ID (UUID)",
+        "kind": "text",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": "00000000-0000-0000-0000-000000000000",
+        "warning": null,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "message": "This is not a valid UUID."
+        }
+      },
+      {
+        "key": "security",
+        "label": "Encryption",
+        "kind": "select",
+        "section": "connection",
+        "choices": [
+          {
+            "value": "auto",
+            "label": "auto"
+          },
+          {
+            "value": "aes-128-gcm",
+            "label": "aes-128-gcm"
+          },
+          {
+            "value": "chacha20-poly1305",
+            "label": "chacha20-poly1305"
+          },
+          {
+            "value": "none",
+            "label": "none"
+          },
+          {
+            "value": "zero",
+            "label": "zero"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "tlsEnabled",
+        "label": "Use TLS",
+        "kind": "toggle",
+        "section": "security",
+        "choices": [],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "tls.sni",
+        "label": "Server name (SNI)",
+        "kind": "text",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": false,
+        "placeholder": "Same as the address",
+        "warning": null,
+        "showWhen": {
+          "key": "tlsEnabled",
+          "values": [
+            "true"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "tls.allowInsecure",
+        "label": "Skip certificate check",
+        "kind": "toggle",
+        "section": "security",
+        "choices": [],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "showWhen": {
+          "key": "tlsEnabled",
+          "values": [
+            "true"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "transport.kind",
+        "label": "Transport",
+        "kind": "segmented",
+        "section": "transport",
+        "choices": [
+          {
+            "value": "tcp",
+            "label": "TCP"
+          },
+          {
+            "value": "ws",
+            "label": "WebSocket"
+          },
+          {
+            "value": "grpc",
+            "label": "gRPC"
+          },
+          {
+            "value": "httpupgrade",
+            "label": "HTTPUpgrade"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "transport.path",
+        "label": "Path",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "/",
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "ws",
+            "httpupgrade"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "transport.host",
+        "label": "Host header",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "ws",
+            "httpupgrade"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "transport.serviceName",
+        "label": "Service name",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "grpc"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "tls.fingerprint",
+        "label": "Fingerprint",
+        "kind": "select",
+        "section": "advanced",
+        "choices": [
+          {
+            "value": "chrome",
+            "label": "chrome"
+          },
+          {
+            "value": "firefox",
+            "label": "firefox"
+          },
+          {
+            "value": "safari",
+            "label": "safari"
+          },
+          {
+            "value": "ios",
+            "label": "ios"
+          },
+          {
+            "value": "android",
+            "label": "android"
+          },
+          {
+            "value": "edge",
+            "label": "edge"
+          },
+          {
+            "value": "random",
+            "label": "random"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "tlsEnabled",
+          "values": [
+            "true"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "tls.alpn",
+        "label": "ALPN",
+        "kind": "list",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "h2,http/1.1",
+        "warning": null,
+        "showWhen": {
+          "key": "tlsEnabled",
+          "values": [
+            "true"
+          ]
+        },
+        "pattern": null
+      }
+    ]
   }
 ]

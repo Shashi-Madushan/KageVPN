@@ -4,7 +4,7 @@
 
 **A clean, native-feeling VPN manager for macOS, powered by [sing-box](https://sing-box.sagernet.org).**
 
-Import your VLESS, Trojan, Shadowsocks or Hysteria2 servers, connect with one click, and see exactly where your traffic goes.
+Import your VLESS, VMess, Trojan, Shadowsocks or Hysteria2 servers, connect with one click, and see exactly where your traffic goes.
 
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%2B%20Svelte-blue)
@@ -18,9 +18,9 @@ Import your VLESS, Trojan, Shadowsocks or Hysteria2 servers, connect with one cl
 
 ## What it is
 
-Apzur VPN is a desktop app that sits in your menu bar and manages a [sing-box](https://sing-box.sagernet.org) tunnel for you. You bring a server (a `vless://`, `trojan://`, `ss://` or `hysteria2://` link, or a subscription URL from your provider); the app turns it into a working connection, keeps it healthy, and shows you what it is doing.
+Apzur VPN is a desktop app that sits in your menu bar and manages a [sing-box](https://sing-box.sagernet.org) tunnel for you. You bring a server (a `vless://`, `vmess://`, `trojan://`, `ss://` or `hysteria2://` link, or a subscription URL from your provider); the app turns it into a working connection, keeps it healthy, and shows you what it is doing.
 
-It is for people who already have a VLESS, Trojan, Shadowsocks or Hysteria2 server or provider and want a polished Mac app instead of hand-editing config files. It does not sell or provide VPN servers.
+It is for people who already have a VLESS, VMess, Trojan, Shadowsocks or Hysteria2 server or provider and want a polished Mac app instead of hand-editing config files. It does not sell or provide VPN servers.
 
 ## Install
 
@@ -84,7 +84,7 @@ Then open the app normally. You only need to do this once per downloaded version
 
 - **One-click connection** with a clear status: protected, connecting or not protected, plus session time, exit IP and latency.
 - **Two modes.** *Full System (TUN)* sends all of your Mac's traffic through the VPN. *Proxy Only* runs a local proxy on `127.0.0.1:2080` for just the apps you point at it.
-- **Four protocols.** VLESS (TLS or Reality), Trojan, Shadowsocks (including the 2022 ciphers) and Hysteria2 (with Salamander obfuscation). VLESS and Trojan run over TCP, WebSocket, gRPC or HTTPUpgrade.
+- **Five protocols.** VLESS (TLS or Reality), VMess, Trojan, Shadowsocks (including the 2022 ciphers) and Hysteria2 (with Salamander obfuscation). VLESS, VMess and Trojan run over TCP, WebSocket, gRPC or HTTPUpgrade.
 - **Menu-bar app** with live download and upload speed beside the icon, and a compact popover to connect, switch mode and see traffic.
 - **Optional global shortcut** (⌥⌘V, off by default) to connect or disconnect from anywhere.
 - **Launch at login** and **connect on launch**.

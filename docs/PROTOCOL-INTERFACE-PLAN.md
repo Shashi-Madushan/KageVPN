@@ -12,11 +12,13 @@ Decisions:
 | 2. Form descriptors and the generic editor | Done |
 | 3. Settings block | Done |
 | 4. Conformance test | Done |
-| 5. Prove it with a new protocol | To do |
+| 5. Prove it with a new protocol | Done (VMess) |
 
 Today a new protocol is one module plus about six edits in other files (see "Where it falls short"). The goal is one module plus one registry line.
 
 Step order changed: the editor (old step 3) now comes before the settings block (old step 2). The editor reads and writes fields by key path (`sni`, `transport.path`), so moving the stored data into a `settings` block later only changes the keys in each protocol's field list, not the editor. Doing the data change first would have left the app broken between commits.
+
+Step 5 result: VMess was added with a new module (`profile/vmess.rs`), a new test file and two changed lines in `profile/mod.rs` (the `mod` line and the registry entry). No frontend change: the protocol picker, editor fields (including a field that appears only when TLS is on), accepted `vmess://` links and list description all came from the backend. The conformance suite and the real `sing-box check` passed on the first run. The only other edit was regenerating the generated screenshot fixture.
 
 Step 4 notes: every protocol now provides `sample()` (an example link). `tests/profile_conformance.rs` runs each registered protocol through its sample: parse, validate, round-trip, identity, outbound shape, secret redaction, editor field keys, blank-profile validation and idempotent normalize. The real `sing-box check` also runs on every sample, which already caught an invalid Reality key in the VLESS sample.
 
