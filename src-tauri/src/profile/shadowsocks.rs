@@ -76,6 +76,10 @@ impl ProtocolDef for Shadowsocks {
         "Shadowsocks".to_string()
     }
 
+    fn sample(&self) -> &'static str {
+        "ss://YWVzLTI1Ni1nY206c2FtcGxlLXBhc3N3b3Jk@ss.example.com:8388#Sample%20Shadowsocks"
+    }
+
     fn form(&self) -> Vec<Field> {
         let methods: Vec<(&str, &str)> = METHODS.iter().map(|m| (*m, *m)).collect();
         vec![

@@ -24,16 +24,15 @@ fn input<'a>(profiles: &'a [Profile], routing: &'a RoutingSettings, mode: Mode) 
     }
 }
 
-/// One profile per protocol, so the real `sing-box check` vets every outbound shape.
+/// The pinned VLESS profile plus every registered protocol's sample, so the real `sing-box check`
+/// vets each outbound shape and a new protocol is covered without editing this test.
 fn every_protocol() -> Vec<Profile> {
-    let links = [
-        "trojan://secret@t.example.com:443?security=tls&type=ws&path=%2Fws&host=cdn.example.com&alpn=h2",
-        "ss://YWVzLTI1Ni1nY206cGE1NXdvcmQ@s.example.com:8388",
-        "ss://2022-blake3-aes-128-gcm:YWJjZGVmZ2hpamtsbW5vcA%3D%3D@s.example.com:8389",
-        "hysteria2://auth@h.example.com:443/?sni=h.example.com&obfs=salamander&obfs-password=mask&insecure=1",
-    ];
     let mut profiles = vec![profile()];
-    profiles.extend(links.iter().map(|link| crate::profile::parse_many(link).0.remove(0)));
+    for (index, def) in crate::profile::REGISTRY.iter().enumerate() {
+        let mut sample = def.parse(def.sample()).unwrap();
+        sample.id = format!("sample-{index}");
+        profiles.push(sample);
+    }
     profiles
 }
 

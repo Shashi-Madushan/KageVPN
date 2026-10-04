@@ -68,6 +68,10 @@ impl ProtocolDef for Trojan {
         format!("Trojan · {}", common::transport_name(settings.transport.kind))
     }
 
+    fn sample(&self) -> &'static str {
+        "trojan://sample-password@trojan.example.com:443?security=tls&sni=front.example.com&type=ws&path=%2Fws&host=cdn.example.com&alpn=h2#Sample%20Trojan"
+    }
+
     fn form(&self) -> Vec<Field> {
         let mut fields = vec![Field::secret("password", "Password", Section::Connection), common::sni_field(), common::insecure_field()];
         fields.extend(common::transport_fields());

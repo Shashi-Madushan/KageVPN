@@ -6,6 +6,9 @@
 //! else in the backend needs to know about it.
 
 mod common;
+#[cfg(test)]
+#[path = "../tests/profile_conformance.rs"]
+mod conformance;
 mod form;
 mod hysteria2;
 mod links;
@@ -96,6 +99,10 @@ pub trait ProtocolDef: Sync {
     fn secrets(&self, profile: &Profile) -> Vec<Secret>;
     /// A short description for lists, such as "Reality · grpc".
     fn summary(&self, profile: &Profile) -> String;
+    /// An example link, made of documentation-range values. The conformance tests run every
+    /// protocol through it, so a protocol that cannot round-trip its own sample fails them.
+    #[cfg_attr(not(test), allow(dead_code))] // read by the tests only
+    fn sample(&self) -> &'static str;
     /// The fields the editor shows for this protocol, in order.
     fn form(&self) -> Vec<Field>;
     /// A new server of this protocol, with sensible defaults.

@@ -93,6 +93,10 @@ impl ProtocolDef for Vless {
         format!("{security} · {}", common::transport_name(settings.transport.kind))
     }
 
+    fn sample(&self) -> &'static str {
+        "vless://11111111-2222-4333-8444-555555555555@vless.example.com:443?encryption=none&security=reality&sni=www.example.org&fp=chrome&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=a1b2c3d4&flow=xtls-rprx-vision&type=grpc&serviceName=svc#Sample%20VLESS"
+    }
+
     fn form(&self) -> Vec<Field> {
         let mut fields = vec![
             Field::text("uuid", "User ID (UUID)", Section::Connection)

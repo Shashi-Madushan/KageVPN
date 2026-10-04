@@ -85,6 +85,10 @@ impl ProtocolDef for Hysteria2 {
         "Hysteria2".to_string()
     }
 
+    fn sample(&self) -> &'static str {
+        "hysteria2://sample-password@hy.example.com:443/?sni=hy.example.com&obfs=salamander&obfs-password=sample-mask#Sample%20Hysteria2"
+    }
+
     fn form(&self) -> Vec<Field> {
         vec![
             Field::secret("password", "Password", Section::Connection),

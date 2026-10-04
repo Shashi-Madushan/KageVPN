@@ -21,16 +21,6 @@ fn one_paste_can_mix_every_protocol() {
 }
 
 #[test]
-fn every_registered_protocol_round_trips_through_the_shared_entry_points() {
-    for link in sample_links() {
-        let first = parse_link(&link).unwrap();
-        first.validate().unwrap();
-        let again = parse_link(&to_link(&first)).unwrap();
-        assert!(first.same_endpoint(&again), "{link}");
-    }
-}
-
-#[test]
 fn schemes_are_case_insensitive_and_unknown_ones_are_ignored() {
     let (profiles, errors) = parse_many("HY2://pw@h.example.com/#up https://example.com wireguard://x");
     assert_eq!((profiles.len(), errors.len()), (1, 0));
@@ -88,11 +78,3 @@ fn identity_ignores_name_and_group_but_not_the_server_or_credential() {
     assert_ne!(id(&a), id(&other));
 }
 
-#[test]
-fn every_protocol_reports_its_credentials_as_secrets() {
-    for link in sample_links() {
-        let profile = parse_link(&link).unwrap();
-        assert!(!def(profile.protocol).secrets(&profile).is_empty(), "{link}");
-        assert!(!def(profile.protocol).summary(&profile).is_empty(), "{link}");
-    }
-}
