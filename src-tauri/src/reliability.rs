@@ -60,6 +60,17 @@ pub fn spawn_reconnect(app: AppHandle) {
     });
 }
 
+/// Stops a tunnel that no longer carries traffic and brings it back up with the usual retries.
+pub async fn restart_tunnel(app: &AppHandle, pid: u32, why: &str) {
+    let state = app.state::<AppState>();
+    if *state.pid.lock().unwrap() != Some(pid) || state.stopping.load(Ordering::SeqCst) {
+        return;
+    }
+    notify::send(app, "Reconnecting VPN", &format!("{why} and the tunnel stopped responding."));
+    let _ = session::disconnect(app).await;
+    spawn_reconnect(app.clone());
+}
+
 fn spawn_watchdog(app: AppHandle, pid: u32) {
     tauri::async_runtime::spawn(async move {
         let mut failures = 0;

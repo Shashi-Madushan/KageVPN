@@ -66,6 +66,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "flate2",
+ "libc",
  "percent-encoding",
  "qrcode",
  "reqwest 0.12.28",

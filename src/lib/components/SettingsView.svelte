@@ -49,7 +49,7 @@
 	<span class="caption">Reliability</span>
 	<div class="settings card">
 		<label>
-			<span><strong>Reconnect automatically</strong><small>Retry when the tunnel drops or sing-box stops.</small></span>
+			<span><strong>Reconnect automatically</strong><small>Retry when the tunnel drops, and after your Mac wakes or changes network.</small></span>
 			<input type="checkbox" checked={app.reliability.autoReconnect} onchange={(e) => app.saveReliability({ autoReconnect: e.currentTarget.checked })} />
 		</label>
 		<label>

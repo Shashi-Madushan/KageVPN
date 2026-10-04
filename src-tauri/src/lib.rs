@@ -11,6 +11,7 @@ mod feedback;
 mod fsutil;
 mod logs;
 mod net;
+mod network_watch;
 mod notify;
 mod paths;
 mod profile;
@@ -82,6 +83,7 @@ pub fn run() {
             usage::collector::spawn_maintenance(app.handle().clone());
             subscriptions::spawn_scheduler(app.handle().clone());
             reliability::apply_hotkey(app.handle());
+            network_watch::spawn(app.handle().clone());
             register_deep_links(app.handle());
 
             if !std::env::args().any(|arg| arg == HIDDEN_FLAG) {

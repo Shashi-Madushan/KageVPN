@@ -1,0 +1,156 @@
+//! Notices when the Mac wakes from sleep or switches networks, and restarts the tunnel if it
+//! stopped working. No extra processes or system frameworks: one cheap check every few seconds.
+
+use std::ffi::CStr;
+use std::time::{Duration, Instant, SystemTime};
+
+use tauri::{AppHandle, Manager};
+use tokio::time::sleep;
+
+use crate::session::State;
+use crate::state::AppState;
+use crate::{net, reliability};
+
+const TICK: Duration = Duration::from_secs(3);
+/// A tick that took this much longer on the wall clock than on the monotonic clock means the Mac slept.
+const SLEEP_GAP: Duration = Duration::from_secs(10);
+const WAKE_SETTLE: Duration = Duration::from_secs(4);
+const NETWORK_SETTLE: Duration = Duration::from_secs(2);
+const PROBE_ATTEMPTS: u32 = 2;
+const PROBE_PAUSE: Duration = Duration::from_secs(2);
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Change {
+    Woke,
+    Network,
+}
+
+/// Interfaces that do not describe where the Mac reaches the internet from.
+fn is_virtual(name: &str) -> bool {
+    ["lo", "utun", "awdl", "llw", "bridge", "gif", "stf", "anpi", "ap", "vmenet", "vnic", "ipsec"]
+        .iter()
+        .any(|prefix| name.starts_with(prefix))
+}
+
+/// A stable, sorted description of the physical interfaces and their addresses.
+pub fn fingerprint(entries: impl IntoIterator<Item = (String, String)>) -> Vec<String> {
+    let mut parts: Vec<String> = entries
+        .into_iter()
+        .filter(|(name, _)| !is_virtual(name))
+        .map(|(name, address)| format!("{name}={address}"))
+        .collect();
+    parts.sort();
+    parts.dedup();
+    parts
+}
+
+pub fn slept(wall: Duration, monotonic: Duration) -> bool {
+    wall.saturating_sub(monotonic) >= SLEEP_GAP
+}
+
+/// What happened between two checks, if anything. A wake outranks an address change.
+pub fn detect(wall: Duration, monotonic: Duration, before: &[String], now: &[String]) -> Option<Change> {
+    if slept(wall, monotonic) {
+        Some(Change::Woke)
+    } else if before != now {
+        Some(Change::Network)
+    } else {
+        None
+    }
+}
+
+fn current_fingerprint() -> Vec<String> {
+    let mut entries = Vec::new();
+    // SAFETY: getifaddrs fills a list we only read and always release with freeifaddrs.
+    unsafe {
+        let mut list: *mut libc::ifaddrs = std::ptr::null_mut();
+        if libc::getifaddrs(&mut list) != 0 {
+            return Vec::new();
+        }
+        let mut cursor = list;
+        while !cursor.is_null() {
+            let item = &*cursor;
+            let up = item.ifa_flags & libc::IFF_UP as u32 != 0 && item.ifa_flags & libc::IFF_RUNNING as u32 != 0;
+            if up && !item.ifa_addr.is_null() {
+                let name = CStr::from_ptr(item.ifa_name).to_string_lossy().into_owned();
+                match i32::from((*item.ifa_addr).sa_family) {
+                    libc::AF_INET => {
+                        let addr = &*(item.ifa_addr as *const libc::sockaddr_in);
+                        entries.push((name, std::net::Ipv4Addr::from(u32::from_be(addr.sin_addr.s_addr)).to_string()));
+                    }
+                    libc::AF_INET6 => {
+                        let addr = &*(item.ifa_addr as *const libc::sockaddr_in6);
+                        let ip = std::net::Ipv6Addr::from(addr.sin6_addr.s6_addr);
+                        // Link-local addresses flap on their own and say nothing about the route out.
+                        if (ip.segments()[0] & 0xffc0) != 0xfe80 {
+                            entries.push((name, ip.to_string()));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            cursor = item.ifa_next;
+        }
+        libc::freeifaddrs(list);
+    }
+    fingerprint(entries)
+}
+
+pub fn spawn(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let mut wall = SystemTime::now();
+        let mut mono = Instant::now();
+        let mut known = current_fingerprint();
+        loop {
+            sleep(TICK).await;
+            let (wall_now, mono_now) = (SystemTime::now(), Instant::now());
+            let now = current_fingerprint();
+            let change = detect(
+                wall_now.duration_since(wall).unwrap_or_default(),
+                mono_now.duration_since(mono),
+                &known,
+                &now,
+            );
+            wall = wall_now;
+            mono = mono_now;
+            known = now;
+            if let Some(change) = change {
+                handle(&app, change).await;
+                // Whatever settled during the wait is the new normal.
+                known = current_fingerprint();
+                wall = SystemTime::now();
+                mono = Instant::now();
+            }
+        }
+    });
+}
+
+async fn handle(app: &AppHandle, change: Change) {
+    if !should_react(app) {
+        return;
+    }
+    sleep(if change == Change::Woke { WAKE_SETTLE } else { NETWORK_SETTLE }).await;
+    let pid = *app.state::<AppState>().pid.lock().unwrap();
+    let Some(pid) = pid else { return };
+    for attempt in 0..PROBE_ATTEMPTS {
+        if net::proxy_delay().await.is_ok() {
+            return;
+        }
+        if attempt + 1 < PROBE_ATTEMPTS {
+            sleep(PROBE_PAUSE).await;
+        }
+    }
+    let why = if change == Change::Woke { "Your Mac woke up" } else { "Your network changed" };
+    reliability::restart_tunnel(app, pid, why).await;
+}
+
+fn should_react(app: &AppHandle) -> bool {
+    let state = app.state::<AppState>();
+    let connected = state.status.lock().unwrap().state == State::Connected;
+    let auto = state.store.lock().unwrap().reliability().auto_reconnect;
+    connected && auto && !state.reconnecting.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[cfg(test)]
+#[path = "tests/network_watch.rs"]
+mod tests;
