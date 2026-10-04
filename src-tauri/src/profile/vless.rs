@@ -1,14 +1,34 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use url::Url;
 use uuid::Uuid;
 
-use super::common::{self, invalid, Params};
+use super::common::{self, invalid, Params, Reality, Tls, Transport};
 use super::form::{Field, Section};
-use super::{Profile, ProtocolDef, ProtocolId, Reality, Secret, Security};
+use super::{Profile, ProtocolDef, ProtocolId, Secret};
 use crate::error::Result;
 
 pub const ID: ProtocolId = ProtocolId("vless");
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Security {
+    #[default]
+    Tls,
+    Reality,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct VlessSettings {
+    pub uuid: String,
+    pub security: Security,
+    pub flow: Option<String>,
+    pub packet_encoding: Option<String>,
+    pub tls: Tls,
+    pub transport: Transport,
+}
 
 pub struct Vless;
 
@@ -34,23 +54,43 @@ impl ProtocolDef for Vless {
     }
 
     fn validate(&self, profile: &Profile) -> Result<()> {
-        validate(profile)
+        let settings: VlessSettings = profile.settings_as()?;
+        if Uuid::parse_str(&settings.uuid).is_err() {
+            return Err(invalid("UUID is not valid"));
+        }
+        if settings.security == Security::Reality && settings.tls.reality.as_ref().is_none_or(|r| r.public_key.trim().is_empty()) {
+            return Err(invalid("Reality needs a public key"));
+        }
+        common::check_transport(&settings.transport)
     }
 
     fn outbound(&self, profile: &Profile) -> Value {
-        outbound(profile)
+        let settings: VlessSettings = profile.settings_as().unwrap_or_default();
+        let mut outbound = common::base_outbound("vless", profile, &settings.tls, &settings.transport);
+        outbound["uuid"] = json!(settings.uuid);
+        if let Some(flow) = settings.flow.as_deref().filter(|f| !f.is_empty()) {
+            outbound["flow"] = json!(flow);
+        }
+        if let Some(encoding) = settings.packet_encoding.as_deref().filter(|e| !e.is_empty()) {
+            outbound["packet_encoding"] = json!(encoding);
+        }
+        outbound
     }
 
     fn identity(&self, profile: &Profile) -> String {
-        format!("{}|{}|{}", profile.server, profile.port, profile.uuid)
+        let settings: VlessSettings = profile.settings_as().unwrap_or_default();
+        format!("{}|{}|{}", profile.server, profile.port, settings.uuid)
     }
 
     fn secrets(&self, profile: &Profile) -> Vec<Secret> {
-        common::secrets(profile, &[(&profile.uuid, "[uuid]")])
+        let settings: VlessSettings = profile.settings_as().unwrap_or_default();
+        common::secrets(&[(&settings.uuid, "[uuid]")], &settings.tls, Some(&settings.transport))
     }
 
     fn summary(&self, profile: &Profile) -> String {
-        format!("{} · {}", if profile.security == Security::Reality { "Reality" } else { "TLS" }, common::transport_name(profile.transport.kind))
+        let settings: VlessSettings = profile.settings_as().unwrap_or_default();
+        let security = if settings.security == Security::Reality { "Reality" } else { "TLS" };
+        format!("{security} · {}", common::transport_name(settings.transport.kind))
     }
 
     fn form(&self) -> Vec<Field> {
@@ -61,8 +101,8 @@ impl ProtocolDef for Vless {
                 .pattern("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "This is not a valid UUID."),
             Field::segmented("security", "Security", Section::Security, &[("tls", "TLS"), ("reality", "Reality")]),
             common::sni_field(),
-            Field::text("reality.publicKey", "Public key", Section::Security).mono().show_when("security", &["reality"]),
-            Field::text("reality.shortId", "Short ID", Section::Security).optional().mono().show_when("security", &["reality"]),
+            Field::text("tls.reality.publicKey", "Public key", Section::Security).mono().show_when("security", &["reality"]),
+            Field::text("tls.reality.shortId", "Short ID", Section::Security).optional().mono().show_when("security", &["reality"]),
             common::insecure_field().show_when("security", &["tls"]),
         ];
         fields.extend(common::transport_fields());
@@ -76,24 +116,24 @@ impl ProtocolDef for Vless {
     }
 
     fn blank(&self) -> Profile {
-        Profile { protocol: ID, port: common::DEFAULT_PORT, fingerprint: Some("chrome".into()), ..Profile::default() }
+        let settings = VlessSettings { tls: Tls { fingerprint: Some("chrome".into()), ..Tls::default() }, ..VlessSettings::default() };
+        Profile::build(ID, String::new(), String::new(), common::DEFAULT_PORT, &settings)
     }
 
     fn normalize(&self, profile: &mut Profile) {
-        match profile.security {
+        let Ok(mut settings) = profile.settings_as::<VlessSettings>() else { return };
+        match settings.security {
             Security::Reality => {
-                profile.reality.get_or_insert_with(Reality::default);
-                profile.allow_insecure = false;
-                profile.pinned_key = None;
-                if profile.flow.as_deref().is_none_or(str::is_empty) {
-                    profile.flow = Some("xtls-rprx-vision".into());
+                settings.tls.reality.get_or_insert_with(Reality::default);
+                settings.tls.allow_insecure = false;
+                settings.tls.pinned_key = None;
+                if settings.flow.as_deref().is_none_or(str::is_empty) {
+                    settings.flow = Some("xtls-rprx-vision".into());
                 }
             }
-            _ => {
-                profile.security = Security::Tls;
-                profile.reality = None;
-            }
+            Security::Tls => settings.tls.reality = None,
         }
+        profile.put_settings(&settings);
     }
 }
 
@@ -116,74 +156,51 @@ pub fn parse_vless(link: &str) -> Result<Profile> {
         Some("reality") => Security::Reality,
         _ => return Err(invalid("only security=tls or reality is supported")),
     };
-    let reality = match security {
-        Security::Reality => Some(Reality {
-            public_key: params.get("pbk").ok_or_else(|| invalid("Reality link has no public key (pbk)"))?,
-            short_id: params.get("sid").unwrap_or_default(),
-        }),
-        _ => None,
-    };
 
-    Ok(Profile {
-        id: Uuid::new_v4().to_string(),
-        protocol: ID,
-        name: common::name_of(url.fragment(), &server),
-        server,
-        port: url.port().unwrap_or(common::DEFAULT_PORT),
+    let mut tls = common::tls_of(&params);
+    match security {
+        Security::Reality => {
+            tls.reality = Some(Reality {
+                public_key: params.get("pbk").ok_or_else(|| invalid("Reality link has no public key (pbk)"))?,
+                short_id: params.get("sid").unwrap_or_default(),
+            });
+            tls.fingerprint.get_or_insert_with(|| "chrome".into());
+        }
+        Security::Tls => tls.pinned_key = params.get("pcs").and_then(|hex| hex_to_base64(&hex)),
+    }
+
+    let settings = VlessSettings {
         uuid: user_id.to_string(),
         security,
-        sni: params.get("sni"),
-        fingerprint: params.get("fp").or_else(|| (security == Security::Reality).then(|| "chrome".into())),
-        alpn: common::alpn_of(&params),
         flow: params.get("flow"),
-        pinned_key: match security {
-            Security::Tls => params.get("pcs").and_then(|hex| hex_to_base64(&hex)),
-            _ => None,
-        },
-        transport: common::transport_of(&params)?,
-        reality,
         packet_encoding: params.first(&["packetEncoding", "pe"]),
-        allow_insecure: params.flag(&["allowInsecure", "insecure"]),
-        ..Profile::default()
-    })
+        tls,
+        transport: common::transport_of(&params)?,
+    };
+    Ok(Profile::build(
+        ID,
+        common::name_of(url.fragment(), &server),
+        server,
+        url.port().unwrap_or(common::DEFAULT_PORT),
+        &settings,
+    ))
 }
 
 pub fn to_link(profile: &Profile) -> String {
+    let settings: VlessSettings = profile.settings_as().unwrap_or_default();
     let mut query = common::query();
     query.append_pair("encryption", "none");
-    query.append_pair("security", if profile.security == Security::Reality { "reality" } else { "tls" });
-    common::push(&mut query, "flow", &profile.flow);
-    common::push(&mut query, "packetEncoding", &profile.packet_encoding);
-    common::push_tls_and_transport(&mut query, profile);
-    if let Some(reality) = &profile.reality {
+    query.append_pair("security", if settings.security == Security::Reality { "reality" } else { "tls" });
+    common::push(&mut query, "flow", &settings.flow);
+    common::push(&mut query, "packetEncoding", &settings.packet_encoding);
+    common::push_tls_and_transport(&mut query, &settings.tls, &settings.transport);
+    if let Some(reality) = &settings.tls.reality {
         query.append_pair("pbk", &reality.public_key);
         if !reality.short_id.is_empty() {
             query.append_pair("sid", &reality.short_id);
         }
     }
-    common::build_link("vless", &profile.uuid, profile, &query.finish())
-}
-
-fn validate(profile: &Profile) -> Result<()> {
-    if Uuid::parse_str(&profile.uuid).is_err() {
-        return Err(invalid("UUID is not valid"));
-    }
-    if profile.security == Security::Reality && profile.reality.as_ref().is_none_or(|r| r.public_key.trim().is_empty()) {
-        return Err(invalid("Reality needs a public key"));
-    }
-    common::check_transport(profile)
-}
-
-fn outbound(profile: &Profile) -> Value {
-    let mut outbound = common::base_outbound("vless", profile);
-    outbound["uuid"] = json!(profile.uuid);
-    if let Some(flow) = profile.flow.as_deref().filter(|f| !f.is_empty()) {
-        outbound["flow"] = json!(flow);
-    }
-    if let Some(encoding) = profile.packet_encoding.as_deref().filter(|e| !e.is_empty()) {
-        outbound["packet_encoding"] = json!(encoding);
-    }
-    outbound
+    common::build_link("vless", &settings.uuid, profile, &query.finish())
 }
 
 /// `pcs` is a certificate hash while sing-box pins public keys, so this value is a

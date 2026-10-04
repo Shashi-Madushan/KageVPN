@@ -18,20 +18,24 @@ function install(opts) {
 	const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 	const UUID = '11111111-2222-4333-8444-555555555555';
 
-	const city = (id, name, host, group, extra = {}) => ({
-		id, protocol: 'vless', name, server: host, port: 443, uuid: UUID, password: '', method: null, obfs: null, allowInsecure: false, security: 'reality', sni: 'www.example.org', fingerprint: 'chrome',
-		alpn: [], flow: 'xtls-rprx-vision', pinnedKey: null, transport: { kind: 'tcp', path: null, host: null, serviceName: null },
-		reality: { publicKey: 'DEMOPUBLICKEYDEMOPUBLICKEYDEMOPUBLICKEY00', shortId: 'a1b2c3d4' }, packetEncoding: null,
-		group, favorite: false, subscriptionId: null, summary: 'Reality · tcp', ...extra
+	const tcp = { kind: 'tcp', path: null, host: null, serviceName: null };
+	const tls = (extra = {}) => ({ sni: null, fingerprint: 'chrome', alpn: [], allowInsecure: false, pinnedKey: null, reality: null, ...extra });
+	const server = (id, name, host, group, protocol, settings, summary, extra = {}) => ({
+		id, protocol, name, server: host, port: 443, settings, group, favorite: false, subscriptionId: null, summary, ...extra
 	});
+	const city = (id, name, host, group, extra = {}) =>
+		server(id, name, host, group, 'vless', {
+			uuid: UUID, security: 'reality', flow: 'xtls-rprx-vision', packetEncoding: null, transport: tcp,
+			tls: tls({ sni: 'www.example.org', reality: { publicKey: 'DEMOPUBLICKEYDEMOPUBLICKEYDEMOPUBLICKEY00', shortId: 'a1b2c3d4' } })
+		}, 'Reality · tcp', extra);
 	const profiles = opts.withServers
 		? [
 				city('p1', 'Frankfurt, Germany', 'de1.example.com', 'Europe', { favorite: true }),
 				city('p2', 'Amsterdam, Netherlands', 'nl1.example.com', 'Europe'),
-				city('p3', 'London, United Kingdom', 'uk1.example.com', 'Europe', { protocol: 'trojan', uuid: '', password: 'demo', security: 'tls', flow: null, reality: null, fingerprint: 'chrome', transport: { kind: 'ws', path: '/', host: null, serviceName: null }, summary: 'Trojan · ws' }),
+				server('p3', 'London, United Kingdom', 'uk1.example.com', 'Europe', 'trojan', { password: 'demo', transport: { kind: 'ws', path: '/', host: null, serviceName: null }, tls: tls() }, 'Trojan · ws'),
 				city('p4', 'New York, United States', 'us1.example.com', 'Americas', { favorite: true }),
-				city('p5', 'Singapore', 'sg1.example.com', 'Asia', { protocol: 'hysteria2', uuid: '', password: 'demo', security: 'tls', flow: null, reality: null, fingerprint: null, summary: 'Hysteria2' }),
-				city('p6', 'Tokyo, Japan', 'jp1.example.com', 'Asia', { protocol: 'shadowsocks', uuid: '', password: 'demo', method: 'aes-256-gcm', security: 'none', flow: null, reality: null, fingerprint: null, summary: 'Shadowsocks' }),
+				server('p5', 'Singapore', 'sg1.example.com', 'Asia', 'hysteria2', { password: 'demo', obfs: null, tls: tls({ fingerprint: null }) }, 'Hysteria2'),
+				server('p6', 'Tokyo, Japan', 'jp1.example.com', 'Asia', 'shadowsocks', { method: 'aes-256-gcm', password: 'demo' }, 'Shadowsocks'),
 				city('p7', 'Sydney, Australia', 'au1.example.com', 'Oceania')
 			]
 		: [];
@@ -127,12 +131,16 @@ function install(opts) {
 
 	const handlers = {
 		app_info: () => ({ name: opts.name, brand: 'Apzur', version: opts.version, updatesConfigured: false, feedbackConfigured: false, protocols: opts.protocols }),
-		new_profile: (a) => ({
-			id: '', protocol: a.protocol, name: '', server: '', port: a.protocol === 'shadowsocks' ? 8388 : 443, uuid: '', password: '', method: a.protocol === 'shadowsocks' ? 'aes-256-gcm' : null,
-			obfs: null, allowInsecure: false, security: a.protocol === 'shadowsocks' ? 'none' : 'tls', sni: null, fingerprint: ['vless', 'trojan'].includes(a.protocol) ? 'chrome' : null,
-			alpn: [], flow: null, pinnedKey: null, transport: { kind: 'tcp', path: null, host: null, serviceName: null }, reality: null, packetEncoding: null,
-			group: null, favorite: false, subscriptionId: null
-		}),
+		new_profile: (a) => {
+			const base = { id: '', protocol: a.protocol, name: '', server: '', port: 443, group: null, favorite: false, subscriptionId: null };
+			const settings = {
+				vless: { uuid: '', security: 'tls', flow: null, packetEncoding: null, transport: tcp, tls: tls() },
+				trojan: { password: '', transport: tcp, tls: tls() },
+				shadowsocks: { method: 'aes-256-gcm', password: '' },
+				hysteria2: { password: '', obfs: null, tls: tls({ fingerprint: null }) }
+			}[a.protocol];
+			return { ...base, port: a.protocol === 'shadowsocks' ? 8388 : 443, settings };
+		},
 		snapshot: () => snapshot,
 		app_update_settings: () => ({ policy: 'ask', lastCheck: 0 }),
 		test_all: () => profiles.map((p) => ({ id: p.id, ms: pings[p.id] })),

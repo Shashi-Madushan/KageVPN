@@ -2,22 +2,16 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 
 use super::*;
-use crate::profile::{Profile, Reality, Security};
+use crate::profile::{parse_many, Profile};
 
 const UUID: &str = "11111111-2222-4333-8444-555555555555";
 
 fn profile() -> Profile {
-    Profile {
-        id: "p1".into(),
-        name: "Test".into(),
-        server: "vpn.example.com".into(),
-        port: 443,
-        uuid: UUID.into(),
-        security: Security::Reality,
-        sni: Some("front.example.org".into()),
-        reality: Some(Reality { public_key: "PUBKEYPUBKEYPUBKEY".into(), short_id: "abcd1234".into() }),
-        ..Profile::default()
-    }
+    let link = format!("vless://{UUID}@vpn.example.com:443?security=reality&sni=front.example.org&pbk=PUBKEYPUBKEYPUBKEY&sid=abcd1234&flow=xtls-rprx-vision");
+    let mut profile = parse_many(&link).0.remove(0);
+    profile.id = "p1".into();
+    profile.name = "Test".into();
+    profile
 }
 
 fn context(logs: Vec<&str>) -> Context {

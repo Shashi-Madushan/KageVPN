@@ -1,20 +1,24 @@
 use super::*;
 
+fn cfg(profile: &Profile) -> Hysteria2Settings {
+    profile.settings_as().unwrap()
+}
+
 const LINK: &str = "hysteria2://auth%20pass@h.example.com:8443/?sni=front.example.com&obfs=salamander&obfs-password=mask&insecure=1#HY2%20Node";
 
 #[test]
 fn parses_auth_obfuscation_and_flags() {
     let p = parse(LINK).unwrap();
     assert_eq!((p.protocol.as_str(), p.port, p.name.as_str()), ("hysteria2", 8443, "HY2 Node"));
-    assert_eq!(p.password, "auth pass");
-    assert_eq!(p.obfs, Some(Obfs { kind: "salamander".into(), password: "mask".into() }));
-    assert!(p.allow_insecure);
+    assert_eq!(cfg(&p).password, "auth pass");
+    assert_eq!(cfg(&p).obfs, Some(Obfs { kind: "salamander".into(), password: "mask".into() }));
+    assert!(cfg(&p).tls.allow_insecure);
 }
 
 #[test]
 fn accepts_the_hy2_scheme_and_user_pass_auth() {
     let p = parse("hy2://user:pw@h.example.com/#short").unwrap();
-    assert_eq!((p.password.as_str(), p.port), ("user:pw", 443));
+    assert_eq!((cfg(&p).password.as_str(), p.port), ("user:pw", 443));
 }
 
 #[test]
@@ -45,7 +49,7 @@ fn port_lists_are_told_apart_from_dashes_in_host_names() {
 
 #[test]
 fn outbound_leaves_out_tcp_only_tls_options() {
-    let out = outbound(&parse(LINK).unwrap());
+    let out = Hysteria2.outbound(&parse(LINK).unwrap());
     assert_eq!(out["type"], "hysteria2");
     assert_eq!(out["obfs"]["type"], "salamander");
     assert_eq!(out["tls"]["insecure"], true);

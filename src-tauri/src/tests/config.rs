@@ -3,18 +3,12 @@ use super::*;
 const PIN: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 fn profile() -> Profile {
-    Profile {
-        id: "1".into(),
-        name: "test".into(),
-        server: "example.com".into(),
-        port: 443,
-        uuid: "11111111-2222-4333-8444-555555555555".into(),
-        sni: Some("sni.example.com".into()),
-        fingerprint: Some("chrome".into()),
-        alpn: vec!["h2".into()],
-        pinned_key: Some(PIN.into()),
-        ..Profile::default()
-    }
+    let link = format!("vless://11111111-2222-4333-8444-555555555555@example.com:443?security=tls&sni=sni.example.com&fp=chrome&alpn=h2&pcs=00");
+    let mut profile = crate::profile::parse_many(&link).0.remove(0);
+    profile.id = "1".into();
+    profile.name = "test".into();
+    profile.set_setting("tls.pinnedKey", serde_json::json!(PIN));
+    profile
 }
 
 fn input<'a>(profiles: &'a [Profile], routing: &'a RoutingSettings, mode: Mode) -> ConfigInput<'a> {

@@ -45,7 +45,7 @@
         "pattern": null
       },
       {
-        "key": "sni",
+        "key": "tls.sni",
         "label": "Server name (SNI)",
         "kind": "text",
         "section": "security",
@@ -58,7 +58,7 @@
         "pattern": null
       },
       {
-        "key": "reality.publicKey",
+        "key": "tls.reality.publicKey",
         "label": "Public key",
         "kind": "text",
         "section": "security",
@@ -76,7 +76,7 @@
         "pattern": null
       },
       {
-        "key": "reality.shortId",
+        "key": "tls.reality.shortId",
         "label": "Short ID",
         "kind": "text",
         "section": "security",
@@ -94,7 +94,7 @@
         "pattern": null
       },
       {
-        "key": "allowInsecure",
+        "key": "tls.allowInsecure",
         "label": "Skip certificate check",
         "kind": "toggle",
         "section": "security",
@@ -198,7 +198,7 @@
         "pattern": null
       },
       {
-        "key": "fingerprint",
+        "key": "tls.fingerprint",
         "label": "Fingerprint",
         "kind": "select",
         "section": "advanced",
@@ -262,7 +262,7 @@
         "pattern": null
       },
       {
-        "key": "alpn",
+        "key": "tls.alpn",
         "label": "ALPN",
         "kind": "list",
         "section": "advanced",
@@ -328,7 +328,7 @@
         "pattern": null
       },
       {
-        "key": "sni",
+        "key": "tls.sni",
         "label": "Server name (SNI)",
         "kind": "text",
         "section": "security",
@@ -341,7 +341,7 @@
         "pattern": null
       },
       {
-        "key": "allowInsecure",
+        "key": "tls.allowInsecure",
         "label": "Skip certificate check",
         "kind": "toggle",
         "section": "security",
@@ -440,7 +440,7 @@
         "pattern": null
       },
       {
-        "key": "fingerprint",
+        "key": "tls.fingerprint",
         "label": "Fingerprint",
         "kind": "select",
         "section": "advanced",
@@ -482,7 +482,7 @@
         "pattern": null
       },
       {
-        "key": "alpn",
+        "key": "tls.alpn",
         "label": "ALPN",
         "kind": "list",
         "section": "advanced",
@@ -626,7 +626,7 @@
         "pattern": null
       },
       {
-        "key": "sni",
+        "key": "tls.sni",
         "label": "Server name (SNI)",
         "kind": "text",
         "section": "security",
@@ -652,7 +652,7 @@
         "pattern": null
       },
       {
-        "key": "allowInsecure",
+        "key": "tls.allowInsecure",
         "label": "Skip certificate check",
         "kind": "toggle",
         "section": "security",
@@ -665,7 +665,7 @@
         "pattern": null
       },
       {
-        "key": "alpn",
+        "key": "tls.alpn",
         "label": "ALPN",
         "kind": "list",
         "section": "advanced",

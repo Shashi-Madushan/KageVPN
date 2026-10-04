@@ -1,15 +1,22 @@
 use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
 use base64::Engine;
 use percent_encoding::percent_decode_str;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use uuid::Uuid;
 
-use super::common::{self, invalid};
+use super::common::{self, invalid, Tls};
 use super::form::{Field, Section};
-use super::{Profile, ProtocolDef, ProtocolId, Secret, Security};
+use super::{Profile, ProtocolDef, ProtocolId, Secret};
 use crate::error::Result;
 
 pub const ID: ProtocolId = ProtocolId("shadowsocks");
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ShadowsocksSettings {
+    pub method: String,
+    pub password: String,
+}
 
 pub struct Shadowsocks;
 
@@ -35,19 +42,34 @@ impl ProtocolDef for Shadowsocks {
     }
 
     fn validate(&self, profile: &Profile) -> Result<()> {
-        validate(profile)
+        let settings: ShadowsocksSettings = profile.settings_as()?;
+        common::check_password(&settings.password)?;
+        match settings.method.as_str() {
+            method if METHODS.contains(&method) => Ok(()),
+            "" => Err(invalid("choose an encryption method")),
+            method => Err(invalid(format!("cipher '{method}' is not supported"))),
+        }
     }
 
     fn outbound(&self, profile: &Profile) -> Value {
-        outbound(profile)
+        let settings: ShadowsocksSettings = profile.settings_as().unwrap_or_default();
+        json!({
+            "type": "shadowsocks",
+            "server": profile.server,
+            "server_port": profile.port,
+            "method": settings.method,
+            "password": settings.password,
+        })
     }
 
     fn identity(&self, profile: &Profile) -> String {
-        format!("{}|{}|{}", profile.server, profile.port, profile.password)
+        let settings: ShadowsocksSettings = profile.settings_as().unwrap_or_default();
+        format!("{}|{}|{}", profile.server, profile.port, settings.password)
     }
 
     fn secrets(&self, profile: &Profile) -> Vec<Secret> {
-        common::secrets(profile, &[(&profile.password, "[password]")])
+        let settings: ShadowsocksSettings = profile.settings_as().unwrap_or_default();
+        common::secrets(&[(&settings.password, "[password]")], &Tls::default(), None)
     }
 
     fn summary(&self, _profile: &Profile) -> String {
@@ -63,18 +85,8 @@ impl ProtocolDef for Shadowsocks {
     }
 
     fn blank(&self) -> Profile {
-        Profile {
-            protocol: ID,
-            port: 8388,
-            method: Some("aes-256-gcm".into()),
-            security: Security::None,
-            fingerprint: None,
-            ..Profile::default()
-        }
-    }
-
-    fn normalize(&self, profile: &mut Profile) {
-        profile.security = Security::None;
+        let settings = ShadowsocksSettings { method: "aes-256-gcm".into(), ..ShadowsocksSettings::default() };
+        Profile::build(ID, String::new(), String::new(), 8388, &settings)
     }
 }
 
@@ -125,49 +137,21 @@ fn parse(link: &str) -> Result<Profile> {
     let (method, password) = userinfo.split_once(':').ok_or_else(|| invalid("link has no method and password"))?;
     let (server, port) = split_address(&address)?;
 
-    Ok(Profile {
-        id: Uuid::new_v4().to_string(),
-        protocol: ID,
-        name: common::name_of((!fragment.is_empty()).then_some(fragment), &server),
-        server,
-        port,
-        method: Some(method.to_string()),
-        password: password.to_string(),
-        security: Security::None,
-        fingerprint: None,
-        ..Profile::default()
-    })
+    let settings = ShadowsocksSettings { method: method.to_string(), password: password.to_string() };
+    let name = common::name_of((!fragment.is_empty()).then_some(fragment), &server);
+    Ok(Profile::build(ID, name, server, port, &settings))
 }
 
 fn to_link(profile: &Profile) -> String {
-    let method = profile.method.as_deref().unwrap_or_default();
-    let credentials = format!("{method}:{}", profile.password);
+    let settings: ShadowsocksSettings = profile.settings_as().unwrap_or_default();
+    let credentials = format!("{}:{}", settings.method, settings.password);
     // 2022 ciphers use keys that are not safe to base64-wrap in every client, so write them plainly.
-    let userinfo = if method.starts_with("2022-") {
-        common::encode_userinfo(method) + ":" + &common::encode_userinfo(&profile.password)
+    let userinfo = if settings.method.starts_with("2022-") {
+        common::encode_userinfo(&settings.method) + ":" + &common::encode_userinfo(&settings.password)
     } else {
         URL_SAFE_NO_PAD.encode(credentials)
     };
     common::build_link("ss", &userinfo, profile, "")
-}
-
-fn validate(profile: &Profile) -> Result<()> {
-    common::check_password(profile)?;
-    match profile.method.as_deref() {
-        Some(method) if METHODS.contains(&method) => Ok(()),
-        Some(method) => Err(invalid(format!("cipher '{method}' is not supported"))),
-        None => Err(invalid("choose an encryption method")),
-    }
-}
-
-fn outbound(profile: &Profile) -> Value {
-    json!({
-        "type": "shadowsocks",
-        "server": profile.server,
-        "server_port": profile.port,
-        "method": profile.method,
-        "password": profile.password,
-    })
 }
 
 fn decode_userinfo(userinfo: &str) -> Result<String> {

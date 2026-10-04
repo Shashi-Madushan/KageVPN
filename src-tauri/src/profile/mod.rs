@@ -13,8 +13,9 @@ mod shadowsocks;
 mod trojan;
 mod vless;
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::error::{AppError, Result};
 
@@ -128,51 +129,9 @@ pub fn blank(id: &str) -> Result<Profile> {
     Ok(def(protocol).blank())
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Security {
-    #[default]
-    Tls,
-    Reality,
-    /// No TLS layer, as with Shadowsocks.
-    None,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TransportKind {
-    #[default]
-    Tcp,
-    Ws,
-    Grpc,
-    Httpupgrade,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct Transport {
-    pub kind: TransportKind,
-    pub path: Option<String>,
-    pub host: Option<String>,
-    pub service_name: Option<String>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct Reality {
-    pub public_key: String,
-    pub short_id: String,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct Obfs {
-    pub kind: String,
-    pub password: String,
-}
-
-/// One server. Fields that only some protocols use say which, and stay empty for the rest;
-/// old saved profiles have none of them and load as VLESS.
+/// One server. The fields every protocol has live here; everything specific to the protocol
+/// (credentials, TLS, transport, ...) is in `settings`, which the protocol's own module reads
+/// and writes as a typed struct.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Profile {
@@ -181,52 +140,68 @@ pub struct Profile {
     pub name: String,
     pub server: String,
     pub port: u16,
-    /// VLESS user id.
-    pub uuid: String,
-    /// Trojan, Shadowsocks and Hysteria2 password.
-    pub password: String,
-    /// Shadowsocks cipher.
-    pub method: Option<String>,
-    /// Hysteria2 traffic obfuscation.
-    pub obfs: Option<Obfs>,
-    /// Skip certificate verification. Only set when a link or the user asks for it.
-    pub allow_insecure: bool,
-    pub security: Security,
-    pub sni: Option<String>,
-    pub fingerprint: Option<String>,
-    pub alpn: Vec<String>,
-    pub flow: Option<String>,
-    pub pinned_key: Option<String>,
-    pub transport: Transport,
-    pub reality: Option<Reality>,
-    pub packet_encoding: Option<String>,
+    pub settings: Map<String, Value>,
     pub group: Option<String>,
     pub favorite: bool,
     pub subscription_id: Option<String>,
 }
 
 impl Profile {
+    /// A new profile of `protocol` holding `settings`.
+    pub fn build<T: Serialize>(protocol: ProtocolId, name: String, server: String, port: u16, settings: &T) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            protocol,
+            name,
+            server,
+            port,
+            settings: to_map(settings),
+            ..Self::default()
+        }
+    }
+
+    /// The protocol's own settings struct, read from the saved block.
+    pub fn settings_as<T: DeserializeOwned>(&self) -> Result<T> {
+        serde_json::from_value(Value::Object(self.settings.clone()))
+            .map_err(|e| AppError::Invalid(format!("the saved settings are not valid: {e}")))
+    }
+
+    pub fn put_settings<T: Serialize>(&mut self, settings: &T) {
+        self.settings = to_map(settings);
+    }
+
+    /// One setting by path, such as `tls.sni`.
+    pub fn setting(&self, path: &str) -> Option<&Value> {
+        let mut keys = path.split('.');
+        let mut value = self.settings.get(keys.next()?)?;
+        for key in keys {
+            value = value.get(key)?;
+        }
+        Some(value)
+    }
+
+    /// Writes one setting by path, creating the objects along the way.
+    pub fn set_setting(&mut self, path: &str, value: Value) {
+        let keys: Vec<&str> = path.split('.').collect();
+        let (last, parents) = keys.split_last().expect("a path has at least one key");
+        let mut node = &mut self.settings;
+        for key in parents {
+            let entry = node.entry(key.to_string()).or_insert_with(|| Value::Object(Map::new()));
+            if !entry.is_object() {
+                *entry = Value::Object(Map::new());
+            }
+            node = entry.as_object_mut().expect("just made an object");
+        }
+        node.insert(last.to_string(), value);
+    }
+
     /// True when both profiles would connect to the same place the same way, ignoring name,
     /// group and favorite. Used to avoid importing the same link twice.
     pub fn same_endpoint(&self, other: &Profile) -> bool {
-        let same_reality = self.reality.as_ref().map(|r| (&r.public_key, &r.short_id))
-            == other.reality.as_ref().map(|r| (&r.public_key, &r.short_id));
         self.protocol == other.protocol
             && self.server.eq_ignore_ascii_case(&other.server)
             && self.port == other.port
-            && self.uuid.eq_ignore_ascii_case(&other.uuid)
-            && self.password == other.password
-            && self.method == other.method
-            && self.obfs == other.obfs
-            && self.allow_insecure == other.allow_insecure
-            && self.security == other.security
-            && self.sni == other.sni
-            && self.flow == other.flow
-            && self.transport.kind == other.transport.kind
-            && self.transport.path == other.transport.path
-            && self.transport.host == other.transport.host
-            && self.transport.service_name == other.transport.service_name
-            && same_reality
+            && self.settings == other.settings
     }
 
     pub fn view(&self) -> ProfileView {
@@ -258,5 +233,12 @@ impl Profile {
         let mut outbound = def(self.protocol).outbound(self);
         outbound["tag"] = Value::String(tag.to_string());
         outbound
+    }
+}
+
+fn to_map<T: Serialize>(settings: &T) -> Map<String, Value> {
+    match serde_json::to_value(settings) {
+        Ok(Value::Object(map)) => map,
+        _ => Map::new(),
     }
 }

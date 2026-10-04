@@ -6,49 +6,16 @@ export type ConnState = 'disconnected' | 'connecting' | 'connected';
 export type Level = 'debug' | 'info' | 'warn' | 'error';
 
 export type Protocol = 'vless' | 'trojan' | 'shadowsocks' | 'hysteria2';
-export type Security = 'tls' | 'reality' | 'none';
-export type TransportKind = 'tcp' | 'ws' | 'grpc' | 'httpupgrade';
 
-export interface Transport {
-	kind: TransportKind;
-	path: string | null;
-	host: string | null;
-	serviceName: string | null;
-}
-
-export interface Reality {
-	publicKey: string;
-	shortId: string;
-}
-
-export interface Obfs {
-	kind: string;
-	password: string;
-}
-
+/** One server. Everything specific to its protocol is in `settings`; the editor reads and writes
+ *  it by the key paths each protocol lists (see `FormField`), so no per-protocol types are needed. */
 export interface Profile {
 	id: string;
 	protocol: Protocol;
 	name: string;
 	server: string;
 	port: number;
-	/** VLESS user id. */
-	uuid: string;
-	/** Trojan, Shadowsocks and Hysteria2 password. */
-	password: string;
-	/** Shadowsocks cipher. */
-	method: string | null;
-	obfs: Obfs | null;
-	allowInsecure: boolean;
-	security: Security;
-	sni: string | null;
-	fingerprint: string | null;
-	alpn: string[];
-	flow: string | null;
-	pinnedKey: string | null;
-	transport: Transport;
-	reality: Reality | null;
-	packetEncoding: string | null;
+	settings: Record<string, unknown>;
 	group: string | null;
 	favorite: boolean;
 	subscriptionId: string | null;

@@ -1,4 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
+import { setPath } from './path';
 import { protocols } from './protocols.svelte';
 import {
 	api,
@@ -297,7 +298,7 @@ class AppStore {
 		const id = this.activeId;
 		await this.run(() => api.trustKey(id, key));
 		const profile = this.profiles.find((p) => p.id === id);
-		if (profile) profile.pinnedKey = key;
+		if (profile) setPath(profile.settings, 'tls.pinnedKey', key);
 		this.logs = [];
 		if (this.connected) await this.run(api.disconnect);
 		await this.run(api.connect);

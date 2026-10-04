@@ -1,13 +1,21 @@
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use url::Url;
-use uuid::Uuid;
 
-use super::common::{self, invalid, Params};
+use super::common::{self, invalid, Params, Tls, Transport};
 use super::form::{Field, Section};
-use super::{Profile, ProtocolDef, ProtocolId, Secret, Security};
+use super::{Profile, ProtocolDef, ProtocolId, Secret};
 use crate::error::Result;
 
 pub const ID: ProtocolId = ProtocolId("trojan");
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TrojanSettings {
+    pub password: String,
+    pub tls: Tls,
+    pub transport: Transport,
+}
 
 pub struct Trojan;
 
@@ -33,31 +41,35 @@ impl ProtocolDef for Trojan {
     }
 
     fn validate(&self, profile: &Profile) -> Result<()> {
-        validate(profile)
+        let settings: TrojanSettings = profile.settings_as()?;
+        common::check_password(&settings.password)?;
+        common::check_transport(&settings.transport)
     }
 
     fn outbound(&self, profile: &Profile) -> Value {
-        outbound(profile)
+        let settings: TrojanSettings = profile.settings_as().unwrap_or_default();
+        let mut outbound = common::base_outbound("trojan", profile, &settings.tls, &settings.transport);
+        outbound["password"] = json!(settings.password);
+        outbound
     }
 
     fn identity(&self, profile: &Profile) -> String {
-        format!("{}|{}|{}", profile.server, profile.port, profile.password)
+        let settings: TrojanSettings = profile.settings_as().unwrap_or_default();
+        format!("{}|{}|{}", profile.server, profile.port, settings.password)
     }
 
     fn secrets(&self, profile: &Profile) -> Vec<Secret> {
-        common::secrets(profile, &[(&profile.password, "[password]")])
+        let settings: TrojanSettings = profile.settings_as().unwrap_or_default();
+        common::secrets(&[(&settings.password, "[password]")], &settings.tls, Some(&settings.transport))
     }
 
     fn summary(&self, profile: &Profile) -> String {
-        format!("Trojan · {}", common::transport_name(profile.transport.kind))
+        let settings: TrojanSettings = profile.settings_as().unwrap_or_default();
+        format!("Trojan · {}", common::transport_name(settings.transport.kind))
     }
 
     fn form(&self) -> Vec<Field> {
-        let mut fields = vec![
-            Field::secret("password", "Password", Section::Connection),
-            common::sni_field(),
-            common::insecure_field(),
-        ];
+        let mut fields = vec![Field::secret("password", "Password", Section::Connection), common::sni_field(), common::insecure_field()];
         fields.extend(common::transport_fields());
         fields.push(common::fingerprint_field());
         fields.push(common::alpn_field());
@@ -65,7 +77,8 @@ impl ProtocolDef for Trojan {
     }
 
     fn blank(&self) -> Profile {
-        Profile { protocol: ID, port: common::DEFAULT_PORT, fingerprint: Some("chrome".into()), ..Profile::default() }
+        let settings = TrojanSettings { tls: Tls { fingerprint: Some("chrome".into()), ..Tls::default() }, ..TrojanSettings::default() };
+        Profile::build(ID, String::new(), String::new(), common::DEFAULT_PORT, &settings)
     }
 }
 
@@ -82,39 +95,22 @@ fn parse(link: &str) -> Result<Profile> {
         Some(other) => return Err(invalid(format!("Trojan security '{other}' is not supported, only tls"))),
     }
 
-    Ok(Profile {
-        id: Uuid::new_v4().to_string(),
-        protocol: ID,
-        name: common::name_of(url.fragment(), &server),
+    let settings = TrojanSettings { password, tls: common::tls_of(&params), transport: common::transport_of(&params)? };
+    Ok(Profile::build(
+        ID,
+        common::name_of(url.fragment(), &server),
         server,
-        port: url.port().unwrap_or(common::DEFAULT_PORT),
-        password,
-        security: Security::Tls,
-        sni: params.first(&["sni", "peer"]),
-        fingerprint: params.get("fp"),
-        alpn: common::alpn_of(&params),
-        transport: common::transport_of(&params)?,
-        allow_insecure: params.flag(&["allowInsecure", "insecure"]),
-        ..Profile::default()
-    })
+        url.port().unwrap_or(common::DEFAULT_PORT),
+        &settings,
+    ))
 }
 
 fn to_link(profile: &Profile) -> String {
+    let settings: TrojanSettings = profile.settings_as().unwrap_or_default();
     let mut query = common::query();
     query.append_pair("security", "tls");
-    common::push_tls_and_transport(&mut query, profile);
-    common::build_link("trojan", &common::encode_userinfo(&profile.password), profile, &query.finish())
-}
-
-fn validate(profile: &Profile) -> Result<()> {
-    common::check_password(profile)?;
-    common::check_transport(profile)
-}
-
-fn outbound(profile: &Profile) -> Value {
-    let mut outbound = common::base_outbound("trojan", profile);
-    outbound["password"] = json!(profile.password);
-    outbound
+    common::push_tls_and_transport(&mut query, &settings.tls, &settings.transport);
+    common::build_link("trojan", &common::encode_userinfo(&settings.password), profile, &query.finish())
 }
 
 #[cfg(test)]

@@ -1,13 +1,23 @@
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use url::Url;
-use uuid::Uuid;
 
-use super::common::{self, invalid, Params};
+use super::common::{self, invalid, Obfs, Params, Tls};
 use super::form::{Field, Section};
-use super::{Obfs, Profile, ProtocolDef, ProtocolId, Secret, Security};
+use super::{Profile, ProtocolDef, ProtocolId, Secret};
 use crate::error::Result;
 
 pub const ID: ProtocolId = ProtocolId("hysteria2");
+
+const OBFS_SALAMANDER: &str = "salamander";
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Hysteria2Settings {
+    pub password: String,
+    pub tls: Tls,
+    pub obfs: Option<Obfs>,
+}
 
 pub struct Hysteria2;
 
@@ -33,20 +43,39 @@ impl ProtocolDef for Hysteria2 {
     }
 
     fn validate(&self, profile: &Profile) -> Result<()> {
-        validate(profile)
+        let settings: Hysteria2Settings = profile.settings_as()?;
+        common::check_password(&settings.password)?;
+        if settings.obfs.as_ref().is_some_and(|o| o.password.trim().is_empty()) {
+            return Err(invalid("obfuscation needs a password"));
+        }
+        Ok(())
     }
 
     fn outbound(&self, profile: &Profile) -> Value {
-        outbound(profile)
+        // QUIC carries its own transport, and browser fingerprints and Reality do not apply to it.
+        let settings: Hysteria2Settings = profile.settings_as().unwrap_or_default();
+        let mut outbound = json!({
+            "type": "hysteria2",
+            "server": profile.server,
+            "server_port": profile.port,
+            "password": settings.password,
+            "tls": common::tls_base(&profile.server, &settings.tls),
+        });
+        if let Some(obfs) = &settings.obfs {
+            outbound["obfs"] = json!({ "type": obfs.kind, "password": obfs.password });
+        }
+        outbound
     }
 
     fn identity(&self, profile: &Profile) -> String {
-        format!("{}|{}|{}", profile.server, profile.port, profile.password)
+        let settings: Hysteria2Settings = profile.settings_as().unwrap_or_default();
+        format!("{}|{}|{}", profile.server, profile.port, settings.password)
     }
 
     fn secrets(&self, profile: &Profile) -> Vec<Secret> {
-        let mut secrets = common::secrets(profile, &[(&profile.password, "[password]")]);
-        if let Some(obfs) = &profile.obfs {
+        let settings: Hysteria2Settings = profile.settings_as().unwrap_or_default();
+        let mut secrets = common::secrets(&[(&settings.password, "[password]")], &settings.tls, None);
+        if let Some(obfs) = &settings.obfs {
             secrets.push(Secret::new(obfs.password.clone(), "[password]"));
         }
         secrets
@@ -67,15 +96,15 @@ impl ProtocolDef for Hysteria2 {
     }
 
     fn blank(&self) -> Profile {
-        Profile { protocol: ID, port: common::DEFAULT_PORT, fingerprint: None, ..Profile::default() }
+        Profile::build(ID, String::new(), String::new(), common::DEFAULT_PORT, &Hysteria2Settings::default())
     }
 
     fn normalize(&self, profile: &mut Profile) {
-        profile.obfs = profile.obfs.take().filter(|o| !o.password.is_empty()).map(|o| Obfs { kind: OBFS_SALAMANDER.into(), password: o.password });
+        let Ok(mut settings) = profile.settings_as::<Hysteria2Settings>() else { return };
+        settings.obfs = settings.obfs.take().filter(|o| !o.password.is_empty()).map(|o| Obfs { kind: OBFS_SALAMANDER.into(), password: o.password });
+        profile.put_settings(&settings);
     }
 }
-
-const OBFS_SALAMANDER: &str = "salamander";
 
 fn parse(link: &str) -> Result<Profile> {
     let link = link.trim();
@@ -101,56 +130,30 @@ fn parse(link: &str) -> Result<Profile> {
         Some(other) => return Err(invalid(format!("obfuscation '{other}' is not supported"))),
     };
 
-    Ok(Profile {
-        id: Uuid::new_v4().to_string(),
-        protocol: ID,
-        name: common::name_of(url.fragment(), &server),
+    // QUIC has no browser fingerprint, so only the name, ALPN and insecure flag carry over.
+    let tls = Tls { fingerprint: None, ..common::tls_of(&params) };
+    let settings = Hysteria2Settings { password, tls, obfs };
+    Ok(Profile::build(
+        ID,
+        common::name_of(url.fragment(), &server),
         server,
-        port: url.port().unwrap_or(common::DEFAULT_PORT),
-        password,
-        security: Security::Tls,
-        sni: params.first(&["sni", "peer"]),
-        alpn: common::alpn_of(&params),
-        allow_insecure: params.flag(&["insecure", "allowInsecure"]),
-        obfs,
-        ..Profile::default()
-    })
+        url.port().unwrap_or(common::DEFAULT_PORT),
+        &settings,
+    ))
 }
 
 fn to_link(profile: &Profile) -> String {
+    let settings: Hysteria2Settings = profile.settings_as().unwrap_or_default();
     let mut query = common::query();
-    common::push(&mut query, "sni", &profile.sni);
-    if let Some(obfs) = &profile.obfs {
+    common::push(&mut query, "sni", &settings.tls.sni);
+    if let Some(obfs) = &settings.obfs {
         query.append_pair("obfs", &obfs.kind);
         query.append_pair("obfs-password", &obfs.password);
     }
-    if profile.allow_insecure {
+    if settings.tls.allow_insecure {
         query.append_pair("insecure", "1");
     }
-    common::build_link("hysteria2", &common::encode_userinfo(&profile.password), profile, &query.finish())
-}
-
-fn validate(profile: &Profile) -> Result<()> {
-    common::check_password(profile)?;
-    if profile.obfs.as_ref().is_some_and(|o| o.password.trim().is_empty()) {
-        return Err(invalid("obfuscation needs a password"));
-    }
-    Ok(())
-}
-
-fn outbound(profile: &Profile) -> Value {
-    // QUIC carries its own transport, and browser fingerprints and Reality do not apply to it.
-    let mut outbound = json!({
-        "type": "hysteria2",
-        "server": profile.server,
-        "server_port": profile.port,
-        "password": profile.password,
-        "tls": common::tls_base(profile),
-    });
-    if let Some(obfs) = &profile.obfs {
-        outbound["obfs"] = json!({ "type": obfs.kind, "password": obfs.password });
-    }
-    outbound
+    common::build_link("hysteria2", &common::encode_userinfo(&settings.password), profile, &query.finish())
 }
 
 /// `host:443,5000-6000` style ports: the authority's port is not a single number.

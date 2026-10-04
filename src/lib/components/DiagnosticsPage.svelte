@@ -101,7 +101,7 @@
 		const lines = [
 			`${app.info.name} diagnostics`,
 			`State: ${app.status.state} (${app.status.mode})`,
-			`Profile: ${app.activeProfile ? `${app.activeProfile.security}/${app.activeProfile.transport.kind}` : 'none'}`,
+			`Profile: ${app.activeProfile?.summary ?? 'none'}`,
 			`Core: ${core.status?.active ? `${core.status.active.version} (${core.status.active.source})` : 'none'}`,
 			`Tunnel IP: ${result?.tunnel?.ip ?? 'n/a'} ${place(result?.tunnel ?? null)}`,
 			`System IP: ${result?.system?.ip ?? 'n/a'} ${place(result?.system ?? null)}`,

@@ -1,4 +1,8 @@
 use super::*;
+
+fn cfg(profile: &Profile) -> VlessSettings {
+    profile.settings_as().unwrap()
+}
 use crate::profile::parse_many;
 
 const LINK: &str = "vless://11111111-2222-4333-8444-555555555555@vpn.example.com:443?encryption=none&security=tls&sni=sni.example.com&fp=chrome&alpn=h2%2Chttp%2F1.1&pcs=0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF&type=tcp&headerType=none#demo";
@@ -8,18 +12,18 @@ fn parses_full_link() {
     let p = parse_vless(LINK).unwrap();
     assert_eq!(p.name, "demo");
     assert_eq!(p.server, "vpn.example.com");
-    assert_eq!(p.sni.as_deref(), Some("sni.example.com"));
-    assert_eq!(p.alpn, ["h2", "http/1.1"]);
+    assert_eq!(cfg(&p).tls.sni.as_deref(), Some("sni.example.com"));
+    assert_eq!(cfg(&p).tls.alpn, ["h2", "http/1.1"]);
 }
 
 #[test]
 fn reality_link_round_trips() {
     let link = "vless://11111111-2222-4333-8444-555555555555@example.com:443?security=reality&sni=www.microsoft.com&fp=chrome&pbk=abc&sid=12&flow=xtls-rprx-vision&type=grpc&serviceName=svc#R";
     let p = parse_vless(link).unwrap();
-    assert_eq!(p.security, Security::Reality);
+    assert_eq!(cfg(&p).security, Security::Reality);
     let again = parse_vless(&to_link(&p)).unwrap();
-    assert_eq!(again.reality.unwrap().public_key, "abc");
-    assert_eq!(again.transport.service_name.as_deref(), Some("svc"));
+    assert_eq!(cfg(&again).tls.reality.unwrap().public_key, "abc");
+    assert_eq!(cfg(&again).transport.service_name.as_deref(), Some("svc"));
 }
 
 const ID: &str = "11111111-2222-4333-8444-555555555555";
@@ -30,9 +34,9 @@ fn websocket_link_round_trips_path_alpn_and_name() {
     let p = parse_vless(&link).unwrap();
     assert_eq!((p.port, p.name.as_str()), (8443, "WS Node"));
     let again = parse_vless(&to_link(&p)).unwrap();
-    assert_eq!(again.transport.path.as_deref(), Some("/ws?ed=2048"));
-    assert_eq!(again.transport.host.as_deref(), Some("cdn.example.com"));
-    assert_eq!(again.alpn, ["h2", "http/1.1"]);
+    assert_eq!(cfg(&again).transport.path.as_deref(), Some("/ws?ed=2048"));
+    assert_eq!(cfg(&again).transport.host.as_deref(), Some("cdn.example.com"));
+    assert_eq!(cfg(&again).tls.alpn, ["h2", "http/1.1"]);
 }
 
 #[test]

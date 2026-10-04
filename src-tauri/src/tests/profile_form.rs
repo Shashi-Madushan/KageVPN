@@ -1,15 +1,15 @@
 use serde_json::Value;
 
 use super::*;
-use crate::profile::{blank, def, parse_link, views, Security};
+use crate::profile::{blank, def, parse_link, views};
 
 #[test]
 fn every_field_key_starts_at_a_real_profile_property() {
     for view in views() {
-        let json = serde_json::to_value(blank(view.id).unwrap()).unwrap();
+        let profile = blank(view.id).unwrap();
         for field in &view.fields {
             let root = field.key.split('.').next().unwrap();
-            assert!(json.get(root).is_some(), "{}: field '{}' has no matching profile property", view.id, field.key);
+            assert!(profile.settings.contains_key(root), "{}: field '{}' has no matching setting", view.id, field.key);
         }
     }
 }
@@ -50,21 +50,34 @@ fn blank_profiles_belong_to_their_protocol_and_unknown_ids_fail() {
 #[test]
 fn vless_normalize_drops_reality_for_tls_and_fills_the_flow_for_reality() {
     let mut p = parse_link("vless://11111111-2222-4333-8444-555555555555@h.example.com:443?security=reality&pbk=abc&sid=1").unwrap();
-    p.flow = None;
+    p.set_setting("flow", Value::Null);
     def(p.protocol).normalize(&mut p);
-    assert_eq!(p.flow.as_deref(), Some("xtls-rprx-vision"));
+    assert_eq!(p.setting("flow"), Some(&Value::from("xtls-rprx-vision")));
+    assert_eq!(p.setting("tls.reality.publicKey"), Some(&Value::from("abc")));
 
-    p.security = Security::Tls;
+    p.set_setting("security", Value::from("tls"));
     def(p.protocol).normalize(&mut p);
-    assert!(p.reality.is_none());
+    assert_eq!(p.setting("tls.reality"), Some(&Value::Null));
+}
+
+#[test]
+fn an_edited_form_that_only_has_a_public_key_still_loads_as_reality() {
+    let mut p = def(crate::profile::ProtocolId::lookup("vless").unwrap()).blank();
+    p.set_setting("uuid", Value::from("11111111-2222-4333-8444-555555555555"));
+    p.set_setting("security", Value::from("reality"));
+    p.set_setting("tls.reality.publicKey", Value::from("abc"));
+    p.name = "n".into();
+    p.server = "h.example.com".into();
+    p.normalize();
+    p.validate().unwrap();
 }
 
 #[test]
 fn hysteria2_normalize_drops_an_empty_obfuscation_password() {
     let mut p = parse_link("hysteria2://pw@h.example.com:443/?obfs=salamander&obfs-password=x").unwrap();
-    p.obfs.as_mut().unwrap().password.clear();
+    p.set_setting("obfs.password", Value::from(""));
     def(p.protocol).normalize(&mut p);
-    assert!(p.obfs.is_none());
+    assert_eq!(p.setting("obfs"), Some(&Value::Null));
 }
 
 #[test]

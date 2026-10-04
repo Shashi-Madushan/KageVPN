@@ -12,7 +12,7 @@ use crate::fsutil;
 use crate::profile::Profile;
 use crate::settings::{AutoSettings, ReliabilitySettings, RoutingSettings, Subscription, UsageSettings};
 
-const SCHEMA_VERSION: u32 = 3;
+const SCHEMA_VERSION: u32 = 4;
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -82,6 +82,13 @@ impl Store {
         if self.path.is_file() {
             let backup = format!("data.v{}.json", self.data.schema_version.max(1));
             let _ = fs::copy(&self.path, self.path.with_file_name(backup));
+        }
+        // Servers saved before version 4 keep their fields at the top level, which no protocol
+        // reads any more. They are dropped (the backup above keeps them) and come back on re-import
+        // or the next subscription refresh.
+        if self.data.schema_version < 4 {
+            self.data.profiles.retain(|p| !p.settings.is_empty());
+            self.fix_active();
         }
         if let Some(legacy) = self.data.core.take() {
             self.data.cores.entries.entry(default_core().id.to_string()).or_insert(legacy);
@@ -258,7 +265,11 @@ impl Store {
     }
 
     pub fn trust_key(&mut self, id: &str, key: String) -> Result<()> {
-        self.edit(id, |p| p.pinned_key = Some(key))
+        self.edit(id, |p| {
+            if p.setting("tls").is_some() {
+                p.set_setting("tls.pinnedKey", serde_json::Value::String(key));
+            }
+        })
     }
 
     pub fn edit(&mut self, id: &str, change: impl FnOnce(&mut Profile)) -> Result<()> {

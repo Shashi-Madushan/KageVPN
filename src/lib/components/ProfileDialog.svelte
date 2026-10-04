@@ -30,7 +30,7 @@
 		draft = structuredClone($state.snapshot(source)) as Profile;
 		lists = {};
 		for (const field of protocols.find(draft.protocol)?.fields ?? []) {
-			if (field.kind === 'list') lists[field.key] = ((getPath(draft, field.key) as string[] | undefined) ?? []).join(',');
+			if (field.kind === 'list') lists[field.key] = ((getPath(draft.settings, field.key) as string[] | undefined) ?? []).join(',');
 		}
 		error = null;
 	}
@@ -44,10 +44,10 @@
 
 	const visible = (field: FormField) => {
 		if (!field.showWhen) return true;
-		return field.showWhen.values.includes(String(getPath(draft, field.showWhen.key) ?? ''));
+		return field.showWhen.values.includes(String(getPath(draft.settings, field.showWhen.key) ?? ''));
 	};
-	const text = (field: FormField) => String(getPath(draft, field.key) ?? '');
-	const set = (field: FormField, value: unknown) => setPath(draft as unknown as Record<string, unknown>, field.key, value);
+	const text = (field: FormField) => String(getPath(draft.settings, field.key) ?? '');
+	const set = (field: FormField, value: unknown) => setPath(draft.settings, field.key, value);
 	const inSection = (section: FieldSection) => fields.filter((f) => f.section === section && visible(f));
 	const advanced = $derived(inSection('advanced'));
 
@@ -70,13 +70,13 @@
 	/** Writes the typed values back, turning empty optional text into null and lists into arrays. */
 	function collect(): Profile {
 		const next = structuredClone($state.snapshot(draft)) as Profile;
-		const bag = next as unknown as Record<string, unknown>;
 		for (const field of fields.filter(visible)) {
 			if (field.kind === 'list') {
-				setPath(bag, field.key, lists[field.key].split(',').map((v) => v.trim()).filter(Boolean));
-			} else if (field.kind === 'text' || field.kind === 'select') {
-				const value = String(getPath(next, field.key) ?? '').trim();
-				if (value !== '' || getPath(next, field.key) !== undefined) setPath(bag, field.key, value === '' && field.optional ? null : value);
+				setPath(next.settings, field.key, lists[field.key].split(',').map((v) => v.trim()).filter(Boolean));
+			} else if (field.kind === 'text' || field.kind === 'select' || field.kind === 'secret') {
+				const raw = getPath(next.settings, field.key);
+				const value = field.kind === 'secret' ? String(raw ?? '') : String(raw ?? '').trim();
+				if (value !== '' || raw !== undefined) setPath(next.settings, field.key, value === '' && field.optional ? null : value);
 			}
 		}
 		next.group = (next.group ?? '').trim() || null;
@@ -107,10 +107,10 @@
 		<Select value={text(field)} label={field.label} options={field.choices} onchange={(v) => set(field, v === '' ? null : v)} />
 	{:else if field.kind === 'toggle'}
 		<label class="check">
-			<input type="checkbox" checked={getPath(draft, field.key) === true} onchange={(e) => set(field, e.currentTarget.checked)} />
+			<input type="checkbox" checked={getPath(draft.settings, field.key) === true} onchange={(e) => set(field, e.currentTarget.checked)} />
 			<span>{field.label}</span>
 		</label>
-		{#if field.warning && getPath(draft, field.key) === true}<p class="warn">{field.warning}</p>{/if}
+		{#if field.warning && getPath(draft.settings, field.key) === true}<p class="warn">{field.warning}</p>{/if}
 	{:else if field.kind === 'list'}
 		<input class="input mono" bind:value={lists[field.key]} placeholder={field.placeholder ?? ''} spellcheck="false" aria-label={field.label} />
 	{:else}

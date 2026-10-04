@@ -10,13 +10,15 @@ Decisions:
 |---|---|
 | 1. Trait and string id | Done |
 | 2. Form descriptors and the generic editor | Done |
-| 3. Settings block | To do |
+| 3. Settings block | Done |
 | 4. Conformance test | To do |
 | 5. Prove it with a new protocol | To do |
 
 Today a new protocol is one module plus about six edits in other files (see "Where it falls short"). The goal is one module plus one registry line.
 
 Step order changed: the editor (old step 3) now comes before the settings block (old step 2). The editor reads and writes fields by key path (`sni`, `transport.path`), so moving the stored data into a `settings` block later only changes the keys in each protocol's field list, not the editor. Doing the data change first would have left the app broken between commits.
+
+Step 3 notes: `Profile` now holds only the shared fields plus a `settings` object. Each protocol owns a typed settings struct (`VlessSettings`, `TrojanSettings`, ...) and reads it with `profile.settings_as()`. Editor field keys are paths inside `settings` (`tls.sni`, `transport.path`). `same_endpoint` compares the shared fields and the settings object, so it needs no per-protocol code. The store schema is now 4; servers saved in the old layout are dropped on load and the old file is kept as `data.v3.json`.
 
 Step 2 notes: each protocol also provides `blank()` (defaults for a new server) and an optional `normalize()` (clears settings that stopped applying, fills required defaults). `protocols.json` under `scripts/screenshots/` is a copy of the real field lists for the screenshot mock, and a test fails if it goes stale.
 
