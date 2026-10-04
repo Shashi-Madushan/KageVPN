@@ -6,6 +6,7 @@
 //! else in the backend needs to know about it.
 
 mod common;
+mod form;
 mod hysteria2;
 mod links;
 mod shadowsocks;
@@ -17,7 +18,10 @@ use serde_json::Value;
 
 use crate::error::{AppError, Result};
 
+pub use form::{Field, ProtocolView};
 pub use links::{contains_link, parse_many, to_link};
+#[cfg(test)]
+pub use links::parse_link;
 
 /// Which protocol a profile uses: the id of an entry in [`REGISTRY`], stored as text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -76,7 +80,6 @@ impl Secret {
 pub trait ProtocolDef: Sync {
     /// Stable id, written into saved profiles.
     fn id(&self) -> &'static str;
-    #[allow(dead_code)] // read by the editor once it is built from these definitions
     fn label(&self) -> &'static str;
     /// URL schemes its links use, lowercase.
     fn schemes(&self) -> &'static [&'static str];
@@ -91,8 +94,14 @@ pub trait ProtocolDef: Sync {
     /// Credentials and keys, so feedback reports can hide them.
     fn secrets(&self, profile: &Profile) -> Vec<Secret>;
     /// A short description for lists, such as "Reality · grpc".
-    #[allow(dead_code)] // read by the server list once it is built from these definitions
     fn summary(&self, profile: &Profile) -> String;
+    /// The fields the editor shows for this protocol, in order.
+    fn form(&self) -> Vec<Field>;
+    /// A new server of this protocol, with sensible defaults.
+    fn blank(&self) -> Profile;
+    /// Tidies a profile before it is saved: clears settings that no longer apply and fills
+    /// required defaults. Runs before `validate`.
+    fn normalize(&self, _profile: &mut Profile) {}
 }
 
 pub static REGISTRY: &[&dyn ProtocolDef] = &[&vless::Vless, &trojan::Trojan, &shadowsocks::Shadowsocks, &hysteria2::Hysteria2];
@@ -101,8 +110,22 @@ pub fn def(protocol: ProtocolId) -> &'static dyn ProtocolDef {
     *REGISTRY.iter().find(|d| d.id() == protocol.0).expect("every ProtocolId comes from REGISTRY")
 }
 
-pub fn shadowsocks_methods() -> &'static [&'static str] {
-    shadowsocks::methods()
+pub fn views() -> Vec<ProtocolView> {
+    REGISTRY.iter().map(|d| ProtocolView { id: d.id(), label: d.label(), schemes: d.schemes(), fields: d.form() }).collect()
+}
+
+/// A profile as the interface sees it: the saved fields plus the list description.
+#[derive(Serialize)]
+pub struct ProfileView {
+    #[serde(flatten)]
+    pub profile: Profile,
+    pub summary: String,
+}
+
+/// A blank server for the protocol with this id.
+pub fn blank(id: &str) -> Result<Profile> {
+    let protocol = ProtocolId::lookup(id).ok_or_else(|| AppError::Invalid(format!("unknown protocol '{id}'")))?;
+    Ok(def(protocol).blank())
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -204,6 +227,16 @@ impl Profile {
             && self.transport.host == other.transport.host
             && self.transport.service_name == other.transport.service_name
             && same_reality
+    }
+
+    pub fn view(&self) -> ProfileView {
+        ProfileView { profile: self.clone(), summary: def(self.protocol).summary(self) }
+    }
+
+    pub fn normalize(&mut self) {
+        self.name = self.name.trim().to_string();
+        self.server = self.server.trim().to_string();
+        def(self.protocol).normalize(self);
     }
 
     pub fn validate(&self) -> Result<()> {

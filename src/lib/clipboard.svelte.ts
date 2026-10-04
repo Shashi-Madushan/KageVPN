@@ -1,5 +1,5 @@
 import { readText } from '@tauri-apps/plugin-clipboard-manager';
-import { isServerLink } from './protocols';
+import { protocols } from './protocols.svelte';
 
 const KEY = 'clipboardWatch';
 const POLL_MS = 2000;
@@ -38,7 +38,7 @@ class ClipboardWatch {
 		if (!this.enabled || !document.hasFocus() || this.offer) return;
 		try {
 			const text = ((await readText()) ?? '').trim();
-			if (isServerLink(text) && !this.dismissed.has(text)) this.offer = text;
+			if (protocols.isLink(text) && !this.dismissed.has(text)) this.offer = text;
 		} catch {
 			// reading can be refused by the system; ignore
 		}

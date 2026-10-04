@@ -4,6 +4,7 @@ use url::Url;
 use uuid::Uuid;
 
 use super::common::{self, invalid, Params};
+use super::form::{Field, Section};
 use super::{Profile, ProtocolDef, ProtocolId, Reality, Secret, Security};
 use crate::error::Result;
 
@@ -50,6 +51,49 @@ impl ProtocolDef for Vless {
 
     fn summary(&self, profile: &Profile) -> String {
         format!("{} · {}", if profile.security == Security::Reality { "Reality" } else { "TLS" }, common::transport_name(profile.transport.kind))
+    }
+
+    fn form(&self) -> Vec<Field> {
+        let mut fields = vec![
+            Field::text("uuid", "User ID (UUID)", Section::Connection)
+                .mono()
+                .placeholder("00000000-0000-0000-0000-000000000000")
+                .pattern("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "This is not a valid UUID."),
+            Field::segmented("security", "Security", Section::Security, &[("tls", "TLS"), ("reality", "Reality")]),
+            common::sni_field(),
+            Field::text("reality.publicKey", "Public key", Section::Security).mono().show_when("security", &["reality"]),
+            Field::text("reality.shortId", "Short ID", Section::Security).optional().mono().show_when("security", &["reality"]),
+            common::insecure_field().show_when("security", &["tls"]),
+        ];
+        fields.extend(common::transport_fields());
+        fields.push(common::fingerprint_field());
+        fields.push(Field::select("flow", "Flow", Section::Advanced, &[("", "None"), ("xtls-rprx-vision", "xtls-rprx-vision")]).optional());
+        fields.push(common::alpn_field().show_when("security", &["tls"]));
+        fields.push(
+            Field::select("packetEncoding", "Packet encoding", Section::Advanced, &[("", "Default"), ("xudp", "xudp"), ("packetaddr", "packetaddr")]).optional(),
+        );
+        fields
+    }
+
+    fn blank(&self) -> Profile {
+        Profile { protocol: ID, port: common::DEFAULT_PORT, fingerprint: Some("chrome".into()), ..Profile::default() }
+    }
+
+    fn normalize(&self, profile: &mut Profile) {
+        match profile.security {
+            Security::Reality => {
+                profile.reality.get_or_insert_with(Reality::default);
+                profile.allow_insecure = false;
+                profile.pinned_key = None;
+                if profile.flow.as_deref().is_none_or(str::is_empty) {
+                    profile.flow = Some("xtls-rprx-vision".into());
+                }
+            }
+            _ => {
+                profile.security = Security::Tls;
+                profile.reality = None;
+            }
+        }
     }
 }
 

@@ -109,6 +109,7 @@ pub fn run() {
             feedback::feedback_send,
             commands::snapshot,
             commands::import_text,
+            commands::new_profile,
             commands::save_profile,
             commands::duplicate_profile,
             commands::set_favorite,

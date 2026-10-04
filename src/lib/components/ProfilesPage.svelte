@@ -1,9 +1,9 @@
 <script lang="ts">
 	import Select from './Select.svelte';
-	import { api, blankProfile, type Profile, type Subscription } from '$lib/api';
+	import { api, type Profile, type Subscription } from '$lib/api';
 	import { clickOutside, focusOnMount } from '$lib/actions';
 	import { app } from '$lib/app.svelte';
-	import { describe } from '$lib/protocols';
+	import { protocols } from '$lib/protocols.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import { formatBytes, latencyLabel, latencyTone, profileFlag, stripFlag } from '$lib/format';
 	import HeaderActions from './HeaderActions.svelte';
@@ -224,7 +224,7 @@
 									<small class="mono">{profile.server}:{profile.port}</small>
 								</span>
 							</button>
-							<span class="proto">{describe(profile)}</span>
+							<span class="proto">{profile.summary ?? ''}</span>
 							<span class="spark"><MiniSpark values={app.latencyHistory[profile.id] ?? []} /></span>
 							<button class="ping" onclick={() => app.ping(profile.id)} title="Test latency">
 								{#if latencyTone(app.latency[profile.id]) === 'idle' && !app.latency[profile.id]}
@@ -341,7 +341,7 @@
 	onclose={() => (deleteSubTarget = null)}
 />
 
-<ImportDialog bind:open={importing} initial={importText} onmanual={() => (editing = blankProfile())} />
+<ImportDialog bind:open={importing} initial={importText} onmanual={async () => (editing = await api.newProfile(protocols.list[0]?.id ?? 'vless'))} />
 <ProfileDialog profile={editing} onclose={() => (editing = null)} />
 <QrDialog profile={sharing} onclose={() => (sharing = null)} />
 

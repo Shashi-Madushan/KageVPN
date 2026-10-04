@@ -1,4 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
+import { protocols } from './protocols.svelte';
 import {
 	api,
 	type AppInfo,
@@ -48,7 +49,7 @@ class AppStore {
 	/** True once the first snapshot from the backend has been applied. */
 	loaded = $state(false);
 	/** Name, version and feature switches; the source of truth is `app_config.rs`. */
-	info = $state<AppInfo>({ name: '', brand: '', version: '', updatesConfigured: false, feedbackConfigured: false, shadowsocksMethods: [] });
+	info = $state<AppInfo>({ name: '', brand: '', version: '', updatesConfigured: false, feedbackConfigured: false, protocols: [] });
 
 	activeProfile = $derived(this.profiles.find((p) => p.id === this.activeId) ?? null);
 	busy = $derived(this.status.state === 'connecting');
@@ -59,6 +60,7 @@ class AppStore {
 
 	async init() {
 		this.info = await api.appInfo();
+		protocols.set(this.info.protocols);
 		const snap = await api.snapshot();
 		this.profiles = snap.profiles;
 		this.activeId = snap.activeId;

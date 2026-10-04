@@ -7,6 +7,7 @@ use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC
 use serde_json::{json, Value};
 use url::Url;
 
+use super::form::{Field, Section};
 use super::{Profile, Secret, Security, Transport, TransportKind};
 use crate::error::{AppError, Result};
 
@@ -243,4 +244,39 @@ pub fn secrets(profile: &Profile, credentials: &[(&str, &'static str)]) -> Vec<S
         secrets.push(Secret::new(reality.short_id.clone(), "[id]"));
     }
     secrets
+}
+
+const FINGERPRINTS: &[(&str, &str)] =
+    &[("chrome", "chrome"), ("firefox", "firefox"), ("safari", "safari"), ("ios", "ios"), ("android", "android"), ("edge", "edge"), ("random", "random")];
+
+pub fn sni_field() -> Field {
+    Field::text("sni", "Server name (SNI)", Section::Security).optional().placeholder("Same as the address")
+}
+
+pub fn insecure_field() -> Field {
+    Field::toggle("allowInsecure", "Skip certificate check", Section::Security)
+        .warning("Anyone on the network could impersonate this server. Only use this for a server you run yourself.")
+}
+
+pub fn fingerprint_field() -> Field {
+    Field::select("fingerprint", "Fingerprint", Section::Advanced, FINGERPRINTS)
+}
+
+pub fn alpn_field() -> Field {
+    Field::list("alpn", "ALPN", Section::Advanced).optional().placeholder("h2,http/1.1")
+}
+
+/// Transport choice and the settings each transport needs.
+pub fn transport_fields() -> Vec<Field> {
+    vec![
+        Field::segmented(
+            "transport.kind",
+            "Transport",
+            Section::Transport,
+            &[("tcp", "TCP"), ("ws", "WebSocket"), ("grpc", "gRPC"), ("httpupgrade", "HTTPUpgrade")],
+        ),
+        Field::text("transport.path", "Path", Section::Transport).optional().mono().placeholder("/").show_when("transport.kind", &["ws", "httpupgrade"]),
+        Field::text("transport.host", "Host header", Section::Transport).optional().mono().show_when("transport.kind", &["ws", "httpupgrade"]),
+        Field::text("transport.serviceName", "Service name", Section::Transport).mono().show_when("transport.kind", &["grpc"]),
+    ]
 }

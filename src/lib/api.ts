@@ -52,33 +52,8 @@ export interface Profile {
 	group: string | null;
 	favorite: boolean;
 	subscriptionId: string | null;
-}
-
-export function blankProfile(): Profile {
-	return {
-		id: '',
-		protocol: 'vless',
-		name: '',
-		server: '',
-		port: 443,
-		uuid: '',
-		password: '',
-		method: null,
-		obfs: null,
-		allowInsecure: false,
-		security: 'tls',
-		sni: null,
-		fingerprint: 'chrome',
-		alpn: [],
-		flow: null,
-		pinnedKey: null,
-		transport: { kind: 'tcp', path: null, host: null, serviceName: null },
-		reality: null,
-		packetEncoding: null,
-		group: null,
-		favorite: false,
-		subscriptionId: null
-	};
+	/** Short description for lists, such as "Reality · grpc". Added by the backend; ignored on save. */
+	summary?: string;
 }
 
 export interface Status {
@@ -308,6 +283,7 @@ export const api = {
 	appInfo: () => invoke<AppInfo>('app_info'),
 	snapshot: () => invoke<Snapshot>('snapshot'),
 	importText: (text: string) => invoke<ImportSummary>('import_text', { text }),
+	newProfile: (protocol: string) => invoke<Profile>('new_profile', { protocol }),
 	saveProfile: (profile: Profile) => invoke<Profile>('save_profile', { profile }),
 	duplicateProfile: (id: string) => invoke<Profile>('duplicate_profile', { id }),
 	setFavorite: (id: string, favorite: boolean) => invoke<void>('set_favorite', { id, favorite }),
@@ -393,7 +369,38 @@ export interface AppInfo {
 	version: string;
 	updatesConfigured: boolean;
 	feedbackConfigured: boolean;
-	shadowsocksMethods: string[];
+	protocols: ProtocolInfo[];
+}
+
+export type FieldKind = 'text' | 'secret' | 'select' | 'segmented' | 'toggle' | 'list';
+export type FieldSection = 'connection' | 'security' | 'transport' | 'advanced';
+
+export interface FieldChoice {
+	value: string;
+	label: string;
+}
+
+/** One editable setting of a protocol, described by the backend. */
+export interface FormField {
+	/** Where the value lives in the profile, such as `sni` or `transport.path`. */
+	key: string;
+	label: string;
+	kind: FieldKind;
+	section: FieldSection;
+	choices: FieldChoice[];
+	optional: boolean;
+	mono: boolean;
+	placeholder: string | null;
+	warning: string | null;
+	showWhen: { key: string; values: string[] } | null;
+	pattern: { regex: string; message: string } | null;
+}
+
+export interface ProtocolInfo {
+	id: Protocol;
+	label: string;
+	schemes: string[];
+	fields: FormField[];
 }
 
 export interface CoreStatus {

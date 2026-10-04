@@ -1,0 +1,682 @@
+[
+  {
+    "id": "vless",
+    "label": "VLESS",
+    "schemes": [
+      "vless"
+    ],
+    "fields": [
+      {
+        "key": "uuid",
+        "label": "User ID (UUID)",
+        "kind": "text",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": "00000000-0000-0000-0000-000000000000",
+        "warning": null,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "message": "This is not a valid UUID."
+        }
+      },
+      {
+        "key": "security",
+        "label": "Security",
+        "kind": "segmented",
+        "section": "security",
+        "choices": [
+          {
+            "value": "tls",
+            "label": "TLS"
+          },
+          {
+            "value": "reality",
+            "label": "Reality"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "sni",
+        "label": "Server name (SNI)",
+        "kind": "text",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": false,
+        "placeholder": "Same as the address",
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "reality.publicKey",
+        "label": "Public key",
+        "kind": "text",
+        "section": "security",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "security",
+          "values": [
+            "reality"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "reality.shortId",
+        "label": "Short ID",
+        "kind": "text",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "security",
+          "values": [
+            "reality"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "allowInsecure",
+        "label": "Skip certificate check",
+        "kind": "toggle",
+        "section": "security",
+        "choices": [],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "showWhen": {
+          "key": "security",
+          "values": [
+            "tls"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "transport.kind",
+        "label": "Transport",
+        "kind": "segmented",
+        "section": "transport",
+        "choices": [
+          {
+            "value": "tcp",
+            "label": "TCP"
+          },
+          {
+            "value": "ws",
+            "label": "WebSocket"
+          },
+          {
+            "value": "grpc",
+            "label": "gRPC"
+          },
+          {
+            "value": "httpupgrade",
+            "label": "HTTPUpgrade"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "transport.path",
+        "label": "Path",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "/",
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "ws",
+            "httpupgrade"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "transport.host",
+        "label": "Host header",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "ws",
+            "httpupgrade"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "transport.serviceName",
+        "label": "Service name",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "grpc"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "fingerprint",
+        "label": "Fingerprint",
+        "kind": "select",
+        "section": "advanced",
+        "choices": [
+          {
+            "value": "chrome",
+            "label": "chrome"
+          },
+          {
+            "value": "firefox",
+            "label": "firefox"
+          },
+          {
+            "value": "safari",
+            "label": "safari"
+          },
+          {
+            "value": "ios",
+            "label": "ios"
+          },
+          {
+            "value": "android",
+            "label": "android"
+          },
+          {
+            "value": "edge",
+            "label": "edge"
+          },
+          {
+            "value": "random",
+            "label": "random"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "flow",
+        "label": "Flow",
+        "kind": "select",
+        "section": "advanced",
+        "choices": [
+          {
+            "value": "",
+            "label": "None"
+          },
+          {
+            "value": "xtls-rprx-vision",
+            "label": "xtls-rprx-vision"
+          }
+        ],
+        "optional": true,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "alpn",
+        "label": "ALPN",
+        "kind": "list",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "h2,http/1.1",
+        "warning": null,
+        "showWhen": {
+          "key": "security",
+          "values": [
+            "tls"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "packetEncoding",
+        "label": "Packet encoding",
+        "kind": "select",
+        "section": "advanced",
+        "choices": [
+          {
+            "value": "",
+            "label": "Default"
+          },
+          {
+            "value": "xudp",
+            "label": "xudp"
+          },
+          {
+            "value": "packetaddr",
+            "label": "packetaddr"
+          }
+        ],
+        "optional": true,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      }
+    ]
+  },
+  {
+    "id": "trojan",
+    "label": "Trojan",
+    "schemes": [
+      "trojan"
+    ],
+    "fields": [
+      {
+        "key": "password",
+        "label": "Password",
+        "kind": "secret",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "sni",
+        "label": "Server name (SNI)",
+        "kind": "text",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": false,
+        "placeholder": "Same as the address",
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "allowInsecure",
+        "label": "Skip certificate check",
+        "kind": "toggle",
+        "section": "security",
+        "choices": [],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "transport.kind",
+        "label": "Transport",
+        "kind": "segmented",
+        "section": "transport",
+        "choices": [
+          {
+            "value": "tcp",
+            "label": "TCP"
+          },
+          {
+            "value": "ws",
+            "label": "WebSocket"
+          },
+          {
+            "value": "grpc",
+            "label": "gRPC"
+          },
+          {
+            "value": "httpupgrade",
+            "label": "HTTPUpgrade"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "transport.path",
+        "label": "Path",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "/",
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "ws",
+            "httpupgrade"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "transport.host",
+        "label": "Host header",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "ws",
+            "httpupgrade"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "transport.serviceName",
+        "label": "Service name",
+        "kind": "text",
+        "section": "transport",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": {
+          "key": "transport.kind",
+          "values": [
+            "grpc"
+          ]
+        },
+        "pattern": null
+      },
+      {
+        "key": "fingerprint",
+        "label": "Fingerprint",
+        "kind": "select",
+        "section": "advanced",
+        "choices": [
+          {
+            "value": "chrome",
+            "label": "chrome"
+          },
+          {
+            "value": "firefox",
+            "label": "firefox"
+          },
+          {
+            "value": "safari",
+            "label": "safari"
+          },
+          {
+            "value": "ios",
+            "label": "ios"
+          },
+          {
+            "value": "android",
+            "label": "android"
+          },
+          {
+            "value": "edge",
+            "label": "edge"
+          },
+          {
+            "value": "random",
+            "label": "random"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "alpn",
+        "label": "ALPN",
+        "kind": "list",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "h2,http/1.1",
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      }
+    ]
+  },
+  {
+    "id": "shadowsocks",
+    "label": "Shadowsocks",
+    "schemes": [
+      "ss"
+    ],
+    "fields": [
+      {
+        "key": "method",
+        "label": "Encryption",
+        "kind": "select",
+        "section": "connection",
+        "choices": [
+          {
+            "value": "2022-blake3-aes-128-gcm",
+            "label": "2022-blake3-aes-128-gcm"
+          },
+          {
+            "value": "2022-blake3-aes-256-gcm",
+            "label": "2022-blake3-aes-256-gcm"
+          },
+          {
+            "value": "2022-blake3-chacha20-poly1305",
+            "label": "2022-blake3-chacha20-poly1305"
+          },
+          {
+            "value": "aes-128-gcm",
+            "label": "aes-128-gcm"
+          },
+          {
+            "value": "aes-192-gcm",
+            "label": "aes-192-gcm"
+          },
+          {
+            "value": "aes-256-gcm",
+            "label": "aes-256-gcm"
+          },
+          {
+            "value": "chacha20-ietf-poly1305",
+            "label": "chacha20-ietf-poly1305"
+          },
+          {
+            "value": "xchacha20-ietf-poly1305",
+            "label": "xchacha20-ietf-poly1305"
+          },
+          {
+            "value": "aes-128-ctr",
+            "label": "aes-128-ctr"
+          },
+          {
+            "value": "aes-192-ctr",
+            "label": "aes-192-ctr"
+          },
+          {
+            "value": "aes-256-ctr",
+            "label": "aes-256-ctr"
+          },
+          {
+            "value": "aes-128-cfb",
+            "label": "aes-128-cfb"
+          },
+          {
+            "value": "aes-192-cfb",
+            "label": "aes-192-cfb"
+          },
+          {
+            "value": "aes-256-cfb",
+            "label": "aes-256-cfb"
+          },
+          {
+            "value": "chacha20-ietf",
+            "label": "chacha20-ietf"
+          },
+          {
+            "value": "xchacha20",
+            "label": "xchacha20"
+          },
+          {
+            "value": "rc4-md5",
+            "label": "rc4-md5"
+          },
+          {
+            "value": "none",
+            "label": "none"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "password",
+        "label": "Password",
+        "kind": "secret",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      }
+    ]
+  },
+  {
+    "id": "hysteria2",
+    "label": "Hysteria2",
+    "schemes": [
+      "hysteria2",
+      "hy2"
+    ],
+    "fields": [
+      {
+        "key": "password",
+        "label": "Password",
+        "kind": "secret",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "sni",
+        "label": "Server name (SNI)",
+        "kind": "text",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": false,
+        "placeholder": "Same as the address",
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "obfs.password",
+        "label": "Obfuscation password",
+        "kind": "secret",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "allowInsecure",
+        "label": "Skip certificate check",
+        "kind": "toggle",
+        "section": "security",
+        "choices": [],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "alpn",
+        "label": "ALPN",
+        "kind": "list",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "h2,http/1.1",
+        "warning": null,
+        "showWhen": null,
+        "pattern": null
+      }
+    ]
+  }
+]

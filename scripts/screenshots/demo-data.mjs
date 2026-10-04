@@ -1,9 +1,14 @@
 // Fake backend for the screenshots in the README. Everything here is made up: documentation-range
 // IP addresses (RFC 5737), example.com hosts and a placeholder UUID. No real server or account.
+// The protocol descriptions come from the real backend (protocols.json, kept current by a test).
+
+import { readFileSync } from 'node:fs';
+
+const protocols = JSON.parse(readFileSync(new URL('./protocols.json', import.meta.url), 'utf8'));
 
 /** Returns JavaScript that installs a fake Tauri backend before the app loads. */
 export function demoScript({ connected = true, withServers = true, name = 'Apzur VPN', version = '0.1.0' } = {}) {
-	return `(${install.toString()})(${JSON.stringify({ connected, withServers, name, version })});`;
+	return `(${install.toString()})(${JSON.stringify({ connected, withServers, name, version, protocols })});`;
 }
 
 function install(opts) {
@@ -17,16 +22,16 @@ function install(opts) {
 		id, protocol: 'vless', name, server: host, port: 443, uuid: UUID, password: '', method: null, obfs: null, allowInsecure: false, security: 'reality', sni: 'www.example.org', fingerprint: 'chrome',
 		alpn: [], flow: 'xtls-rprx-vision', pinnedKey: null, transport: { kind: 'tcp', path: null, host: null, serviceName: null },
 		reality: { publicKey: 'DEMOPUBLICKEYDEMOPUBLICKEYDEMOPUBLICKEY00', shortId: 'a1b2c3d4' }, packetEncoding: null,
-		group, favorite: false, subscriptionId: null, ...extra
+		group, favorite: false, subscriptionId: null, summary: 'Reality · tcp', ...extra
 	});
 	const profiles = opts.withServers
 		? [
 				city('p1', 'Frankfurt, Germany', 'de1.example.com', 'Europe', { favorite: true }),
 				city('p2', 'Amsterdam, Netherlands', 'nl1.example.com', 'Europe'),
-				city('p3', 'London, United Kingdom', 'uk1.example.com', 'Europe', { protocol: 'trojan', uuid: '', password: 'demo', security: 'tls', flow: null, reality: null, fingerprint: 'chrome', transport: { kind: 'ws', path: '/', host: null, serviceName: null } }),
+				city('p3', 'London, United Kingdom', 'uk1.example.com', 'Europe', { protocol: 'trojan', uuid: '', password: 'demo', security: 'tls', flow: null, reality: null, fingerprint: 'chrome', transport: { kind: 'ws', path: '/', host: null, serviceName: null }, summary: 'Trojan · ws' }),
 				city('p4', 'New York, United States', 'us1.example.com', 'Americas', { favorite: true }),
-				city('p5', 'Singapore', 'sg1.example.com', 'Asia', { protocol: 'hysteria2', uuid: '', password: 'demo', security: 'tls', flow: null, reality: null, fingerprint: null }),
-				city('p6', 'Tokyo, Japan', 'jp1.example.com', 'Asia', { protocol: 'shadowsocks', uuid: '', password: 'demo', method: 'aes-256-gcm', security: 'none', flow: null, reality: null, fingerprint: null }),
+				city('p5', 'Singapore', 'sg1.example.com', 'Asia', { protocol: 'hysteria2', uuid: '', password: 'demo', security: 'tls', flow: null, reality: null, fingerprint: null, summary: 'Hysteria2' }),
+				city('p6', 'Tokyo, Japan', 'jp1.example.com', 'Asia', { protocol: 'shadowsocks', uuid: '', password: 'demo', method: 'aes-256-gcm', security: 'none', flow: null, reality: null, fingerprint: null, summary: 'Shadowsocks' }),
 				city('p7', 'Sydney, Australia', 'au1.example.com', 'Oceania')
 			]
 		: [];
@@ -121,7 +126,13 @@ function install(opts) {
 	window.__demoEmit = emit;
 
 	const handlers = {
-		app_info: () => ({ name: opts.name, brand: 'Apzur', version: opts.version, updatesConfigured: false, feedbackConfigured: false, shadowsocksMethods: ['2022-blake3-aes-128-gcm', 'aes-256-gcm', 'chacha20-ietf-poly1305'] }),
+		app_info: () => ({ name: opts.name, brand: 'Apzur', version: opts.version, updatesConfigured: false, feedbackConfigured: false, protocols: opts.protocols }),
+		new_profile: (a) => ({
+			id: '', protocol: a.protocol, name: '', server: '', port: a.protocol === 'shadowsocks' ? 8388 : 443, uuid: '', password: '', method: a.protocol === 'shadowsocks' ? 'aes-256-gcm' : null,
+			obfs: null, allowInsecure: false, security: a.protocol === 'shadowsocks' ? 'none' : 'tls', sni: null, fingerprint: ['vless', 'trojan'].includes(a.protocol) ? 'chrome' : null,
+			alpn: [], flow: null, pinnedKey: null, transport: { kind: 'tcp', path: null, host: null, serviceName: null }, reality: null, packetEncoding: null,
+			group: null, favorite: false, subscriptionId: null
+		}),
 		snapshot: () => snapshot,
 		app_update_settings: () => ({ policy: 'ask', lastCheck: 0 }),
 		test_all: () => profiles.map((p) => ({ id: p.id, ms: pings[p.id] })),

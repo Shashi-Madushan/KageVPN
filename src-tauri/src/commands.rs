@@ -7,7 +7,7 @@ use crate::config::Mode;
 use crate::diagnostics::{self, Diagnostics, SpeedResult};
 use crate::error::{AppError, Result};
 use crate::logs::LogLine;
-use crate::profile::{parse_many, to_link, Profile};
+use crate::profile::{parse_many, to_link, Profile, ProfileView};
 use crate::session::{self, State as ConnState, Status};
 use crate::settings::{AutoSettings, ReliabilitySettings, RoutingSettings, Subscription};
 use crate::state::AppState;
@@ -19,7 +19,7 @@ use crate::{clash, net, notify, reliability, tray};
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
-    profiles: Vec<Profile>,
+    profiles: Vec<ProfileView>,
     active_id: Option<String>,
     mode: Mode,
     status: Status,
@@ -57,7 +57,7 @@ pub struct AppInfo {
     version: &'static str,
     updates_configured: bool,
     feedback_configured: bool,
-    shadowsocks_methods: &'static [&'static str],
+    protocols: Vec<crate::profile::ProtocolView>,
 }
 
 /// Identity and feature switches from `app_config.rs`, so the UI never hardcodes them.
@@ -69,7 +69,7 @@ pub fn app_info() -> AppInfo {
         version: app_config::APP_VERSION,
         updates_configured: app_config::APP_UPDATE_FEED.is_some() && app_config::APP_UPDATE_PUBKEY.is_some(),
         feedback_configured: app_config::FEEDBACK_ENDPOINT.is_some(),
-        shadowsocks_methods: crate::profile::shadowsocks_methods(),
+        protocols: crate::profile::views(),
     }
 }
 
@@ -78,7 +78,7 @@ pub fn snapshot(app: AppHandle, state: State<AppState>) -> Snapshot {
     let store = state.store.lock().unwrap();
     let (traffic, history) = state.traffic.lock().unwrap().snapshot();
     Snapshot {
-        profiles: store.profiles().to_vec(),
+        profiles: store.profiles().iter().map(Profile::view).collect(),
         active_id: store.active_id().map(str::to_string),
         mode: store.mode(),
         status: state.status.lock().unwrap().clone(),
@@ -106,8 +106,15 @@ pub fn import_text(state: State<AppState>, text: String) -> Result<ImportSummary
     Ok(ImportSummary { added, duplicates, failed })
 }
 
+/// A blank server of one protocol, with that protocol's defaults.
+#[tauri::command]
+pub fn new_profile(protocol: String) -> Result<Profile> {
+    crate::profile::blank(&protocol)
+}
+
 #[tauri::command]
 pub fn save_profile(state: State<AppState>, mut profile: Profile) -> Result<Profile> {
+    profile.normalize();
     profile.validate()?;
     if profile.id.is_empty() {
         profile.id = uuid::Uuid::new_v4().to_string();

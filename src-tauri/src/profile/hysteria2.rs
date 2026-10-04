@@ -3,6 +3,7 @@ use url::Url;
 use uuid::Uuid;
 
 use super::common::{self, invalid, Params};
+use super::form::{Field, Section};
 use super::{Obfs, Profile, ProtocolDef, ProtocolId, Secret, Security};
 use crate::error::Result;
 
@@ -53,6 +54,24 @@ impl ProtocolDef for Hysteria2 {
 
     fn summary(&self, _profile: &Profile) -> String {
         "Hysteria2".to_string()
+    }
+
+    fn form(&self) -> Vec<Field> {
+        vec![
+            Field::secret("password", "Password", Section::Connection),
+            common::sni_field(),
+            Field::secret("obfs.password", "Obfuscation password", Section::Security).optional(),
+            common::insecure_field(),
+            common::alpn_field(),
+        ]
+    }
+
+    fn blank(&self) -> Profile {
+        Profile { protocol: ID, port: common::DEFAULT_PORT, fingerprint: None, ..Profile::default() }
+    }
+
+    fn normalize(&self, profile: &mut Profile) {
+        profile.obfs = profile.obfs.take().filter(|o| !o.password.is_empty()).map(|o| Obfs { kind: OBFS_SALAMANDER.into(), password: o.password });
     }
 }
 

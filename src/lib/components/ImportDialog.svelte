@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ANY_LINK, isServerLink } from '$lib/protocols';
+	import { protocols } from '$lib/protocols.svelte';
 	import { app } from '$lib/app.svelte';
 	import { importMessage } from '$lib/format';
 	import Dialog from './Dialog.svelte';
@@ -16,7 +16,7 @@
 	let busy = $state(false);
 	let fileInput: HTMLInputElement;
 
-	const found = $derived(text.split(/\s+/).filter((t) => isServerLink(t)).length);
+	const found = $derived(text.split(/\s+/).filter((t) => protocols.isLink(t)).length);
 
 	$effect(() => {
 		if (open) {
@@ -30,7 +30,7 @@
 	async function pasteFromClipboard() {
 		try {
 			const clip = (await navigator.clipboard.readText()).trim();
-			if (ANY_LINK.test(clip)) text = clip;
+			if (protocols.hasLink(clip)) text = clip;
 		} catch {
 			// clipboard access can be denied; the user can paste manually
 		}

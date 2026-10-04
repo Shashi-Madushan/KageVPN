@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
-	import { protocolInfo } from '$lib/protocols';
+	import { protocols } from '$lib/protocols.svelte';
 	import { appUpdate } from '$lib/appUpdate.svelte';
 	import { core } from '$lib/core.svelte';
 	import { downloads, STAGES } from '$lib/downloads.svelte';
@@ -173,7 +173,7 @@
 							onchange={pickServer}
 						/>
 						{#if app.activeProfile && !app.auto.enabled}
-							<small class="server-sub mono">{app.activeProfile.server}:{app.activeProfile.port} · {protocolInfo(app.activeProfile.protocol).label}</small>
+							<small class="server-sub mono">{app.activeProfile.server}:{app.activeProfile.port} · {protocols.label(app.activeProfile.protocol)}</small>
 						{:else if app.auto.enabled}
 							<small class="server-sub">Connects to the lowest-latency server</small>
 						{/if}

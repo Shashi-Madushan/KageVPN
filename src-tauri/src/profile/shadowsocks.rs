@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use super::common::{self, invalid};
+use super::form::{Field, Section};
 use super::{Profile, ProtocolDef, ProtocolId, Secret, Security};
 use crate::error::Result;
 
@@ -51,6 +52,29 @@ impl ProtocolDef for Shadowsocks {
 
     fn summary(&self, _profile: &Profile) -> String {
         "Shadowsocks".to_string()
+    }
+
+    fn form(&self) -> Vec<Field> {
+        let methods: Vec<(&str, &str)> = METHODS.iter().map(|m| (*m, *m)).collect();
+        vec![
+            Field::select("method", "Encryption", Section::Connection, &methods),
+            Field::secret("password", "Password", Section::Connection),
+        ]
+    }
+
+    fn blank(&self) -> Profile {
+        Profile {
+            protocol: ID,
+            port: 8388,
+            method: Some("aes-256-gcm".into()),
+            security: Security::None,
+            fingerprint: None,
+            ..Profile::default()
+        }
+    }
+
+    fn normalize(&self, profile: &mut Profile) {
+        profile.security = Security::None;
     }
 }
 
@@ -144,10 +168,6 @@ fn outbound(profile: &Profile) -> Value {
         "method": profile.method,
         "password": profile.password,
     })
-}
-
-pub fn methods() -> &'static [&'static str] {
-    METHODS
 }
 
 fn decode_userinfo(userinfo: &str) -> Result<String> {

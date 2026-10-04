@@ -3,6 +3,7 @@ use url::Url;
 use uuid::Uuid;
 
 use super::common::{self, invalid, Params};
+use super::form::{Field, Section};
 use super::{Profile, ProtocolDef, ProtocolId, Secret, Security};
 use crate::error::Result;
 
@@ -49,6 +50,22 @@ impl ProtocolDef for Trojan {
 
     fn summary(&self, profile: &Profile) -> String {
         format!("Trojan · {}", common::transport_name(profile.transport.kind))
+    }
+
+    fn form(&self) -> Vec<Field> {
+        let mut fields = vec![
+            Field::secret("password", "Password", Section::Connection),
+            common::sni_field(),
+            common::insecure_field(),
+        ];
+        fields.extend(common::transport_fields());
+        fields.push(common::fingerprint_field());
+        fields.push(common::alpn_field());
+        fields
+    }
+
+    fn blank(&self) -> Profile {
+        Profile { protocol: ID, port: common::DEFAULT_PORT, fingerprint: Some("chrome".into()), ..Profile::default() }
     }
 }
 
