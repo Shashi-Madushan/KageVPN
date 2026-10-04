@@ -6,6 +6,7 @@
 	import { feedback } from '$lib/feedback.svelte';
 	import HeaderActions from './HeaderActions.svelte';
 	import Icon from './Icon.svelte';
+	import Sensitive from './Sensitive.svelte';
 	import SpeedGauge from './SpeedGauge.svelte';
 
 	let result = $state<Diagnostics | null>(null);
@@ -141,9 +142,9 @@
 
 	{#if result}
 		<section class="grid">
-			<div class="card cell"><span class="caption">Tunnel</span><strong class="mono">{result.tunnel?.ip ?? '—'}</strong><small>{place(result.tunnel) || 'Unknown location'}</small>{#if result.tunnel?.org}<small>{result.tunnel.org}</small>{/if}</div>
-			<div class="card cell"><span class="caption">System route</span><strong class="mono">{result.system?.ip ?? '—'}</strong><small>{place(result.system) || 'Unknown location'}</small>{#if result.system?.org}<small>{result.system.org}</small>{/if}</div>
-			<div class="card cell"><span class="caption">DNS resolver</span><strong class="mono">{result.dns?.ip ?? '—'}</strong><small>{result.dns?.geo || 'Unknown location'}</small></div>
+			<div class="card cell"><span class="caption">Tunnel</span><strong class="mono"><Sensitive>{result.tunnel?.ip ?? '—'}</Sensitive></strong><small>{place(result.tunnel) || 'Unknown location'}</small>{#if result.tunnel?.org}<small>{result.tunnel.org}</small>{/if}</div>
+			<div class="card cell"><span class="caption">System route</span><strong class="mono"><Sensitive>{result.system?.ip ?? '—'}</Sensitive></strong><small>{place(result.system) || 'Unknown location'}</small>{#if result.system?.org}<small>{result.system.org}</small>{/if}</div>
+			<div class="card cell"><span class="caption">DNS resolver</span><strong class="mono"><Sensitive>{result.dns?.ip ?? '—'}</Sensitive></strong><small>{result.dns?.geo || 'Unknown location'}</small></div>
 		</section>
 	{/if}
 

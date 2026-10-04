@@ -5,6 +5,8 @@
 	import { formatBytes, formatDuration, formatRate, profileFlag } from '$lib/format';
 	import { usage } from '$lib/usage.svelte';
 	import PowerButton from '$lib/components/PowerButton.svelte';
+	import PrivacyToggle from '$lib/components/PrivacyToggle.svelte';
+	import Sensitive from '$lib/components/Sensitive.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
 	import Sparkline from '$lib/components/Sparkline.svelte';
@@ -50,6 +52,7 @@
 </script>
 
 <div class="popover">
+	<div class="eye-slot"><PrivacyToggle /></div>
 	<button class="close-btn" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
 
 	<section class="hero">
@@ -68,7 +71,7 @@
 				<span class="dim">Add a server to get started</span>
 			{/if}
 		</p>
-		{#if app.connected && app.exitIp}<span class="ip mono tabular">{app.exitIp}</span>{/if}
+		{#if app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive>{app.exitIp}</Sensitive></span>{/if}
 	</section>
 
 	{#if app.profiles.length}
@@ -134,6 +137,11 @@
 		border-radius: 12px;
 		overflow: hidden;
 		box-sizing: border-box;
+	}
+	.eye-slot {
+		position: absolute;
+		top: 8px;
+		left: 8px;
 	}
 	.close-btn {
 		position: absolute;

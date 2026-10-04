@@ -1,5 +1,5 @@
 <script lang="ts">
-	export type IconName = 'home' | 'profiles' | 'usage' | 'routing' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings' | 'shield' | 'bolt' | 'refresh' | 'sun' | 'moon' | 'monitor' | 'download';
+	export type IconName = 'home' | 'profiles' | 'usage' | 'routing' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings' | 'shield' | 'bolt' | 'refresh' | 'sun' | 'moon' | 'monitor' | 'download' | 'eye' | 'eye-off';
 
 	let { name, size = 16 }: { name: IconName; size?: number } = $props();
 
@@ -14,6 +14,8 @@
 		logs: 'M5 4h14v16H5zM9 9h6M9 13h6M9 17h3',
 		shield: 'M12 3l7 2.6v5.6c0 4.4-3 7.6-7 9.8-4-2.2-7-5.4-7-9.8V5.6L12 3Zm-3 9 2.2 2.2L15.2 10',
 		bolt: 'M13 2 5 13.5h6L10 22l9-12h-6l0-8Z',
+		eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+		'eye-off': 'M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.5 6.6A16.8 16.8 0 0 0 2 12s3.6 7 10 7a9.6 9.6 0 0 0 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2',
 		download: 'M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 20h16',
 		refresh: 'M20 12a8 8 0 1 1-2.5-5.8M20 4v4h-4',
 		sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0-13v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4',

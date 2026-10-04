@@ -4,6 +4,7 @@
 	import { clickOutside, focusOnMount } from '$lib/actions';
 	import { app } from '$lib/app.svelte';
 	import { protocols } from '$lib/protocols.svelte';
+	import Sensitive from './Sensitive.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import { formatBytes, latencyLabel, latencyTone, profileFlag, stripFlag } from '$lib/format';
 	import HeaderActions from './HeaderActions.svelte';
@@ -221,7 +222,7 @@
 									{:else}
 										<strong ondblclick={() => (renaming = profile.id)}>{stripFlag(profile.name)}</strong>
 									{/if}
-									<small class="mono">{profile.server}:{profile.port}</small>
+									<small class="mono"><Sensitive>{profile.server}:{profile.port}</Sensitive></small>
 								</span>
 							</button>
 							<span class="proto">{profile.summary ?? ''}</span>

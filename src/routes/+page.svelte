@@ -13,6 +13,7 @@
 	import DiagnosticsPage from '$lib/components/DiagnosticsPage.svelte';
 	import HomePage from '$lib/components/HomePage.svelte';
 	import DownloadsMenu from '$lib/components/DownloadsMenu.svelte';
+	import PrivacyToggle from '$lib/components/PrivacyToggle.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import FeedbackDialog from '$lib/components/FeedbackDialog.svelte';
 	import EngineInstallDialog from '$lib/components/EngineInstallDialog.svelte';
@@ -109,6 +110,7 @@
 		<header data-tauri-drag-region><div class="titles"><h1>{titles[page]}</h1><p>{subtitles[page]}</p></div>
 			<div class="actions">
 				{#if header.actions}{@render header.actions()}{/if}
+				<PrivacyToggle />
 				<DownloadsMenu />
 			</div>
 		</header>

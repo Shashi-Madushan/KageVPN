@@ -86,6 +86,7 @@ Then open the app normally. You only need to do this once per downloaded version
 - **Two modes.** *Full System (TUN)* sends all of your Mac's traffic through the VPN. *Proxy Only* runs a local proxy on `127.0.0.1:2080` for just the apps you point at it.
 - **Five protocols.** VLESS (TLS or Reality), VMess, Trojan, Shadowsocks (including the 2022 ciphers) and Hysteria2 (with Salamander obfuscation). VLESS, VMess and Trojan run over TCP, WebSocket, gRPC or HTTPUpgrade.
 - **Menu-bar app** with live download and upload speed beside the icon, and a compact popover to connect, switch mode and see traffic.
+- **Hide addresses.** Server addresses and IP addresses are blurred until you click the eye icon (in the app header and in the menu-bar popover), so screen shares and screenshots do not give them away. The choice is remembered.
 - **Optional global shortcut** (⌥⌘V, off by default) to connect or disconnect from anywhere.
 - **Launch at login** and **connect on launch**.
 
