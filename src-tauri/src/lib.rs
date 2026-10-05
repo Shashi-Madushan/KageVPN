@@ -1,4 +1,5 @@
 mod app_config;
+mod applog;
 mod app_update;
 mod clash;
 mod commands;
@@ -17,6 +18,7 @@ mod paths;
 mod profile;
 mod reliability;
 mod runner;
+mod sampler;
 mod session;
 mod settings;
 mod singbox;
@@ -71,6 +73,8 @@ pub fn run() {
                 let _ = paths::adopt_legacy_dir(&data_dir, &legacy);
             }
             let paths = AppPaths::new(data_dir)?;
+            applog::init(&paths.data_dir());
+            sampler::raise_fd_limit();
             app.manage(AppState::new(paths));
             core::migrate_layout(&app.state::<AppState>().paths, &app_config::SING_BOX);
             notify::setup(app.handle());
@@ -84,6 +88,7 @@ pub fn run() {
             subscriptions::spawn_scheduler(app.handle().clone());
             reliability::apply_hotkey(app.handle());
             network_watch::spawn(app.handle().clone());
+            sampler::spawn(app.handle().clone());
             register_deep_links(app.handle());
 
             if !std::env::args().any(|arg| arg == HIDDEN_FLAG) {
@@ -94,6 +99,11 @@ pub fn run() {
         .on_window_event(|window, event| {
             // Closing the main window destroys it (and its WebView); the tray recreates it.
             tray::handle_window_event(window, event);
+            match event {
+                tauri::WindowEvent::CloseRequested { .. } => applog::info(format!("window '{}' close requested", window.label())),
+                tauri::WindowEvent::Destroyed => applog::info(format!("window '{}' destroyed", window.label())),
+                _ => {}
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
@@ -171,11 +181,16 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-    app.run(|_, event| {
+    app.run(|app, event| match event {
         // The app lives in the menu bar: destroying the last window must not quit it.
-        if let tauri::RunEvent::ExitRequested { api, code: None, .. } = event {
-            api.prevent_exit();
+        tauri::RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
+        tauri::RunEvent::ExitRequested { code, .. } => applog::info(format!("exit requested (code {code:?})")),
+        tauri::RunEvent::Exit => {
+            if let Some(state) = app.try_state::<AppState>() {
+                applog::clean_exit(&state.paths.data_dir());
+            }
         }
+        _ => {}
     });
 }
 

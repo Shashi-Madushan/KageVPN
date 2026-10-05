@@ -32,6 +32,10 @@ impl AppPaths {
         Ok(Self { data_dir })
     }
 
+    pub fn data_dir(&self) -> PathBuf {
+        self.data_dir.clone()
+    }
+
     pub fn store_file(&self) -> PathBuf {
         self.data_dir.join("data.json")
     }
@@ -72,7 +76,12 @@ impl AppPaths {
     /// The log file is created by the user so a root-owned sing-box can append to it
     /// without leaving a file the app can no longer truncate.
     pub fn reset_runtime_files(&self) -> io::Result<()> {
-        File::create(self.log_file())?;
+        // Keep the last run's log as `sing-box.log.prev`: it is the evidence when a run ended badly.
+        let log = self.log_file();
+        if fs::metadata(&log).map(|m| m.len() > 0).unwrap_or(false) {
+            let _ = fs::rename(&log, log.with_extension("log.prev"));
+        }
+        File::create(log)?;
         match fs::remove_file(self.stop_file()) {
             Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
             _ => Ok(()),

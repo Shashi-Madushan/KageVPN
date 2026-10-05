@@ -24,3 +24,23 @@ fn detects_unresolved_hint() {
     let line = LogLine::parse("+0530 2026-09-30 22:28:40 ERROR lookup host: NXDOMAIN");
     assert!(matches!(line.hint, Some(Hint::Unresolved)));
 }
+
+#[test]
+fn a_burst_of_info_lines_is_cut_but_errors_survive() {
+    let mut lines: Vec<LogLine> = (0..1000).map(|i| LogLine::parse(&format!("INFO connection {i}"))).collect();
+    lines[3] = LogLine::parse("ERROR early failure");
+
+    let (kept, dropped) = cap_lines(lines, 300);
+
+    assert_eq!(dropped, 699);
+    assert_eq!(kept.len(), 301);
+    assert!(kept.iter().any(|l| l.text == "ERROR early failure"));
+    assert!(kept.last().unwrap().text.ends_with("999"), "the newest line is kept");
+}
+
+#[test]
+fn a_quiet_poll_is_passed_through_untouched() {
+    let lines = vec![LogLine::parse("INFO a"), LogLine::parse("INFO b")];
+    let (kept, dropped) = cap_lines(lines, 300);
+    assert_eq!((kept.len(), dropped), (2, 0));
+}

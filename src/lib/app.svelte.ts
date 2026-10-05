@@ -46,6 +46,10 @@ class AppStore {
 	latencyHistory = $state<Record<string, (number | null)[]>>({});
 	exitIp = $state<string | null>(null);
 	delayMs = $state<number | null>(null);
+	/** Result of the Ping button: through the tunnel when connected, straight to the server otherwise. */
+	check = $state<Latency | undefined>(undefined);
+	/** What `check` measured, so a result is not shown after the connection state changed. */
+	checkVia = $state<'tunnel' | 'server'>('server');
 	pendingImport = $state<string | null>(null);
 	/** True once the first snapshot from the backend has been applied. */
 	loaded = $state(false);
@@ -149,6 +153,25 @@ class AppStore {
 			this.exitIp = await api.exitIp();
 		} catch {
 			this.delayMs = null;
+		}
+	}
+
+	/** Checks the active server: end to end through the tunnel when connected, TCP otherwise. */
+	async checkServer() {
+		if (this.check && 'pending' in this.check) return;
+		this.check = { pending: true };
+		this.checkVia = this.connected ? 'tunnel' : 'server';
+		try {
+			if (this.connected) {
+				this.delayMs = await api.testConnection();
+				this.check = { ms: this.delayMs };
+			} else if (this.activeId) {
+				this.check = { ms: await api.pingProfile(this.activeId) };
+			} else {
+				this.check = { failed: true };
+			}
+		} catch {
+			this.check = { failed: true };
 		}
 	}
 

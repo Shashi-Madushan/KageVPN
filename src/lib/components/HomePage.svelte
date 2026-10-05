@@ -2,6 +2,7 @@
 	import { app } from '$lib/app.svelte';
 	import { privacy } from '$lib/privacy.svelte';
 	import { protocols } from '$lib/protocols.svelte';
+	import PingButton from './PingButton.svelte';
 	import PrivacyToggle from './PrivacyToggle.svelte';
 	import Sensitive from './Sensitive.svelte';
 	import { appUpdate } from '$lib/appUpdate.svelte';
@@ -153,11 +154,10 @@
 							<button class="ip-chip mono" onclick={copyExitIp} title="Copy IP address"><Sensitive>{app.exitIp}</Sensitive></button>
 						{/if}
 						{#if app.exitIp}<PrivacyToggle />{/if}
-						{#if app.delayMs !== null}
-							<span class="delay-chip tabular">{app.delayMs} ms</span>
-						{/if}
+						<PingButton />
 					{:else}
 						<span class="ready-sub">{app.profiles.length ? (isConnecting ? 'Establishing secure tunnel…' : 'Tap to connect') : 'Add a server to connect'}</span>
+						{#if app.profiles.length && !isConnecting}<PingButton />{/if}
 						{#if !app.profiles.length}<button class="linkbtn" onclick={() => onboarding.show()}>New here? Take the quick tour</button>{/if}
 					{/if}
 				</div>
@@ -424,14 +424,6 @@
 	}
 	.ip-chip:hover {
 		border-color: var(--accent);
-	}
-	.delay-chip {
-		padding: 3px 9px;
-		border-radius: 999px;
-		font-size: 11.5px;
-		font-weight: 600;
-		background: color-mix(in srgb, var(--ok) 16%, transparent);
-		color: var(--ok);
 	}
 	.ready-sub {
 		color: var(--fg-muted);

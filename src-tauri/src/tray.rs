@@ -11,7 +11,7 @@ use tauri::{
 };
 
 use crate::session::{self, State, Status};
-use crate::{notify, speed_icon};
+use crate::{net, notify, speed_icon};
 use crate::state::AppState;
 use crate::traffic::Traffic;
 
@@ -19,6 +19,7 @@ const TRAY_ID: &str = "main";
 const POPOVER: &str = "tray";
 const OPEN: &str = "open";
 const TOGGLE: &str = "toggle";
+const PING: &str = "ping";
 const QUIT: &str = "quit";
 const POPOVER_GAP: f64 = 6.0;
 const SCREEN_MARGIN: f64 = 8.0;
@@ -47,10 +48,11 @@ static SMOOTHED: Mutex<Option<(f64, f64)>> = Mutex::new(None);
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, OPEN, format!("Open {}", crate::app_config::APP_NAME), true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, TOGGLE, "Connect", true, None::<&str>)?;
+    let ping = MenuItem::with_id(app, PING, "Ping Server", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, QUIT, "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&open, &toggle, &PredefinedMenuItem::separator(app)?, &quit],
+        &[&open, &toggle, &ping, &PredefinedMenuItem::separator(app)?, &quit],
     )?;
 
     TrayIconBuilder::with_id(TRAY_ID)
@@ -61,6 +63,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id().as_ref() {
             OPEN => show_main_window(app),
             TOGGLE => toggle_connection(app),
+            PING => ping_server(app),
             QUIT => quit_app(app),
             _ => {}
         })
@@ -288,6 +291,30 @@ pub fn toggle_connection(app: &AppHandle) {
         if let Err(error) = result {
             notify::send(&app, "Connection failed", &error.to_string());
             show_main_window(&app);
+        }
+    });
+}
+
+/// Checks that the server answers and says so in a notification. While connected the check goes
+/// through the tunnel (so it proves traffic flows); otherwise it is a TCP connect to the server.
+pub fn ping_server(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        let connected = state.status.lock().unwrap().state == State::Connected;
+        let target = state.store.lock().unwrap().active_profile().map(|p| (p.name.clone(), p.server.clone(), p.port));
+        let Some((name, server, port)) = target else {
+            notify::send(&app, "Ping", "Add a server first.");
+            return;
+        };
+        let (result, how) = if connected {
+            (net::proxy_delay().await, "through the tunnel")
+        } else {
+            (net::tcp_latency(&server, port).await, "direct to the server")
+        };
+        match result {
+            Ok(ms) => notify::send(&app, "Server is working", &format!("{name}: {ms} ms {how}.")),
+            Err(error) => notify::send(&app, "Server did not answer", &format!("{name}: {error}")),
         }
     });
 }

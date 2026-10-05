@@ -8,7 +8,7 @@ use tokio::time::sleep;
 
 use crate::error::{AppError, Result};
 use crate::state::AppState;
-use crate::{net, notify, session};
+use crate::{applog, net, notify, session};
 
 const RECONNECT_DELAYS: [u64; 4] = [2, 5, 15, 30];
 const WATCHDOG_INTERVAL: Duration = Duration::from_secs(30);
@@ -39,7 +39,9 @@ pub fn spawn_reconnect(app: AppHandle) {
         let mut reconnected = false;
         for delay in RECONNECT_DELAYS {
             sleep(Duration::from_secs(delay)).await;
-            match session::connect(&app).await {
+            let result = session::connect(&app).await;
+            applog::info(format!("reconnect after {delay}s: {}", result.as_ref().map_or_else(|e| e.to_string(), |_| "ok".into())));
+            match result {
                 Ok(()) => {
                     reconnected = true;
                     break;
@@ -66,6 +68,7 @@ pub async fn restart_tunnel(app: &AppHandle, pid: u32, why: &str) {
     if *state.pid.lock().unwrap() != Some(pid) || state.stopping.load(Ordering::SeqCst) {
         return;
     }
+    applog::warn(format!("restart tunnel (pid {pid}): {why} and the tunnel stopped responding"));
     notify::send(app, "Reconnecting VPN", &format!("{why} and the tunnel stopped responding."));
     let _ = session::disconnect(app).await;
     spawn_reconnect(app.clone());
@@ -81,7 +84,10 @@ fn spawn_watchdog(app: AppHandle, pid: u32) {
             }
             match net::proxy_delay().await {
                 Ok(_) => failures = 0,
-                Err(_) => failures += 1,
+                Err(error) => {
+                    failures += 1;
+                    applog::warn(format!("watchdog probe failed ({failures}/{WATCHDOG_FAILURES}): {error}"));
+                }
             }
             if failures >= WATCHDOG_FAILURES {
                 session::tunnel_lost(&app, pid).await;

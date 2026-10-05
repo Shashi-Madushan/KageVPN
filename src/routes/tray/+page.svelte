@@ -5,6 +5,7 @@
 	import { formatBytes, formatDuration, formatRate, profileFlag } from '$lib/format';
 	import { usage } from '$lib/usage.svelte';
 	import PowerButton from '$lib/components/PowerButton.svelte';
+	import PingButton from '$lib/components/PingButton.svelte';
 	import PrivacyToggle from '$lib/components/PrivacyToggle.svelte';
 	import Sensitive from '$lib/components/Sensitive.svelte';
 	import Select from '$lib/components/Select.svelte';
@@ -61,7 +62,6 @@
 			{#if app.connected}
 				{#if activeName}<span class="name" title={activeName}>{activeName}</span>{/if}
 				{#if elapsed}<span class="dim tabular">{elapsed}</span>{/if}
-				{#if app.delayMs !== null}<span class="dim tabular">{app.delayMs} ms</span>{/if}
 			{:else if isConnecting}
 				<span class="dim">Establishing secure tunnel…</span>
 			{:else if app.profiles.length}
@@ -70,7 +70,10 @@
 				<span class="dim">Add a server to get started</span>
 			{/if}
 		</p>
-		{#if app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive>{app.exitIp}</Sensitive><PrivacyToggle /></span>{/if}
+		<div class="meta">
+			{#if app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive>{app.exitIp}</Sensitive><PrivacyToggle /></span>{/if}
+			{#if app.profiles.length && !isConnecting}<PingButton />{/if}
+		</div>
 	</section>
 
 	{#if app.profiles.length}
@@ -192,10 +195,6 @@
 		color: var(--fg-muted);
 		white-space: nowrap;
 	}
-	.sub .dim + .dim::before {
-		content: '·';
-		margin-right: 8px;
-	}
 	.name + .dim::before {
 		content: '·';
 		margin-right: 8px;
@@ -207,6 +206,14 @@
 		font-size: 11px;
 		color: var(--fg-muted);
 		user-select: text;
+	}
+	.meta {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-wrap: wrap;
+		gap: 8px;
+		min-height: 24px;
 	}
 	.add {
 		min-height: 34px;

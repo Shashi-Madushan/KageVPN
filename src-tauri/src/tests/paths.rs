@@ -65,3 +65,16 @@ fn when_several_old_folders_exist_the_first_listed_wins() {
     assert!(older.exists(), "the other old folder is left untouched");
     let _ = fs::remove_dir_all(root);
 }
+
+#[test]
+fn the_last_runs_sing_box_log_is_kept_when_the_next_run_starts() {
+    let dir = scratch("prevlog");
+    let paths = AppPaths::new(dir.clone()).unwrap();
+    fs::write(paths.log_file(), b"FATAL last words").unwrap();
+
+    paths.reset_runtime_files().unwrap();
+
+    assert_eq!(fs::read(dir.join("sing-box.log.prev")).unwrap(), b"FATAL last words");
+    assert_eq!(fs::read(paths.log_file()).unwrap(), b"");
+    let _ = fs::remove_dir_all(dir);
+}

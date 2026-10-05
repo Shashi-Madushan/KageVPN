@@ -7,10 +7,13 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::applog;
 use crate::state::AppState;
 
 const CAPACITY: usize = 2000;
 const POLL_INTERVAL: Duration = Duration::from_millis(400);
+/// At most this many lines go to the UI per poll; a traffic burst can log thousands.
+const MAX_LINES_PER_POLL: usize = 300;
 const LEVELS: [(&str, Level); 5] = [
     ("FATAL", Level::Error),
     ("ERROR", Level::Error),
@@ -125,10 +128,32 @@ pub fn spawn_tailer(app: AppHandle) {
             if lines.is_empty() {
                 continue;
             }
+            let (lines, dropped) = cap_lines(lines, MAX_LINES_PER_POLL);
+            if dropped > 0 {
+                applog::warn(format!("sing-box log burst: {dropped} lines not sent to the UI"));
+            }
             state.logs.push(&lines);
             let _ = app.emit("logs", lines);
         }
     });
+}
+
+/// Keeps every warning and error plus the newest lines, up to `cap` of the rest; returns how many
+/// lines were dropped. A burst of per-connection INFO lines would otherwise flood the UI.
+fn cap_lines(lines: Vec<LogLine>, cap: usize) -> (Vec<LogLine>, usize) {
+    if lines.len() <= cap {
+        return (lines, 0);
+    }
+    let first_kept = lines.len() - cap;
+    let before = lines.len();
+    let kept: Vec<LogLine> = lines
+        .into_iter()
+        .enumerate()
+        .filter(|(index, line)| *index >= first_kept || matches!(line.level, Level::Warn | Level::Error))
+        .map(|(_, line)| line)
+        .collect();
+    let dropped = before - kept.len();
+    (kept, dropped)
 }
 
 fn read_new_lines(path: &std::path::Path, offset: &mut u64, pending: &mut String) -> Vec<LogLine> {

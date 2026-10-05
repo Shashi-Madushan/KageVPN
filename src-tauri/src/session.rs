@@ -10,7 +10,7 @@ use crate::error::{AppError, Result};
 use crate::profile::Profile;
 use crate::state::AppState;
 use crate::usage::collector::spawn_connection_poll;
-use crate::{clash, core, net, notify, reliability, runner, traffic};
+use crate::{applog, clash, core, net, notify, reliability, runner, traffic};
 
 const READY_ATTEMPTS: u32 = 60;
 const STOP_ATTEMPTS: u32 = 40;
@@ -52,6 +52,7 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
     };
 
     begin(app, mode)?;
+    applog::info(format!("connect: starting ({mode:?})"));
     let secret = uuid::Uuid::new_v4().to_string();
     *state.clash_secret.lock().unwrap() = Some(secret.clone());
 
@@ -62,6 +63,7 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
                 s.state = State::Connected;
                 s.since = Some(now_secs());
             });
+            applog::info(format!("connect: up, supervisor pid {pid}"));
             watch(app.clone(), pid);
             traffic::spawn(app.clone(), pid, secret);
             spawn_connection_poll(app.clone(), pid);
@@ -69,6 +71,7 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
             Ok(())
         }
         Err(error) => {
+            applog::warn(format!("connect: failed: {error}"));
             *state.clash_secret.lock().unwrap() = None;
             let _ = runner::request_stop(&state.paths);
             update(app, |s| *s = Status { error: Some(error.to_string()), ..Status::disconnected(mode) });
@@ -83,6 +86,7 @@ pub async fn disconnect(app: &AppHandle) -> Result<()> {
         return Ok(());
     };
 
+    applog::info(format!("disconnect: stopping supervisor pid {pid}"));
     state.stopping.store(true, Ordering::SeqCst);
     runner::request_stop(&state.paths)?;
     for _ in 0..STOP_ATTEMPTS {
@@ -103,6 +107,7 @@ pub async fn tunnel_lost(app: &AppHandle, pid: u32) {
         return;
     }
     let reconnect = state.store.lock().unwrap().reliability().auto_reconnect;
+    applog::warn(format!("tunnel lost (pid {pid}): disconnecting, auto-reconnect {reconnect}"));
     notify::send(app, "VPN tunnel dropped", if reconnect { "Reconnecting…" } else { "The tunnel stopped." });
     let _ = disconnect(app).await;
     if reconnect {
@@ -244,6 +249,11 @@ fn finish(app: &AppHandle, pid: u32) {
 
     let stopped_by_user = state.stopping.load(Ordering::SeqCst);
     let error = if stopped_by_user { None } else { state.logs.last_error() };
+    applog::info(format!(
+        "supervisor pid {pid} gone ({}){}",
+        if stopped_by_user { "stopped by app" } else { "UNEXPECTED" },
+        error.as_deref().map(|e| format!("; last sing-box error: {e}")).unwrap_or_default()
+    ));
     let mode = state.store.lock().unwrap().mode();
     update(app, |s| *s = Status { error, ..Status::disconnected(mode) });
     traffic::reset(app);

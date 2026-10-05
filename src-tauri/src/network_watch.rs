@@ -9,7 +9,7 @@ use tokio::time::sleep;
 
 use crate::session::State;
 use crate::state::AppState;
-use crate::{net, reliability};
+use crate::{applog, net, reliability};
 
 const TICK: Duration = Duration::from_secs(3);
 /// A tick that took this much longer on the wall clock than on the monotonic clock means the Mac slept.
@@ -126,6 +126,7 @@ pub fn spawn(app: AppHandle) {
 }
 
 async fn handle(app: &AppHandle, change: Change) {
+    applog::info(format!("network watch: {change:?}"));
     if !should_react(app) {
         return;
     }

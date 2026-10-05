@@ -8,7 +8,7 @@ use tokio::time::sleep;
 use crate::config::CLASH_PORT;
 use crate::error::Result;
 use crate::state::AppState;
-use crate::{session, tray, usage};
+use crate::{applog, session, tray, usage};
 
 const HISTORY_LEN: usize = 60;
 const CONNECT_ATTEMPTS: u32 = 10;
@@ -57,10 +57,17 @@ impl TrafficState {
 
 pub fn spawn(app: AppHandle, pid: u32, secret: String) {
     tauri::async_runtime::spawn(async move {
-        let streamed = stream(&app, pid, &secret).await.unwrap_or(false);
+        let streamed = match stream(&app, pid, &secret).await {
+            Ok(streamed) => streamed,
+            Err(error) => {
+                applog::warn(format!("traffic stream failed (pid {pid}): {error}"));
+                false
+            }
+        };
         let current = *app.state::<AppState>().pid.lock().unwrap();
         match current {
             Some(active) if active == pid => {
+                applog::warn(format!("traffic stream ended while connected (pid {pid}, had data: {streamed})"));
                 if streamed {
                     session::tunnel_lost(&app, pid).await;
                 }
