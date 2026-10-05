@@ -5,6 +5,7 @@
 	import { app } from '$lib/app.svelte';
 	import { protocols } from '$lib/protocols.svelte';
 	import PrivacyToggle from './PrivacyToggle.svelte';
+	import { privacyKey } from '$lib/privacy.svelte';
 	import Sensitive from './Sensitive.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import { formatBytes, latencyLabel, latencyTone, profileFlag, stripFlag } from '$lib/format';
@@ -223,7 +224,7 @@
 									{:else}
 										<strong ondblclick={() => (renaming = profile.id)}>{stripFlag(profile.name)}</strong>
 									{/if}
-									<small class="mono"><Sensitive>{profile.server}:{profile.port}</Sensitive></small>
+									<small class="mono"><Sensitive id={privacyKey.server(profile.id)}>{profile.server}:{profile.port}</Sensitive></small>
 								</span>
 							</button>
 							<span class="proto">{profile.summary ?? ''}</span>
@@ -235,7 +236,7 @@
 									<span class="state {latencyTone(app.latency[profile.id])}">{latencyLabel(app.latency[profile.id])}</span>
 								{/if}
 							</button>
-							<PrivacyToggle />
+							<PrivacyToggle id={privacyKey.server(profile.id)} label="server address" />
 							<button class="icon-btn star" class:on={profile.favorite} onclick={() => app.toggleFavorite(profile.id)} aria-label={profile.favorite ? 'Remove favorite' : 'Add favorite'} aria-pressed={profile.favorite}>
 								{profile.favorite ? '★' : '☆'}
 							</button>

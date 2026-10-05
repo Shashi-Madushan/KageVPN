@@ -1,17 +1,21 @@
 <script lang="ts">
 	import { privacy } from '$lib/privacy.svelte';
 	import Icon from './Icon.svelte';
+
+	/** What this switch hides; see `privacyKey`. */
+	let { id, label = 'address' }: { id: string; label?: string } = $props();
+	const hidden = $derived(privacy.isHidden(id));
 </script>
 
 <button
 	type="button"
 	class="eye"
-	aria-label={privacy.hidden ? 'Show server and IP addresses' : 'Hide server and IP addresses'}
-	aria-pressed={!privacy.hidden}
-	title={privacy.hidden ? 'Show addresses' : 'Hide addresses'}
-	onclick={() => privacy.toggle()}
+	aria-label={hidden ? `Show ${label}` : `Hide ${label}`}
+	aria-pressed={!hidden}
+	title={hidden ? `Show ${label}` : `Hide ${label}`}
+	onclick={() => privacy.toggle(id)}
 >
-	<Icon name={privacy.hidden ? 'eye-off' : 'eye'} size={13} />
+	<Icon name={hidden ? 'eye-off' : 'eye'} size={13} />
 </button>
 
 <style>

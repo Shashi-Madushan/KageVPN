@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
-	import { privacy } from '$lib/privacy.svelte';
+	import { privacy, privacyKey } from '$lib/privacy.svelte';
 	import { protocols } from '$lib/protocols.svelte';
 	import PingButton from './PingButton.svelte';
 	import PrivacyToggle from './PrivacyToggle.svelte';
@@ -68,7 +68,7 @@
 	async function copyExitIp() {
 		if (!app.exitIp) return;
 		await navigator.clipboard.writeText(app.exitIp).catch(() => null);
-		app.notify(privacy.hidden ? 'Copied IP address' : `Copied IP: ${app.exitIp}`, 'info');
+		app.notify(privacy.isHidden(privacyKey.exitIp) ? 'Copied IP address' : `Copied IP: ${app.exitIp}`, 'info');
 	}
 </script>
 
@@ -151,9 +151,9 @@
 				<div class="ip-row">
 					{#if app.connected}
 						{#if app.exitIp}
-							<button class="ip-chip mono" onclick={copyExitIp} title="Copy IP address"><Sensitive>{app.exitIp}</Sensitive></button>
+							<button class="ip-chip mono" onclick={copyExitIp} title="Copy IP address"><Sensitive id={privacyKey.exitIp}>{app.exitIp}</Sensitive></button>
 						{/if}
-						{#if app.exitIp}<PrivacyToggle />{/if}
+						{#if app.exitIp}<PrivacyToggle id={privacyKey.exitIp} label="IP address" />{/if}
 						<PingButton />
 					{:else}
 						<span class="ready-sub">{app.profiles.length ? (isConnecting ? 'Establishing secure tunnel…' : 'Tap to connect') : 'Add a server to connect'}</span>
@@ -177,7 +177,11 @@
 							onchange={pickServer}
 						/>
 						{#if app.activeProfile && !app.auto.enabled}
-							<small class="server-sub mono"><Sensitive>{app.activeProfile.server}:{app.activeProfile.port}</Sensitive> · {protocols.label(app.activeProfile.protocol)}</small>
+							<small class="server-sub mono">
+								<Sensitive id={privacyKey.server(app.activeProfile.id)}>{app.activeProfile.server}:{app.activeProfile.port}</Sensitive>
+								<PrivacyToggle id={privacyKey.server(app.activeProfile.id)} label="server address" />
+								· {protocols.label(app.activeProfile.protocol)}
+							</small>
 						{:else if app.auto.enabled}
 							<small class="server-sub">Connects to the lowest-latency server</small>
 						{/if}
@@ -437,6 +441,10 @@
 		gap: 6px;
 	}
 	.server-sub {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		white-space: nowrap;
 		font-size: 11px;
 		color: var(--fg-muted);
 		padding-left: 2px;

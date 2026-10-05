@@ -1,34 +1,48 @@
-const KEY = 'apzur-vpn.hide-addresses';
+const KEY = 'apzur-vpn.revealed-addresses';
 
-function read(): boolean {
+/** Keys for the things that can be hidden, so each one has its own switch. */
+export const privacyKey = {
+	exitIp: 'exit-ip',
+	server: (profileId: string) => `server:${profileId}`
+};
+
+function read(): Record<string, true> {
 	try {
-		// Hidden unless the user chose to show them.
-		return localStorage.getItem(KEY) !== '0';
+		const list = JSON.parse(localStorage.getItem(KEY) ?? '[]');
+		return Array.isArray(list) ? Object.fromEntries(list.map((key) => [String(key), true as const])) : {};
 	} catch {
-		return true;
+		return {};
 	}
 }
 
 /**
- * Whether server and IP addresses are blurred. Shared by the main window and the tray popover
- * (one origin, one stored value). Starts hidden, so a screen share or a glance over the shoulder
- * does not reveal anything until the user clicks the eye.
+ * Which addresses are blurred. Every address has its own key and its own eye button; an address
+ * is hidden until the user reveals that one. Shared by the main window and the tray popover
+ * (one origin, one stored value), so a screen share or a glance over the shoulder never shows
+ * anything the user did not choose to show.
  */
 class PrivacyStore {
-	hidden = $state(true);
+	private revealed = $state<Record<string, true>>({});
 
 	init() {
-		this.hidden = read();
-		// Fires in the *other* window when one of them changes the setting.
+		this.revealed = read();
+		// Fires in the *other* window when one of them changes a switch.
 		window.addEventListener('storage', (event) => {
-			if (event.key === KEY) this.hidden = read();
+			if (event.key === KEY) this.revealed = read();
 		});
 	}
 
-	toggle() {
-		this.hidden = !this.hidden;
+	isHidden(key: string): boolean {
+		return !this.revealed[key];
+	}
+
+	toggle(key: string) {
+		const next = { ...this.revealed };
+		if (next[key]) delete next[key];
+		else next[key] = true;
+		this.revealed = next;
 		try {
-			localStorage.setItem(KEY, this.hidden ? '1' : '0');
+			localStorage.setItem(KEY, JSON.stringify(Object.keys(next)));
 		} catch {
 			// storage blocked: the choice still applies until the app restarts
 		}

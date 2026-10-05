@@ -7,6 +7,7 @@
 	import PowerButton from '$lib/components/PowerButton.svelte';
 	import PingButton from '$lib/components/PingButton.svelte';
 	import PrivacyToggle from '$lib/components/PrivacyToggle.svelte';
+	import { privacyKey } from '$lib/privacy.svelte';
 	import Sensitive from '$lib/components/Sensitive.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
@@ -71,7 +72,7 @@
 			{/if}
 		</p>
 		<div class="meta">
-			{#if app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive>{app.exitIp}</Sensitive><PrivacyToggle /></span>{/if}
+			{#if app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive id={privacyKey.exitIp}>{app.exitIp}</Sensitive><PrivacyToggle id={privacyKey.exitIp} label="IP address" /></span>{/if}
 			{#if app.profiles.length && !isConnecting}<PingButton />{/if}
 		</div>
 	</section>
