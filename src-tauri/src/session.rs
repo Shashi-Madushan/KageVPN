@@ -254,6 +254,9 @@ fn finish(app: &AppHandle, pid: u32) {
         if stopped_by_user { "stopped by app" } else { "UNEXPECTED" },
         error.as_deref().map(|e| format!("; last sing-box error: {e}")).unwrap_or_default()
     ));
+    if !stopped_by_user {
+        applog::warn(format!("sing-box stderr tail:\n{}", tail_of(&state.paths.stderr_log(), 15)));
+    }
     let mode = state.store.lock().unwrap().mode();
     update(app, |s| *s = Status { error, ..Status::disconnected(mode) });
     traffic::reset(app);
@@ -261,6 +264,17 @@ fn finish(app: &AppHandle, pid: u32) {
     if !stopped_by_user {
         notify::send(app, "VPN connection lost", "sing-box stopped unexpectedly.");
         reliability::on_unexpected_exit(app);
+    }
+}
+
+/// The last `count` lines of a text file, or a note when it cannot be read.
+fn tail_of(path: &std::path::Path, count: usize) -> String {
+    match std::fs::read_to_string(path) {
+        Ok(text) => {
+            let lines: Vec<&str> = text.lines().collect();
+            lines[lines.len().saturating_sub(count)..].join("\n")
+        }
+        Err(_) => "(no stderr log)".into(),
     }
 }
 

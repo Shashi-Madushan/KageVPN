@@ -25,12 +25,20 @@ release_block() {
   token=""
 }
 
-"$bin" run -c "$config" &
+# sing-box's own stderr (Go panics, fatal errors) and exit status, so a silent death leaves a trace.
+errlog="$(dirname "$config")/sing-box.stderr.log"
+[ "$(wc -c < "$errlog" 2>/dev/null || echo 0)" -gt 1000000 ] && : > "$errlog"
+"$bin" run -c "$config" >>"$errlog" 2>&1 &
 child=$!
 
 while kill -0 "$child" 2>/dev/null && [ ! -e "$stop" ] && kill -0 "$parent" 2>/dev/null; do
   sleep 0.5
 done
+
+if ! kill -0 "$child" 2>/dev/null; then
+  wait "$child" 2>/dev/null
+  echo "$(date '+%F %T') sing-box exited with status $? (stop requested: $([ -e "$stop" ] && echo yes || echo no))" >> "$errlog"
+fi
 
 if [ -n "$ips" ] && [ ! -e "$stop" ] && kill -0 "$parent" 2>/dev/null && ! kill -0 "$child" 2>/dev/null; then
   engage_block

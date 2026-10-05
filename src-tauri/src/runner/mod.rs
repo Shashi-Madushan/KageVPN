@@ -1,35 +1,103 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
+use std::time::Duration;
 
 use crate::config::Mode;
 use crate::error::{AppError, Result};
 use crate::paths::AppPaths;
 
 const SUPERVISOR: &str = include_str!("supervisor.sh");
+const HELPER: &str = include_str!("helper.sh");
 const USER_CANCELED: &str = "-128";
+const RUN_START_WAIT: Duration = Duration::from_secs(15);
+const HELPER_QUIT_WAIT: Duration = Duration::from_secs(4);
 
-/// Starts the supervisor script and returns its pid. TUN mode needs root, so the
-/// script is launched through one administrator prompt; stopping is done with a
-/// stop file so disconnecting never prompts again.
+/// The root helper for this app launch and the sing-box binary it was started for.
+static ROOT_HELPER: Mutex<Option<(u32, PathBuf)>> = Mutex::new(None);
+
+/// Starts sing-box and returns the pid whose lifetime is the connection's.
+///
+/// Proxy mode runs a plain per-connection supervisor. TUN mode needs root, so a helper is started
+/// through one administrator prompt per app launch and reused for every later connect; stopping
+/// is done with a stop file, so neither disconnecting nor reconnecting prompts again.
 pub async fn start(paths: &AppPaths, binary: &Path, mode: Mode, kill_switch_ips: Option<String>) -> Result<u32> {
+    match mode {
+        Mode::Tun => start_with_root_helper(paths, binary, kill_switch_ips).await,
+        Mode::Proxy => start_plain(paths, binary),
+    }
+}
+
+async fn start_with_root_helper(paths: &AppPaths, binary: &Path, kill_switch_ips: Option<String>) -> Result<u32> {
+    ensure_helper(paths, binary).await?;
+
+    let _ = std::fs::remove_file(paths.child_pid_file());
+    let command = match kill_switch_ips {
+        None => "none".to_string(),
+        Some(ips) if ips.is_empty() => "-".to_string(),
+        Some(ips) => ips,
+    };
+    let pending = paths.helper_start_file().with_extension("tmp");
+    std::fs::write(&pending, command)?;
+    std::fs::rename(&pending, paths.helper_start_file())?;
+
+    let waits = RUN_START_WAIT.as_millis() / 100;
+    for _ in 0..waits {
+        if let Some(pid) = std::fs::read_to_string(paths.child_pid_file()).ok().and_then(|t| t.trim().parse().ok()) {
+            return Ok(pid);
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    Err(AppError::Launch("the privileged helper did not start sing-box".into()))
+}
+
+/// Makes sure a root helper for `binary` is running, asking for the administrator password only
+/// when there is none yet (first connect after launch, or the engine changed).
+async fn ensure_helper(paths: &AppPaths, binary: &Path) -> Result<()> {
+    let current = ROOT_HELPER.lock().unwrap().clone();
+    if let Some((pid, running_binary)) = current {
+        if is_alive(pid) && running_binary == binary {
+            return Ok(());
+        }
+        if is_alive(pid) {
+            std::fs::write(paths.helper_quit_file(), b"")?;
+            let waits = HELPER_QUIT_WAIT.as_millis() / 100;
+            for _ in 0..waits {
+                if !is_alive(pid) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+        let _ = std::fs::remove_file(paths.helper_quit_file());
+    }
+
+    let script = paths.helper_script();
+    std::fs::write(&script, HELPER)?;
+    let args = vec![
+        script.display().to_string(),
+        binary.display().to_string(),
+        paths.config_file().display().to_string(),
+        paths.data_dir().display().to_string(),
+        std::process::id().to_string(),
+    ];
+    let pid = spawn_privileged(&args).await?;
+    *ROOT_HELPER.lock().unwrap() = Some((pid, binary.to_path_buf()));
+    Ok(())
+}
+
+fn start_plain(paths: &AppPaths, binary: &Path) -> Result<u32> {
     let script = paths.supervisor_script();
     std::fs::write(&script, SUPERVISOR)?;
 
-    let mut args = vec![
+    let args = vec![
         script.display().to_string(),
         binary.display().to_string(),
         paths.config_file().display().to_string(),
         paths.stop_file().display().to_string(),
         std::process::id().to_string(),
     ];
-    if let (Mode::Tun, Some(ips)) = (mode, kill_switch_ips) {
-        args.push(if ips.is_empty() { "-".to_string() } else { ips });
-    }
-
-    match mode {
-        Mode::Proxy => spawn_plain(&args),
-        Mode::Tun => spawn_privileged(&args).await,
-    }
+    spawn_plain(&args)
 }
 
 pub fn request_stop(paths: &AppPaths) -> Result<()> {

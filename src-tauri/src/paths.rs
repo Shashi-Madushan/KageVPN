@@ -65,8 +65,31 @@ impl AppPaths {
         self.data_dir.join("sing-box.log")
     }
 
+    /// sing-box's stderr and exit status, written by the supervisor or helper script.
+    pub fn stderr_log(&self) -> PathBuf {
+        self.data_dir.join("sing-box.stderr.log")
+    }
+
     pub fn stop_file(&self) -> PathBuf {
         self.data_dir.join("stop")
+    }
+
+    pub fn helper_script(&self) -> PathBuf {
+        self.data_dir.join("helper.sh")
+    }
+
+    /// Written by the app to ask the root helper for a run; see `runner/helper.sh`.
+    pub fn helper_start_file(&self) -> PathBuf {
+        self.data_dir.join("helper.start")
+    }
+
+    pub fn helper_quit_file(&self) -> PathBuf {
+        self.data_dir.join("helper.quit")
+    }
+
+    /// Written by the root helper with the pid of the sing-box it started.
+    pub fn child_pid_file(&self) -> PathBuf {
+        self.data_dir.join("child.pid")
     }
 
     pub fn supervisor_script(&self) -> PathBuf {
