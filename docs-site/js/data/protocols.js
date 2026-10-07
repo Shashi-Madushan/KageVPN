@@ -1,5 +1,5 @@
 /**
- * Apzur VPN Documentation — Protocol Reference Pages
+ * Kage VPN Documentation — Protocol Reference Pages
  */
 window.DOCS_PAGES = window.DOCS_PAGES || {};
 
@@ -38,7 +38,7 @@ window.DOCS_PAGES["protocol-reference/vless"] = {
       </p>
 
       <h2 id="uri-schema">URI Schema Specification</h2>
-      <p>Example of a standard VLESS Reality URI parsed by Apzur VPN:</p>
+      <p>Example of a standard VLESS Reality URI parsed by Kage VPN:</p>
     </div>
 
     <div class="code-block-container">
@@ -73,7 +73,7 @@ window.DOCS_PAGES["protocol-reference/vmess"] = {
     <div class="docs-prose">
       <h2 id="vmess-overview">Protocol Overview</h2>
       <p>
-        VMess is an encrypted transmission protocol designed to prevent active probing attacks. Apzur VPN supports the standard v2rayN Base64 JSON URI format.
+        VMess is an encrypted transmission protocol designed to prevent active probing attacks. Kage VPN supports the standard v2rayN Base64 JSON URI format.
       </p>
 
       <h2 id="supported-transports">Supported Transports</h2>
@@ -85,7 +85,7 @@ window.DOCS_PAGES["protocol-reference/vmess"] = {
       </ul>
 
       <h2 id="security-ciphers">Security Ciphers</h2>
-      <p>Apzur negotiates modern AEAD encryption for VMess connections:</p>
+      <p>Kage negotiates modern AEAD encryption for VMess connections:</p>
       <ul>
         <li><code>auto</code> (Negotiates AES-128-GCM or ChaCha20-Poly1305 based on hardware CPU AES-NI instructions).</li>
         <li><code>aes-128-gcm</code> (Hardware accelerated on Apple Silicon).</li>
@@ -114,7 +114,7 @@ window.DOCS_PAGES["protocol-reference/trojan"] = {
 
       <h2 id="alpn-negotiation">ALPN Negotiation & Certificates</h2>
       <p>
-        Apzur negotiates ALPN protocols (<code>h2, http/1.1</code>) and checks TLS certificates against macOS's system Keychain root store.
+        Kage negotiates ALPN protocols (<code>h2, http/1.1</code>) and checks TLS certificates against macOS's system Keychain root store.
       </p>
 
       <h2 id="uri-format">URI Format</h2>
@@ -187,7 +187,7 @@ window.DOCS_PAGES["protocol-reference/hysteria2"] = {
 
       <h2 id="salamander-obfuscation">Salamander Obfuscation</h2>
       <p>
-        Some ISPs intentionally throttle standard UDP QUIC traffic. Apzur supports Hysteria 2's Salamander obfuscation: packets are XOR-masked with a pre-shared password before hitting the wire, preventing ISP deep-packet inspection from recognizing QUIC headers.
+        Some ISPs intentionally throttle standard UDP QUIC traffic. Kage supports Hysteria 2's Salamander obfuscation: packets are XOR-masked with a pre-shared password before hitting the wire, preventing ISP deep-packet inspection from recognizing QUIC headers.
       </p>
 
       <h2 id="bandwidth-tuning">Bandwidth Tuning</h2>

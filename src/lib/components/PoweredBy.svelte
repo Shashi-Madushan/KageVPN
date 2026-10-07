@@ -6,8 +6,8 @@
 </script>
 
 {#if app.info.brand}
-	<div class="powered" class:start={align === 'start'} aria-label="Powered by {app.info.brand}">
-		<span>Powered by</span>
+	<div class="powered" class:start={align === 'start'} aria-label="Kage by {app.info.brand}">
+		<span>Kage by</span>
 		<ApzurLogo {height} />
 	</div>
 {/if}

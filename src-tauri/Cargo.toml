@@ -1,12 +1,12 @@
 [package]
-name = "apzur-vpn"
+name = "kage-vpn"
 version = "0.1.0"
 description = "Minimal sing-box VPN manager"
 authors = ["shashi"]
 edition = "2021"
 
 [lib]
-name = "apzur_vpn_lib"
+name = "kage_vpn_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -7,14 +7,14 @@
 
 // ── Identity ────────────────────────────────────────────────────────────────
 
-pub const APP_NAME: &str = "Apzur VPN";
-pub const APP_SLUG: &str = "apzur-vpn";
-/// The company shown in "Powered by …". The logo is drawn in `src/lib/components/ApzurLogo.svelte`.
+pub const APP_NAME: &str = "Kage VPN";
+pub const APP_SLUG: &str = "kage-vpn";
+/// The company shown in "Kage by …". The logo is drawn in `src/lib/components/ApzurLogo.svelte`.
 pub const BRAND_NAME: &str = "Apzur";
 
 /// Bundle identifiers earlier builds used. Their data folders are moved to the current one on
 /// first launch, so a rename never loses saved servers.
-pub const LEGACY_IDENTIFIERS: &[&str] = &["com.shashi.apzurvpn", "com.shashi.ospreyvpn", "com.shashi.singboxgui"];
+pub const LEGACY_IDENTIFIERS: &[&str] = &["com.apzur.vpn", "com.shashi.apzurvpn", "com.shashi.ospreyvpn", "com.shashi.singboxgui"];
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn user_agent() -> String {

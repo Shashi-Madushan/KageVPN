@@ -1,6 +1,6 @@
 <div align="center">
 
-# Apzur VPN
+# Kage VPN
 
 **A clean, native-feeling VPN manager for macOS, powered by [sing-box](https://sing-box.sagernet.org).**
 
@@ -10,7 +10,7 @@ Import your VLESS, VMess, Trojan, Shadowsocks or Hysteria2 servers, connect with
 ![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%2B%20Svelte-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-<img src="docs/images/home.png" alt="Apzur VPN home screen, connected" width="860">
+<img src="docs/images/home.png" alt="Kage VPN home screen, connected" width="860">
 
 </div>
 
@@ -18,7 +18,7 @@ Import your VLESS, VMess, Trojan, Shadowsocks or Hysteria2 servers, connect with
 
 ## What it is
 
-Apzur VPN is a desktop app that sits in your menu bar and manages a [sing-box](https://sing-box.sagernet.org) tunnel for you. You bring a server (a `vless://`, `vmess://`, `trojan://`, `ss://` or `hysteria2://` link, or a subscription URL from your provider); the app turns it into a working connection, keeps it healthy, and shows you what it is doing.
+Kage VPN is a desktop app that sits in your menu bar and manages a [sing-box](https://sing-box.sagernet.org) tunnel for you. You bring a server (a `vless://`, `vmess://`, `trojan://`, `ss://` or `hysteria2://` link, or a subscription URL from your provider); the app turns it into a working connection, keeps it healthy, and shows you what it is doing.
 
 It is for people who already have a VLESS, VMess, Trojan, Shadowsocks or Hysteria2 server or provider and want a polished Mac app instead of hand-editing config files. It does not sell or provide VPN servers.
 
@@ -27,12 +27,12 @@ It is for people who already have a VLESS, VMess, Trojan, Shadowsocks or Hysteri
 > **Requirements:** a Mac (Apple Silicon or Intel) and a server link or subscription. The app downloads the sing-box engine for you on first run.
 
 1. **Download** the latest `.dmg` from the [Releases page](../../releases).
-2. **Open** the disk image and drag **Apzur VPN** into your **Applications** folder.
+2. **Open** the disk image and drag **Kage VPN** into your **Applications** folder.
 3. **Open the app.** The first time, macOS will probably stop it. That is expected, and the next section explains how to get past it.
 
-### "Apzur VPN cannot be opened" (unsigned app)
+### "Kage VPN cannot be opened" (unsigned app)
 
-macOS Gatekeeper blocks apps that are not signed and notarized with a paid Apple Developer ID. Apzur VPN is not notarized yet, so macOS shows a warning such as *"Apple could not verify Apzur VPN is free of malware"* or *"Apzur VPN is damaged and can't be opened"*. The file is not damaged: macOS adds a quarantine flag to everything downloaded from the internet, and that flag is what triggers the warning.
+macOS Gatekeeper blocks apps that are not signed and notarized with a paid Apple Developer ID. Kage VPN is not notarized yet, so macOS shows a warning such as *"Apple could not verify Kage VPN is free of malware"* or *"Kage VPN is damaged and can't be opened"*. The file is not damaged: macOS adds a quarantine flag to everything downloaded from the internet, and that flag is what triggers the warning.
 
 Only do this for a build you downloaded from this repository's Releases page.
 
@@ -40,12 +40,12 @@ Only do this for a build you downloaded from this repository's Releases page.
 
 1. Open the app once and click **Done** (or **Cancel**) on the warning.
 2. Open **System Settings → Privacy & Security**.
-3. Scroll to **Security**. You will see *"Apzur VPN was blocked to protect your Mac."*
+3. Scroll to **Security**. You will see *"Kage VPN was blocked to protect your Mac."*
 4. Click **Open Anyway**, enter your password, then click **Open**.
 
 **Option B: Right-click → Open** (macOS 14 and earlier)
 
-1. In **Applications**, hold **Control** and click **Apzur VPN** (or right-click it).
+1. In **Applications**, hold **Control** and click **Kage VPN** (or right-click it).
 2. Choose **Open**, then click **Open** again in the dialog.
 
 **Option C: Remove the quarantine flag in Terminal**
@@ -53,7 +53,7 @@ Only do this for a build you downloaded from this repository's Releases page.
 This is the fix for the "is damaged and can't be opened" message.
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/Apzur VPN.app"
+xattr -dr com.apple.quarantine "/Applications/Kage VPN.app"
 ```
 
 Then open the app normally. You only need to do this once per downloaded version. Updates that the app downloads and installs itself are checked against its own signing key and normally do not show the warning again.
@@ -68,14 +68,14 @@ Then open the app normally. You only need to do this once per downloaded version
 ### Uninstall
 
 1. Quit the app from its menu-bar icon or **Settings → Quit**.
-2. Drag **Apzur VPN** from Applications to the Trash.
+2. Drag **Kage VPN** from Applications to the Trash.
 3. Optional, remove saved data (servers, settings, usage history, downloaded engines):
    ```bash
-   rm -rf "$HOME/Library/Application Support/com.apzur.vpn"
+   rm -rf "$HOME/Library/Application Support/com.apzur.kage"
    ```
 4. If you had the kill switch on and your internet stays blocked after an unexpected quit, open the app and use **Settings → Restore internet access**, or run:
    ```bash
-   sudo pfctl -a "com.apple/250.ApzurVPN" -F all
+   sudo pfctl -a "com.apple/250.KageVPN" -F all
    ```
 
 ## Features
@@ -126,7 +126,7 @@ Then open the app normally. You only need to do this once per downloaded version
 ### Privacy and safety
 
 - **No telemetry and no analytics.** The app only talks to your servers, the sing-box release host, and the diagnostic services you trigger yourself (IP lookup and Cloudflare speed test).
-- **Everything is stored locally**, in `~/Library/Application Support/com.apzur.vpn`, with owner-only permissions and atomic writes. A damaged data file is set aside rather than overwritten.
+- **Everything is stored locally**, in `~/Library/Application Support/com.apzur.kage`, with owner-only permissions and atomic writes. A damaged data file is set aside rather than overwritten.
 
 ## Screenshots
 
@@ -208,7 +208,7 @@ Issues and pull requests are welcome. Please run the checks above before sending
 
 ## Author and contact
 
-**Shashi Madushan**, software developer and the maker of Apzur VPN.
+**Shashi Madushan**, software developer and the maker of Kage VPN.
 
 - GitHub: [@Shashi-Madushan](https://github.com/Shashi-Madushan)
 - Email: [shashisulakshan@gmail.com](mailto:shashisulakshan@gmail.com)
@@ -216,10 +216,10 @@ Issues and pull requests are welcome. Please run the checks above before sending
 
 ## License
 
-[MIT](LICENSE) © 2026 Shashi Madushan. sing-box is a separate project with its own license; Apzur VPN downloads and runs it but does not modify it.
+[MIT](LICENSE) © 2026 Shashi Madushan. sing-box is a separate project with its own license; Kage VPN downloads and runs it but does not modify it.
 
 ---
 
 <div align="center">
-<sub>Powered by <b>Apzur</b></sub>
+<sub>Kage by <b>Apzur</b></sub>
 </div>

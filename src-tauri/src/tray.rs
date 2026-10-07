@@ -201,6 +201,9 @@ fn window_or_create(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
 pub fn show_main_window(app: &AppHandle) {
     hide_popover(app);
     if let Some(window) = window_or_create(app, "main") {
+        // The app is menu-bar only (LSUIElement); it gets a Dock icon while its window is open.
+        #[cfg(target_os = "macos")]
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
@@ -232,6 +235,10 @@ fn schedule_popover_destroy(app: &AppHandle) {
 }
 
 pub fn handle_window_event(window: &Window, event: &WindowEvent) {
+    #[cfg(target_os = "macos")]
+    if window.label() == "main" && matches!(event, WindowEvent::Destroyed) {
+        let _ = window.app_handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
+    }
     if window.label() == POPOVER && matches!(event, WindowEvent::Focused(false)) {
         LAST_BLUR_MS.store(now_ms(), Ordering::Relaxed);
         let _ = window.hide();

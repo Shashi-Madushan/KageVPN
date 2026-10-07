@@ -1,4 +1,4 @@
-# PRD v2: Apzur VPN — core management, data usage and a richer VLESS client
+# PRD v2: Kage VPN — core management, data usage and a richer VLESS client
 
 | | |
 |---|---|
@@ -20,7 +20,7 @@ Built in this pass. The Rust side passes `cargo clippy`, the Svelte side passes 
 | V3 usage collector | Built, not tested: per-minute store, hourly roll-up, per-app and per-domain estimates, quota alerts at 80 and 100 percent, optional disconnect |
 | V4 usage UI | Built, not tested: range presets and custom dates, group by hour/day/week/month, profile, mode, app and domain filters, previous-period comparison, interactive chart with drill-down, top tables, CSV export, cap and cycle settings |
 | V5 VLESS in full | Built, not tested: edit form, Reality, WebSocket, gRPC, HTTPUpgrade, groups, favorites, search, duplicate, bulk import, share link and QR code |
-| V6 subscriptions | Built, not tested: plain and base64 lists, scheduled refresh, quota and expiry from `subscription-userinfo`, clipboard watcher (opt-in), `apzurvpn://` deep links |
+| V6 subscriptions | Built, not tested: plain and base64 lists, scheduled refresh, quota and expiry from `subscription-userinfo`, clipboard watcher (opt-in), `kagevpn://` deep links |
 | V7 smart connect | Built, not tested: test all (real delay when connected, TCP otherwise), latency history sparklines, live profile switching without reconnect, auto-fastest mode with failover |
 | V8 routing | Built, not tested: global, rule and direct modes, rule editor with reorder, country lists, DNS provider choice, rule tester |
 | V9 connections and diagnostics | Built, not tested: live connection table with close, leak check, speed test, support report |
@@ -137,7 +137,7 @@ Commands: `usage_summary`, `usage_series`, `usage_top`, `usage_export`, `usage_s
 
 ### 4.3 Profiles, VLESS in full (P0)
 - **Edit form** for every VLESS parameter: server, port, UUID, flow (`xtls-rprx-vision`), TLS or **Reality** (public key, short id, SNI, fingerprint), transport (**TCP, WebSocket, gRPC, HTTPUpgrade**) with path, host, service name, ALPN, certificate pin handling (existing Trust flow), packet encoding.
-- **Import:** paste, drag-drop text or file, **clipboard watcher** ("A vless:// link was copied. Import?"), **bulk import** (many links at once), QR code scan from an image, `apzurvpn://import?url=...` deep link.
+- **Import:** paste, drag-drop text or file, **clipboard watcher** ("A vless:// link was copied. Import?"), **bulk import** (many links at once), QR code scan from an image, `kagevpn://import?url=...` deep link.
 - **Export:** copy share link, show **QR code**.
 - **Organize:** groups/folders, tags, favorites, drag to reorder, duplicate, rename, sort by name or latency.
 - **Subscriptions (VLESS lists):** add a URL that returns links (plain or base64); refresh on a schedule or manually; show server-reported quota and expiry from the `subscription-userinfo` header; keep removed nodes for one cycle before deleting.
@@ -183,7 +183,7 @@ The tray popover stays compact and gains a Today/This-month usage line and the q
 
 ### 4.9 Notifications and shortcuts (P1)
 - macOS notifications for: connect failed (including background and auto-connect), tunnel dropped, quota 80% and 100%, core update available, subscription expired.
-- Global hotkey to toggle the connection; URL scheme `apzurvpn://connect`, `disconnect`, `import`.
+- Global hotkey to toggle the connection; URL scheme `kagevpn://connect`, `disconnect`, `import`.
 - Onboarding on first run: check core, offer install, import a link, test.
 
 ## 5. Technical design

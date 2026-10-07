@@ -1,4 +1,4 @@
-const KEY = 'apzur-vpn.revealed-addresses';
+const KEY = 'kage-vpn.revealed-addresses';
 
 /** Keys for the things that can be hidden, so each one has its own switch. */
 export const privacyKey = {

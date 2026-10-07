@@ -42,7 +42,7 @@ fn generated_configs_pass_singbox_check() {
     let profiles = every_protocol();
     let routing = RoutingSettings::default();
     for mode in [Mode::Tun, Mode::Proxy] {
-        let path = std::env::temp_dir().join(format!("apzur-vpn-test-{mode:?}.json"));
+        let path = std::env::temp_dir().join(format!("kage-vpn-test-{mode:?}.json"));
         let cfg = build(&input(&profiles, &routing, mode)).unwrap();
         std::fs::write(&path, serde_json::to_vec(&cfg).unwrap()).unwrap();
         crate::singbox::check(&binary, &path).unwrap();

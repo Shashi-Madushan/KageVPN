@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Apzur VPN",
+  "productName": "Kage VPN",
   "version": "0.1.0",
-  "identifier": "com.apzur.vpn",
+  "identifier": "com.apzur.kage",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Apzur VPN",
+        "title": "Kage VPN",
         "width": 960,
         "height": 620,
         "minWidth": 520,
@@ -81,7 +81,7 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "apzurvpn"
+          "kagevpn"
         ]
       }
     }

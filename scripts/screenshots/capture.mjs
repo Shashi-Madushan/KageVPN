@@ -70,8 +70,8 @@ async function shot(file, { path = '/', framed = true, connected = true, withSer
 	await page.addInitScript(demoScript({ connected, withServers }));
 	await page.addInitScript(([t, seen]) => {
 		try {
-			localStorage.setItem('apzur-vpn.theme', t);
-			if (seen) localStorage.setItem('apzur-vpn.onboarding-seen', '1');
+			localStorage.setItem('kage-vpn.theme', t);
+			if (seen) localStorage.setItem('kage-vpn.onboarding-seen', '1');
 		} catch {}
 	}, [theme, tourSeen]);
 	await page.goto(`http://localhost:${PORT}${path}`);

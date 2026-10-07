@@ -1,5 +1,5 @@
 /**
- * Apzur VPN Documentation — Architecture Deep Dive Pages
+ * Kage VPN Documentation — Architecture Deep Dive Pages
  */
 window.DOCS_PAGES = window.DOCS_PAGES || {};
 
@@ -7,7 +7,7 @@ window.DOCS_PAGES["architecture/system-overview"] = {
   category: "Architecture",
   title: "Subsystem Architecture & Overview",
   featureBadge: "System Design",
-  lead: "Examine how Apzur VPN orchestrates its reactive frontend, Tauri 2 Rust supervisor, root helper script, and the sing-box core into a resilient, high-speed macOS application.", 
+  lead: "Examine how Kage VPN orchestrates its reactive frontend, Tauri 2 Rust supervisor, root helper script, and the sing-box core into a resilient, high-speed macOS application.", 
   toc: [
     { id: "component-topology", label: "Component Topology" },
     { id: "data-control-flow", label: "Data & Control Flow" },
@@ -18,7 +18,7 @@ window.DOCS_PAGES["architecture/system-overview"] = {
     <div class="docs-prose">
       <h2 id="component-topology">Component Topology</h2>
       <p>
-        Apzur VPN avoids monolithic design by segregating responsibilities into distinct execution domains:
+        Kage VPN avoids monolithic design by segregating responsibilities into distinct execution domains:
       </p>
 
       <div class="docs-table-wrapper">
@@ -116,7 +116,7 @@ window.DOCS_PAGES["architecture/tauri-ipc"] = {
   category: "Architecture",
   title: "Tauri 2 IPC & State Store",
   featureBadge: "Rust Backend",
-  lead: "Discover how Apzur leverages Tauri 2's secure inter-process communication bridge and thread-safe Rust Mutex stores to guarantee responsive UI interactions.",
+  lead: "Discover how Kage leverages Tauri 2's secure inter-process communication bridge and thread-safe Rust Mutex stores to guarantee responsive UI interactions.",
   toc: [
     { id: "command-dispatch", label: "Command Invocation" },
     { id: "event-streams", label: "Asynchronous Event Streams" },
@@ -168,7 +168,7 @@ window.DOCS_PAGES["architecture/core-supervision"] = {
   category: "Architecture",
   title: "Core Supervision & Stopfile Protocol",
   featureBadge: "Lifecycle",
-  lead: "Deep dive into Apzur's zero-orphan daemon supervisor and the file-based handshake protocol that guarantees clean process termination.",
+  lead: "Deep dive into Kage's zero-orphan daemon supervisor and the file-based handshake protocol that guarantees clean process termination.",
   toc: [
     { id: "orphan-problem", label: "The Orphan Process Risk" },
     { id: "stopfile-handshake", label: "The .stop Handshake Protocol" },
@@ -183,7 +183,7 @@ window.DOCS_PAGES["architecture/core-supervision"] = {
 
       <h2 id="stopfile-handshake">The .stop Handshake Protocol</h2>
       <p>
-        Apzur VPN solves this via a robust, file-based stopfile protocol implemented between Rust and <code>scripts/helper.sh</code>:
+        Kage VPN solves this via a robust, file-based stopfile protocol implemented between Rust and <code>scripts/helper.sh</code>:
       </p>
     </div>
 
@@ -204,7 +204,7 @@ window.DOCS_PAGES["architecture/core-supervision"] = {
           <div class="step-title">Stopfile Signal Generation</div>
         </div>
         <div class="step-body">
-          <p>When disconnecting or quitting, Apzur touches a sentinel file named <code>singbox.stop</code> in the runtime directory and sends <code>SIGTERM</code>.</p>
+          <p>When disconnecting or quitting, Kage touches a sentinel file named <code>singbox.stop</code> in the runtime directory and sends <code>SIGTERM</code>.</p>
         </div>
       </div>
 
@@ -232,7 +232,7 @@ window.DOCS_PAGES["architecture/tun-pfctl"] = {
   category: "Architecture",
   title: "TUN Interface & macOS pfctl Routing",
   featureBadge: "Kernel Networking",
-  lead: "Learn how Apzur creates the virtual utun device, installs system gateway overrides, and enforces packet filter anchors for zero-leak security.",
+  lead: "Learn how Kage creates the virtual utun device, installs system gateway overrides, and enforces packet filter anchors for zero-leak security.",
   toc: [
     { id: "utun-allocation", label: "Virtual utun Allocation" },
     { id: "route-table-manipulation", label: "Default Gateway Overrides" },
@@ -248,7 +248,7 @@ window.DOCS_PAGES["architecture/tun-pfctl"] = {
 
       <h2 id="route-table-manipulation">Default Gateway Overrides</h2>
       <p>
-        Instead of modifying the primary default gateway (which could break physical link renegotiation when switching Wi-Fi networks), Apzur utilizes a dual subnet mask technique:
+        Instead of modifying the primary default gateway (which could break physical link renegotiation when switching Wi-Fi networks), Kage utilizes a dual subnet mask technique:
       </p>
     </div>
 
@@ -268,7 +268,7 @@ route add -net 128.0.0.0/1 -interface utun3</code></pre>
 
       <h2 id="pfctl-anchor-rules">pfctl Anchor Rules</h2>
       <p>
-        When the Kill Switch is active, Apzur injects rules into the <code>com.apple/250.ApzurVPN</code> anchor table:
+        When the Kill Switch is active, Kage injects rules into the <code>com.apple/250.KageVPN</code> anchor table:
       </p>
     </div>
 
@@ -292,7 +292,7 @@ window.DOCS_PAGES["architecture/clash-ring-buffer"] = {
   category: "Architecture",
   title: "Clash API & Ring Buffer Telemetry",
   featureBadge: "Real-time Metrics",
-  lead: "Explore how Apzur queries sing-box's built-in Clash REST API and manages an in-memory ring buffer to provide instant connection telemetry without eating CPU.", 
+  lead: "Explore how Kage queries sing-box's built-in Clash REST API and manages an in-memory ring buffer to provide instant connection telemetry without eating CPU.", 
   toc: [
     { id: "clash-api-socket", label: "Clash REST API Socket" },
     { id: "circular-buffer", label: "Traffic Ring Buffer" },
@@ -302,7 +302,7 @@ window.DOCS_PAGES["architecture/clash-ring-buffer"] = {
     <div class="docs-prose">
       <h2 id="clash-api-socket">Clash REST API Socket</h2>
       <p>
-        sing-box integrates Clash API compatibility. When launched by Apzur, it starts a local REST endpoint on <code>127.0.0.1:9090</code> secured with an ephemeral bearer token generated at runtime.
+        sing-box integrates Clash API compatibility. When launched by Kage, it starts a local REST endpoint on <code>127.0.0.1:9090</code> secured with an ephemeral bearer token generated at runtime.
       </p>
       <ul>
         <li><code>GET /traffic</code> — Realtime byte streams (1 Hz broadcast).</li>
@@ -337,7 +337,7 @@ window.DOCS_PAGES["architecture/config-pipeline"] = {
     <div class="docs-prose">
       <h2 id="pipeline-phases">Compiler Pipeline Phases</h2>
       <p>
-        Generating an invalid configuration file can cause sing-box to crash on startup. Apzur uses a three-stage compilation pipeline before any process is executed:
+        Generating an invalid configuration file can cause sing-box to crash on startup. Kage uses a three-stage compilation pipeline before any process is executed:
       </p>
     </div>
 
@@ -379,7 +379,7 @@ window.DOCS_PAGES["architecture/privacy-redaction"] = {
   category: "Architecture",
   title: "Secret Redaction & Diagnostic Privacy",
   featureBadge: "Security",
-  lead: "Explore Apzur's privacy sanitization engine that prevents passwords, secret UUIDs, private keys, and server IPs from ever leaking into diagnostic logs.", 
+  lead: "Explore Kage's privacy sanitization engine that prevents passwords, secret UUIDs, private keys, and server IPs from ever leaking into diagnostic logs.", 
   toc: [
     { id: "privacy-commitment", label: "Privacy Commitment" },
     { id: "redaction-filters", label: "Redaction Filters & Regex" },

@@ -14,9 +14,9 @@ const RECONNECT_DELAYS: [u64; 4] = [2, 5, 15, 30];
 const WATCHDOG_INTERVAL: Duration = Duration::from_secs(30);
 const WATCHDOG_FAILURES: u32 = 3;
 const HOTKEY: &str = "CommandOrControl+Alt+V";
-const PF_ANCHOR: &str = "com.apple/250.ApzurVPN";
+const PF_ANCHOR: &str = "com.apple/250.KageVPN";
 /// Anchor used before the rename; still flushed so an old kill switch can never strand the network.
-const LEGACY_PF_ANCHORS: [&str; 2] = ["com.apple/250.OspreyVPN", "com.apple/250.SingBoxGUI"];
+const LEGACY_PF_ANCHORS: [&str; 3] = ["com.apple/250.ApzurVPN", "com.apple/250.OspreyVPN", "com.apple/250.SingBoxGUI"];
 
 pub fn on_connected(app: &AppHandle, pid: u32) {
     if app.state::<AppState>().store.lock().unwrap().reliability().watchdog {

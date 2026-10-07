@@ -1,5 +1,5 @@
 /**
- * Apzur VPN Documentation — Changelog
+ * Kage VPN Documentation — Changelog
  * Newest first. Keep entries short and user-facing; add a new <h2> block per release or date.
  */
 window.DOCS_PAGES = window.DOCS_PAGES || {};
@@ -7,8 +7,9 @@ window.DOCS_PAGES = window.DOCS_PAGES || {};
 window.DOCS_PAGES["changelog/changelog"] = {
   category: "Changelog",
   title: "Changelog",
-  lead: "What changed in Apzur VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
+  lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-7", label: "7 Oct 2026" },
     { id: "oct-5", label: "5 Oct 2026" },
     { id: "oct-4", label: "4 Oct 2026" },
     { id: "oct-3", label: "3 Oct 2026" },
@@ -17,6 +18,12 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-7">7 October 2026</h2>
+      <ul>
+        <li><strong>New:</strong> The app is now called <strong>Kage VPN</strong>, with a new moon-and-ninja icon and menu bar glyphs. Your servers, settings and usage history move over automatically on first launch.</li>
+        <li><strong>Changed:</strong> The URL scheme is now <code>kagevpn://</code> (was <code>apzurvpn://</code>) and the data folder is <code>com.apzur.kage</code>.</li>
+      </ul>
+
       <h2 id="oct-5">5 October 2026</h2>
       <ul>
         <li><strong>New:</strong> Ping any server from the Servers page and see its latency in the list.</li>
