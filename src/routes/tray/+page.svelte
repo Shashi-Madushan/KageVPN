@@ -21,8 +21,8 @@
 	let now = $state(Math.floor(Date.now() / 1000));
 
 	onMount(() => {
-		app.init();
-		usage.loadToday();
+		// The popover opens first; data fills in afterwards so the open itself never stalls.
+		app.init().then(() => setTimeout(() => usage.loadToday(), 0));
 		const timer = setInterval(() => (now = Math.floor(Date.now() / 1000)), 1000);
 		
 		const handleKey = (e: KeyboardEvent) => {
@@ -56,11 +56,13 @@
 <div class="popover">
 	<button class="close-btn" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
 
-	<section class="hero">
-		<PowerButton state={app.status.state} size={76} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
-		<h1 class="headline {app.status.state}">{headline}</h1>
+	<section class="hero" class:pending={!app.loaded}>
+		<PowerButton state={app.status.state} size={76} disabled={!app.loaded || app.busy || !app.activeProfile} onclick={() => app.toggle()} />
+		<h1 class="headline {app.status.state}">{app.loaded ? headline : '\u00a0'}</h1>
 		<p class="sub">
-			{#if app.connected}
+			{#if !app.loaded}
+				<span class="dim">&nbsp;</span>
+			{:else if app.connected}
 				{#if activeName}<span class="name" title={activeName}>{activeName}</span>{/if}
 				{#if elapsed}<span class="dim tabular">{elapsed}</span>{/if}
 			{:else if isConnecting}
@@ -72,12 +74,18 @@
 			{/if}
 		</p>
 		<div class="meta">
-			{#if app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive id={privacyKey.exitIp}>{app.exitIp}</Sensitive><PrivacyToggle id={privacyKey.exitIp} label="IP address" /></span>{/if}
-			{#if app.profiles.length && !isConnecting}<PingButton />{/if}
+			{#if app.loaded && app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive id={privacyKey.exitIp}>{app.exitIp}</Sensitive><PrivacyToggle id={privacyKey.exitIp} label="IP address" /></span>{/if}
+			{#if app.loaded && app.profiles.length && !isConnecting}<PingButton />{/if}
 		</div>
 	</section>
 
-	{#if app.profiles.length}
+	{#if !app.loaded}
+		<div class="skeleton" aria-hidden="true">
+			<div class="sk sk-select"></div>
+			<div class="sk sk-stats"></div>
+			<div class="sk sk-mode"></div>
+		</div>
+	{:else if app.profiles.length}
 		<div class="pick">
 		<Select
 			grow
@@ -97,7 +105,7 @@
 		<button class="btn primary add" onclick={() => api.openMainWindow()}>Add a server…</button>
 	{/if}
 
-	{#if app.profiles.length}
+	{#if app.loaded && app.profiles.length}
 	<section class="stats group" aria-label="Traffic">
 		{#if app.connected}
 			<div class="speeds">
@@ -107,13 +115,13 @@
 			<div class="graph"><Sparkline samples={app.history} height={34} /></div>
 		{/if}
 		<div class="today">
-			<span>Today <strong class="tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong></span>
+			<span>Today <strong class="tabular">{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}</strong></span>
 			{#if usage.quota?.limit}<span class="tabular">{usage.quota.percent.toFixed(0)}% of cap</span>{/if}
 		</div>
 	</section>
 
 	<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
-	{#if app.locked}<p class="lock">Disconnect to change server or mode.</p>{/if}
+	{#if app.loaded && app.locked}<p class="lock">Disconnect to change server or mode.</p>{/if}
 	{/if}
 
 	<footer>
@@ -218,6 +226,41 @@
 	}
 	.add {
 		min-height: 34px;
+	}
+	.hero.pending {
+		opacity: 0.55;
+	}
+	.skeleton {
+		display: grid;
+		gap: 10px;
+	}
+	.sk {
+		border-radius: 8px;
+		background: var(--hairline);
+		animation: pulse 1.2s ease-in-out infinite;
+	}
+	.sk-select {
+		height: 34px;
+	}
+	.sk-stats {
+		height: 92px;
+	}
+	.sk-mode {
+		height: 30px;
+	}
+	@keyframes pulse {
+		50% {
+			opacity: 0.45;
+		}
+	}
+	.pick,
+	.stats {
+		animation: fade-in 0.15s ease-out;
+	}
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+		}
 	}
 	.pick {
 		display: flex;

@@ -25,7 +25,7 @@ const POPOVER_GAP: f64 = 6.0;
 const SCREEN_MARGIN: f64 = 8.0;
 const REOPEN_GUARD_MS: u64 = 250;
 /// A hidden popover keeps its WebView for this long, then is destroyed to free memory.
-const POPOVER_IDLE_MS: u64 = 60_000;
+const POPOVER_IDLE_MS: u64 = 180_000;
 
 static LAST_BLUR_MS: AtomicU64 = AtomicU64::new(0);
 static POPOVER_GEN: AtomicU64 = AtomicU64::new(0);

@@ -64,9 +64,9 @@ class AppStore {
 	hint = $derived<Hint | null>(this.logs.findLast((l) => l.hint)?.hint ?? null);
 
 	async init() {
-		this.info = await api.appInfo();
+		const [info, snap] = await Promise.all([api.appInfo(), api.snapshot()]);
+		this.info = info;
 		protocols.set(this.info.protocols);
-		const snap = await api.snapshot();
 		this.profiles = snap.profiles;
 		this.activeId = snap.activeId;
 		this.mode = snap.mode;
