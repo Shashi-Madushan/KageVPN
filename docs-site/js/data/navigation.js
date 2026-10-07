@@ -199,5 +199,15 @@ window.DOCS_NAVIGATION = [
         description: "High-throughput QUIC/UDP protocol with Salamander port obfuscation."
       }
     ]
+  },
+  {
+    category: "Changelog",
+    items: [
+      {
+        slug: "changelog/changelog",
+        title: "Changelog",
+        description: "What changed in each version of Apzur VPN."
+      }
+    ]
   }
 ];
