@@ -50,18 +50,29 @@
   });
 
   // ---- Sidebar (rendered once; active state toggled) ----
+  var COLLAPSED = { 'Architecture': 1, 'Developer Guide': 1, 'Protocol Reference': 1 };
   function renderSidebar() {
-    sidebarNav.innerHTML = nav.map(function (g) {
-      return '<div class="nav-group"><div class="nav-group-title">' + esc(g.category) + '</div><ul class="nav-list">' +
-        g.items.map(function (it) {
-          return '<li><a class="nav-link" href="#/' + esc(it.slug) + '" data-slug="' + esc(it.slug) + '">' + esc(it.title) + '</a></li>';
-        }).join('') + '</ul></div>';
+    var link = function (it) {
+      return '<li><a class="nav-link" href="#/' + esc(it.slug) + '" data-slug="' + esc(it.slug) + '">' + esc(it.title) + '</a></li>';
+    };
+    var pinned = nav.filter(function (g) { return g.category === 'Changelog'; });
+    var html = pinned.map(function (g) {
+      return '<ul class="nav-list nav-pinned">' + g.items.map(link).join('') + '</ul>';
     }).join('');
+    html += nav.filter(function (g) { return g.category !== 'Changelog'; }).map(function (g) {
+      var inner = '<ul class="nav-list">' + g.items.map(link).join('') + '</ul>';
+      if (COLLAPSED[g.category]) {
+        return '<details class="nav-group"><summary class="nav-group-title">' + esc(g.category) + '</summary>' + inner + '</details>';
+      }
+      return '<div class="nav-group"><div class="nav-group-title">' + esc(g.category) + '</div>' + inner + '</div>';
+    }).join('');
+    sidebarNav.innerHTML = html;
   }
   function markActive(slug) {
     sidebarNav.querySelectorAll('.nav-link').forEach(function (a) {
       if (a.getAttribute('data-slug') === slug) {
         a.setAttribute('aria-current', 'page');
+        var d = a.closest('details'); if (d) d.open = true;
         a.scrollIntoView({ block: 'nearest' });
       } else a.removeAttribute('aria-current');
     });
