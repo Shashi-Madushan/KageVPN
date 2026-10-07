@@ -1,5 +1,5 @@
 /**
- * Apzur VPN Documentation — Navigation Tree Structure
+ * Kage VPN Documentation — Navigation Tree Structure
  */
 window.DOCS_NAVIGATION = [
   {
@@ -10,13 +10,13 @@ window.DOCS_NAVIGATION = [
         slug: "getting-started/overview",
         title: "Overview & Features",
         badge: "Guide",
-        description: "What Apzur VPN is, core features, and architectural principles."
+        description: "What Kage VPN is, core features, and architectural principles."
       },
       {
         slug: "getting-started/gatekeeper",
         title: "macOS Gatekeeper Bypass",
         badge: "Security",
-        description: "How to fix 'Apzur VPN cannot be opened' or 'damaged' quarantine errors on macOS."
+        description: "How to fix 'Kage VPN cannot be opened' or 'damaged' quarantine errors on macOS."
       },
       {
         slug: "getting-started/first-run",
@@ -206,7 +206,7 @@ window.DOCS_NAVIGATION = [
       {
         slug: "changelog/changelog",
         title: "Changelog",
-        description: "What changed in each version of Apzur VPN."
+        description: "What changed in each version of Kage VPN."
       }
     ]
   }

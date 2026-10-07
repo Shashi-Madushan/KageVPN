@@ -219,7 +219,7 @@ fn register_deep_links(app: &tauri::AppHandle) {
     });
 }
 
-/// `apzurvpn://connect|disconnect|toggle` act directly; `import?url=` only asks
+/// `kagevpn://connect|disconnect|toggle` act directly; `import?url=` only asks
 /// the UI to confirm, so a link can never add a profile silently.
 fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
     let Ok(url) = url::Url::parse(raw) else { return };

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    apzur_vpn_lib::run()
+    kage_vpn_lib::run()
 }

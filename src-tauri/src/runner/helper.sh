@@ -7,7 +7,7 @@
 # reconnecting therefore never prompt again. <dir>/helper.quit makes the helper exit.
 bin="$1"; config="$2"; dir="$3"; parent="$4"
 stop="$dir/stop"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
-anchor="com.apple/250.ApzurVPN"
+anchor="com.apple/250.KageVPN"
 token=""
 child=""
 

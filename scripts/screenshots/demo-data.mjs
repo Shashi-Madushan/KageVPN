@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 const protocols = JSON.parse(readFileSync(new URL('./protocols.json', import.meta.url), 'utf8'));
 
 /** Returns JavaScript that installs a fake Tauri backend before the app loads. */
-export function demoScript({ connected = true, withServers = true, name = 'Apzur VPN', version = '0.1.0' } = {}) {
+export function demoScript({ connected = true, withServers = true, name = 'Kage VPN', version = '0.1.0' } = {}) {
 	return `(${install.toString()})(${JSON.stringify({ connected, withServers, name, version, protocols })});`;
 }
 
@@ -111,7 +111,7 @@ function install(opts) {
 	const coreRef = { id: 'sing-box', name: 'sing-box', runnable: true, minVersion: '1.12.0', requiredFeatures: ['with_clash_api', 'with_utls'] };
 	const coreStatus = {
 		core: coreRef, cores: [coreRef],
-		active: { path: '~/Library/Application Support/com.apzur.vpn/core/sing-box/1.12.9/sing-box', version: '1.12.9', tags: ['with_clash_api', 'with_utls'], source: 'managed', missingTags: [], outdated: false },
+		active: { path: '~/Library/Application Support/com.apzur.kage/core/sing-box/1.12.9/sing-box', version: '1.12.9', tags: ['with_clash_api', 'with_utls'], source: 'managed', missingTags: [], outdated: false },
 		error: null, system: null,
 		installed: [{ version: '1.12.9', path: '/x', installedAt: now - 5 * day }, { version: '1.12.8', path: '/y', installedAt: now - 19 * day }],
 		settings: { managedVersion: '1.12.9', channel: 'stable', autoCheck: true, lastCheck: now - 3600, updatePolicy: 'ask', pendingVersion: null }, busy: false

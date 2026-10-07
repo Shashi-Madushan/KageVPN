@@ -1,5 +1,5 @@
 /**
- * Apzur VPN Documentation — Getting Started Pages
+ * Kage VPN Documentation — Getting Started Pages
  */
 window.DOCS_PAGES = window.DOCS_PAGES || {};
 
@@ -7,14 +7,14 @@ window.DOCS_PAGES["getting-started/overview"] = {
   category: "Getting Started",
   title: "Introduction & Overview",
   featureBadge: "v0.2.0 Native",
-  lead: "Apzur VPN is a modern, lightweight, native-feeling macOS VPN client engineered around the sing-box proxy engine. It unites enterprise-grade proxy protocols with an elegant macOS interface built using Tauri 2 and Svelte 5.",
+  lead: "Kage VPN is a modern, lightweight, native-feeling macOS VPN client engineered around the sing-box proxy engine. It unites enterprise-grade proxy protocols with an elegant macOS interface built using Tauri 2 and Svelte 5.",
   heroImage: {
     src: "assets/images/home.png",
-    alt: "Apzur VPN Dashboard Connected State",
-    title: "Apzur VPN — Main Control Dashboard"
+    alt: "Kage VPN Dashboard Connected State",
+    title: "Kage VPN — Main Control Dashboard"
   },
   toc: [
-    { id: "what-is-apzur", label: "What is Apzur VPN?" },
+    { id: "what-is-apzur", label: "What is Kage VPN?" },
     { id: "key-capabilities", label: "Key Capabilities" },
     { id: "quick-start-steps", label: "Quick Start Workflow" },
     { id: "architecture-at-a-glance", label: "Architecture at a Glance" }
@@ -25,17 +25,17 @@ window.DOCS_PAGES["getting-started/overview"] = {
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       </div>
       <div>
-        <strong>System Requirement:</strong> macOS 12 Monterey or later (Apple Silicon M1/M2/M3/M4 and Intel x86_64). Apzur runs natively on both architectures without Rosetta emulation.
+        <strong>System Requirement:</strong> macOS 12 Monterey or later (Apple Silicon M1/M2/M3/M4 and Intel x86_64). Kage runs natively on both architectures without Rosetta emulation.
       </div>
     </div>
 
     <div class="docs-prose">
-      <h2>What is Apzur VPN?</h2>
+      <h2>What is Kage VPN?</h2>
       <p>
-        Most commercial VPN applications force users into closed subscription networks with proprietary protocols and heavy resource usage. Apzur VPN takes a different path: you bring your own server credentials or subscription feed, and Apzur provides a high-performance, open-source macOS native client that manages the <code>sing-box</code> engine.
+        Most commercial VPN applications force users into closed subscription networks with proprietary protocols and heavy resource usage. Kage VPN takes a different path: you bring your own server credentials or subscription feed, and Kage provides a high-performance, open-source macOS native client that manages the <code>sing-box</code> engine.
       </p>
       <p>
-        Whether you are bypassing network firewalls, securing remote public Wi-Fi, or orchestrating multi-protocol server fleets, Apzur gives you absolute visibility over your routing, active sockets, and encrypted traffic.
+        Whether you are bypassing network firewalls, securing remote public Wi-Fi, or orchestrating multi-protocol server fleets, Kage gives you absolute visibility over your routing, active sockets, and encrypted traffic.
       </p>
 
       <h2 id="key-capabilities">Key Capabilities</h2>
@@ -44,7 +44,7 @@ window.DOCS_PAGES["getting-started/overview"] = {
           <thead>
             <tr>
               <th>Feature</th>
-              <th>Apzur Implementation</th>
+              <th>Kage Implementation</th>
               <th>Benefit</th>
             </tr>
           </thead>
@@ -89,7 +89,7 @@ window.DOCS_PAGES["getting-started/overview"] = {
           <span class="step-badge-tag">macOS Disk Image</span>
         </div>
         <div class="step-body">
-          <p>Download the latest release disk image from GitHub. Drag <code>Apzur VPN.app</code> into your macOS <code>/Applications</code> directory.</p>
+          <p>Download the latest release disk image from GitHub. Drag <code>Kage VPN.app</code> into your macOS <code>/Applications</code> directory.</p>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ window.DOCS_PAGES["getting-started/overview"] = {
           <span class="step-badge-tag">One-time Action</span>
         </div>
         <div class="step-body">
-          <p>Because Apzur is distributed directly via GitHub Releases, macOS Gatekeeper may show a warning. Right-click and choose <strong>Open</strong> or approve in <strong>System Settings &rarr; Privacy & Security</strong>.</p>
+          <p>Because Kage is distributed directly via GitHub Releases, macOS Gatekeeper may show a warning. Right-click and choose <strong>Open</strong> or approve in <strong>System Settings &rarr; Privacy & Security</strong>.</p>
         </div>
       </div>
 
@@ -111,7 +111,7 @@ window.DOCS_PAGES["getting-started/overview"] = {
           <span class="step-badge-tag">One Click</span>
         </div>
         <div class="step-body">
-          <p>Paste a raw link (e.g. <code>vless://...</code>, <code>hysteria2://...</code>) or paste a provider subscription URL. Apzur automatically parses endpoints, latency ping, and security certificates.</p>
+          <p>Paste a raw link (e.g. <code>vless://...</code>, <code>hysteria2://...</code>) or paste a provider subscription URL. Kage automatically parses endpoints, latency ping, and security certificates.</p>
         </div>
       </div>
 
@@ -129,7 +129,7 @@ window.DOCS_PAGES["getting-started/overview"] = {
 
     <div class="quote-callout-card" id="architecture-at-a-glance">
       <div class="quote-callout-text">
-        "Apzur VPN is built for developers and privacy advocates who want complete control over their proxy tunnels without wrestling with raw configuration files or sluggish Electron apps."
+        "Kage VPN is built for developers and privacy advocates who want complete control over their proxy tunnels without wrestling with raw configuration files or sluggish Electron apps."
       </div>
       <div class="quote-callout-author">— Shashi Madushan, Maintainer</div>
     </div>
@@ -140,7 +140,7 @@ window.DOCS_PAGES["getting-started/gatekeeper"] = {
   category: "Getting Started",
   title: "macOS Gatekeeper & Security Fix",
   featureBadge: "Troubleshooting",
-  lead: "How to resolve 'Apzur VPN cannot be opened because Apple cannot verify malware' or 'damaged and can't be opened' messages on macOS Sequoia, Sonoma, and earlier.",
+  lead: "How to resolve 'Kage VPN cannot be opened because Apple cannot verify malware' or 'damaged and can't be opened' messages on macOS Sequoia, Sonoma, and earlier.",
   heroImage: {
     src: "assets/images/welcome.png",
     alt: "macOS Gatekeeper Warning and Welcome Screen",
@@ -158,7 +158,7 @@ window.DOCS_PAGES["getting-started/gatekeeper"] = {
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </div>
       <div>
-        <strong>Unsigned Application:</strong> Apzur VPN is an independent open-source project and is not notarized through a paid Apple Developer subscription. macOS automatically applies an extended quarantine attribute (<code>com.apple.quarantine</code>) to downloaded binaries.
+        <strong>Unsigned Application:</strong> Kage VPN is an independent open-source project and is not notarized through a paid Apple Developer subscription. macOS automatically applies an extended quarantine attribute (<code>com.apple.quarantine</code>) to downloaded binaries.
       </div>
     </div>
 
@@ -174,7 +174,7 @@ window.DOCS_PAGES["getting-started/gatekeeper"] = {
           <div class="step-title">Trigger the Gatekeeper Dialog</div>
         </div>
         <div class="step-body">
-          <p>Double-click <code>/Applications/Apzur VPN.app</code>. When macOS shows the security warning, click <strong>Done</strong> (or Cancel).</p>
+          <p>Double-click <code>/Applications/Kage VPN.app</code>. When macOS shows the security warning, click <strong>Done</strong> (or Cancel).</p>
         </div>
       </div>
 
@@ -195,26 +195,26 @@ window.DOCS_PAGES["getting-started/gatekeeper"] = {
           <span class="step-badge-tag">Authorize</span>
         </div>
         <div class="step-body">
-          <p>You will see the notice: <em>"Apzur VPN was blocked to protect your Mac."</em> Click <strong>Open Anyway</strong>, confirm with your Touch ID or password, and click <strong>Open</strong> in the subsequent prompt.</p>
+          <p>You will see the notice: <em>"Kage VPN was blocked to protect your Mac."</em> Click <strong>Open Anyway</strong>, confirm with your Touch ID or password, and click <strong>Open</strong> in the subsequent prompt.</p>
         </div>
       </div>
     </div>
 
     <div class="docs-prose">
       <h2 id="option-b">Option B: Remove Quarantine via Terminal (Permanent Fix)</h2>
-      <p>If macOS displays <em>"Apzur VPN is damaged and can't be opened"</em>, stripping the quarantine attribute immediately resolves the issue:</p>
+      <p>If macOS displays <em>"Kage VPN is damaged and can't be opened"</em>, stripping the quarantine attribute immediately resolves the issue:</p>
     </div>
 
     <div class="code-block-container">
       <div class="code-header">
         <span class="code-lang-label">bash</span>
-        <button class="btn-copy-code" data-code="xattr -dr com.apple.quarantine &quot;/Applications/Apzur VPN.app&quot;">Copy Command</button>
+        <button class="btn-copy-code" data-code="xattr -dr com.apple.quarantine &quot;/Applications/Kage VPN.app&quot;">Copy Command</button>
       </div>
-      <pre><code>xattr -dr com.apple.quarantine "/Applications/Apzur VPN.app"</code></pre>
+      <pre><code>xattr -dr com.apple.quarantine "/Applications/Kage VPN.app"</code></pre>
     </div>
 
     <div class="docs-prose">
-      <p>Once executed, open Apzur VPN normally from Launchpad or Finder. You will never be prompted with quarantine warnings for that installation again.</p>
+      <p>Once executed, open Kage VPN normally from Launchpad or Finder. You will never be prompted with quarantine warnings for that installation again.</p>
 
       <h2 id="verifying-binary">Verifying Binary Integrity with Minisign</h2>
       <p>Every official release is accompanied by a SHA-256 checksum and Minisign cryptographic signature. To verify that your download has not been tampered with:</p>
@@ -223,9 +223,9 @@ window.DOCS_PAGES["getting-started/gatekeeper"] = {
     <div class="code-block-container">
       <div class="code-header">
         <span class="code-lang-label">bash</span>
-        <button class="btn-copy-code" data-code="minisign -Vm &quot;Apzur-VPN.dmg&quot; -P RWTw9...YourPublicKey">Verify Signature</button>
+        <button class="btn-copy-code" data-code="minisign -Vm &quot;Kage-VPN.dmg&quot; -P RWTw9...YourPublicKey">Verify Signature</button>
       </div>
-      <pre><code>minisign -Vm "Apzur-VPN.dmg" -P RWTw9...OfficialPublicKey</code></pre>
+      <pre><code>minisign -Vm "Kage-VPN.dmg" -P RWTw9...OfficialPublicKey</code></pre>
     </div>
   `
 };
@@ -234,10 +234,10 @@ window.DOCS_PAGES["getting-started/first-run"] = {
   category: "Getting Started",
   title: "First Run & Onboarding Tour",
   featureBadge: "Workflow",
-  lead: "Take a tour through Apzur VPN's dual-interface architecture: the swift menu bar popover for day-to-day operations and the comprehensive dashboard for granular controls.",
+  lead: "Take a tour through Kage VPN's dual-interface architecture: the swift menu bar popover for day-to-day operations and the comprehensive dashboard for granular controls.",
   heroImage: {
     src: "assets/images/menu-bar-popover.png",
-    alt: "Apzur Menu Bar Popover",
+    alt: "Kage Menu Bar Popover",
     title: "Menu Bar Quick Controller"
   },
   toc: [
@@ -250,7 +250,7 @@ window.DOCS_PAGES["getting-started/first-run"] = {
     <div class="docs-prose">
       <h2 id="interface-layout">Dual Interface Architecture</h2>
       <p>
-        Apzur VPN is intentionally designed around macOS Human Interface Guidelines. Rather than forcing a persistent desktop window, the app runs as a lightweight menu bar resident with on-demand expansion.
+        Kage VPN is intentionally designed around macOS Human Interface Guidelines. Rather than forcing a persistent desktop window, the app runs as a lightweight menu bar resident with on-demand expansion.
       </p>
 
       <h2 id="menu-bar-controller">Menu Bar Quick Popover</h2>
@@ -287,7 +287,7 @@ window.DOCS_PAGES["getting-started/first-run"] = {
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       </div>
       <div>
-        <strong>Root Privileges Scoped to Tunnel Daemon:</strong> Apzur does not run the entire graphical interface as root. Elevated privileges are strictly scoped to the sing-box helper process responsible for virtual interface allocation.
+        <strong>Root Privileges Scoped to Tunnel Daemon:</strong> Kage does not run the entire graphical interface as root. Elevated privileges are strictly scoped to the sing-box helper process responsible for virtual interface allocation.
       </div>
     </div>
   `
@@ -313,7 +313,7 @@ window.DOCS_PAGES["getting-started/engine-setup"] = {
     <div class="docs-prose">
       <h2 id="engine-modes">Managed Core vs System Core</h2>
       <p>
-        Apzur VPN decouples its graphical client from the proxy engine. You can choose between:
+        Kage VPN decouples its graphical client from the proxy engine. You can choose between:
       </p>
       <div class="docs-table-wrapper">
         <table class="docs-table">
@@ -327,7 +327,7 @@ window.DOCS_PAGES["getting-started/engine-setup"] = {
           <tbody>
             <tr>
               <td><strong>Managed Core (Default)</strong></td>
-              <td><code>~/Library/Application Support/com.apzur.vpn/bin/sing-box</code></td>
+              <td><code>~/Library/Application Support/com.apzur.kage/bin/sing-box</code></td>
               <td>Downloaded and verified automatically within the app with SHA-256 checks.</td>
             </tr>
             <tr>
@@ -341,7 +341,7 @@ window.DOCS_PAGES["getting-started/engine-setup"] = {
 
       <h2 id="managed-download">Automatic Core Downloader</h2>
       <p>
-        On first launch, if no valid sing-box binary is detected, Apzur displays a setup prompt. Clicking <strong>Download Engine</strong> pulls the latest verified release from GitHub Releases, checks its official SHA-256 checksum, marks the executable with <code>chmod +x</code>, and stores it in your application support folder.
+        On first launch, if no valid sing-box binary is detected, Kage displays a setup prompt. Clicking <strong>Download Engine</strong> pulls the latest verified release from GitHub Releases, checks its official SHA-256 checksum, marks the executable with <code>chmod +x</code>, and stores it in your application support folder.
       </p>
 
       <h2 id="custom-binary">Using Homebrew or Custom Binary</h2>

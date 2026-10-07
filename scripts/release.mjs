@@ -29,7 +29,7 @@ import {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const file = (...p) => join(root, ...p);
 const KEYCHAIN_SERVICE = 'apzur-vpn-updater-key';
-const slug = 'apzur-vpn';
+const slug = 'kage-vpn';
 
 const { values: opt } = parseArgs({
 	options: {

@@ -1,4 +1,4 @@
-const KEY = 'apzur-vpn.onboarding-seen';
+const KEY = 'kage-vpn.onboarding-seen';
 
 function read(): boolean {
 	try {

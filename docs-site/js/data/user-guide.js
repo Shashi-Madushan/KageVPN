@@ -1,5 +1,5 @@
 /**
- * Apzur VPN Documentation — User Guide Pages
+ * Kage VPN Documentation — User Guide Pages
  */
 window.DOCS_PAGES = window.DOCS_PAGES || {};
 
@@ -10,7 +10,7 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
   lead: "Understand the differences between Full System Virtual TUN (utun) mode and local Proxy Only mode, and determine the optimal setup for your workflow.",
   heroImage: {
     src: "assets/images/home-dark.png",
-    alt: "Apzur Connection Mode Selection in Dark Theme",
+    alt: "Kage Connection Mode Selection in Dark Theme",
     title: "Connection Mode Configuration"
   },
   toc: [
@@ -23,7 +23,7 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
     <div class="docs-prose">
       <h2 id="modes-comparison">Mode Comparison</h2>
       <p>
-        Apzur VPN supports two primary operation modes depending on whether you require transparent system-wide tunneling or application-specific proxy redirection:
+        Kage VPN supports two primary operation modes depending on whether you require transparent system-wide tunneling or application-specific proxy redirection:
       </p>
 
       <div class="docs-table-wrapper">
@@ -67,7 +67,7 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
 
       <h2 id="tun-mode-deep-dive">Full System TUN Mode</h2>
       <p>
-        In TUN mode, Apzur instructs sing-box to spin up a virtual point-to-point network adapter (e.g. <code>utun3</code>). It modifies the macOS kernel routing table to route <code>0.0.0.0/1</code> and <code>128.0.0.0/1</code> through the virtual adapter, overriding your default gateway without altering the underlying physical Wi-Fi or Ethernet routing tables.
+        In TUN mode, Kage instructs sing-box to spin up a virtual point-to-point network adapter (e.g. <code>utun3</code>). It modifies the macOS kernel routing table to route <code>0.0.0.0/1</code> and <code>128.0.0.0/1</code> through the virtual adapter, overriding your default gateway without altering the underlying physical Wi-Fi or Ethernet routing tables.
       </p>
       <p>
         This ensures zero configuration is needed across terminal commands, Git pushes, Docker daemons, or non-proxy aware desktop software.
@@ -78,9 +78,9 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
         If you are on a restricted machine without administrator privileges or only need a browser to browse through an encrypted server:
       </p>
       <ul>
-        <li>Apzur launches sing-box with a mixed SOCKS5/HTTP inbound listener on <code>127.0.0.1:2080</code>.</li>
+        <li>Kage launches sing-box with a mixed SOCKS5/HTTP inbound listener on <code>127.0.0.1:2080</code>.</li>
         <li>It utilizes macOS <code>networksetup</code> to toggle the HTTP and SOCKS proxy state on the active network adapter (e.g. Wi-Fi).</li>
-        <li>When disconnected, Apzur automatically turns off proxy settings in System Settings.</li>
+        <li>When disconnected, Kage automatically turns off proxy settings in System Settings.</li>
       </ul>
 
       <h2 id="dns-handling">DNS Hijacking & Resolution</h2>
@@ -110,7 +110,7 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
   contentHtml: `
     <div class="docs-prose">
       <h2 id="adding-servers">Adding Servers</h2>
-      <p>Apzur VPN provides flexible import mechanisms to accommodate various configurations:</p>
+      <p>Kage VPN provides flexible import mechanisms to accommodate various configurations:</p>
     </div>
 
     <div class="step-sequence">
@@ -121,7 +121,7 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
           <span class="step-badge-tag">Clipboard</span>
         </div>
         <div class="step-body">
-          <p>Copy any standard proxy link to your clipboard and hit <strong>Import</strong> or press <kbd>⌘V</kbd> inside the Servers tab. Apzur supports:</p>
+          <p>Copy any standard proxy link to your clipboard and hit <strong>Import</strong> or press <kbd>⌘V</kbd> inside the Servers tab. Kage supports:</p>
           <ul>
             <li><code>vless://...#ServerName</code> (including Reality, Vision, and Flow parameters)</li>
             <li><code>vmess://...</code> (standard Base64 JSON configurations)</li>
@@ -147,7 +147,7 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
     <div class="docs-prose">
       <h2 id="subscriptions">Managing Subscriptions</h2>
       <p>
-        If your provider supplies a subscription URL, click <strong>Add Subscription</strong>. Apzur fetches the remote endpoint, decodes Base64 encoded payload manifests, extracts individual nodes, and tags them with the provider group name.
+        If your provider supplies a subscription URL, click <strong>Add Subscription</strong>. Kage fetches the remote endpoint, decodes Base64 encoded payload manifests, extracts individual nodes, and tags them with the provider group name.
       </p>
       <ul>
         <li><strong>Auto Update Schedule:</strong> Configure intervals (Every 6 hours, 12 hours, or Daily).</li>
@@ -193,7 +193,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
     <div class="docs-prose">
       <h2 id="routing-philosophy">Smart Routing Overview</h2>
       <p>
-        Running all network traffic through an encrypted proxy introduces unnecessary latency for domestic services (banking apps, local streaming, local LAN printers). Apzur VPN solves this through sing-box's declarative route rule engine.
+        Running all network traffic through an encrypted proxy introduces unnecessary latency for domestic services (banking apps, local streaming, local LAN printers). Kage VPN solves this through sing-box's declarative route rule engine.
       </p>
 
       <h2 id="built-in-rules">Built-in Rule Categories</h2>
@@ -278,9 +278,9 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
     <div class="docs-prose">
       <h2 id="pfctl-anchor-mechanism">macOS pfctl Anchor Mechanism</h2>
       <p>
-        Apzur VPN does not rely on fragile userspace sleep loops. Instead, it utilizes macOS's built-in FreeBSD packet filter (<code>pfctl</code>) by registering a dedicated firewall anchor:
+        Kage VPN does not rely on fragile userspace sleep loops. Instead, it utilizes macOS's built-in FreeBSD packet filter (<code>pfctl</code>) by registering a dedicated firewall anchor:
       </p>
-      <code>com.apple/250.ApzurVPN</code>
+      <code>com.apple/250.KageVPN</code>
       <p>
         When the Kill Switch is activated:
       </p>
@@ -307,13 +307,13 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
     <div class="code-block-container">
       <div class="code-header">
         <span class="code-lang-label">bash</span>
-        <button class="btn-copy-code" data-code="sudo pfctl -a &quot;com.apple/250.ApzurVPN&quot; -F all">Copy Command</button>
+        <button class="btn-copy-code" data-code="sudo pfctl -a &quot;com.apple/250.KageVPN&quot; -F all">Copy Command</button>
       </div>
-      <pre><code>sudo pfctl -a "com.apple/250.ApzurVPN" -F all</code></pre>
+      <pre><code>sudo pfctl -a "com.apple/250.KageVPN" -F all</code></pre>
     </div>
 
     <div class="docs-prose">
-      <p>Alternatively, launch Apzur VPN and click <strong>Settings &rarr; Restore Internet Access</strong>.</p>
+      <p>Alternatively, launch Kage VPN and click <strong>Settings &rarr; Restore Internet Access</strong>.</p>
     </div>
   `
 };
@@ -343,7 +343,7 @@ window.DOCS_PAGES["user-guide/diagnostics-speedtest"] = {
 
       <h2 id="dns-leak-prevention">DNS Leak Testing</h2>
       <p>
-        When you click <strong>Run Audit</strong>, Apzur requests unique random cryptographic domain identifiers (e.g. <code>audit-4a9f.check.apzur.io</code>). It verifies which recursive resolver contacts the authoritative nameserver:
+        When you click <strong>Run Audit</strong>, Kage requests unique random cryptographic domain identifiers (e.g. <code>audit-4a9f.check.apzur.io</code>). It verifies which recursive resolver contacts the authoritative nameserver:
       </p>
       <ul>
         <li><strong style="color: #10b981;">Passed:</strong> Resolver matches the remote server IP or configured DoH server.</li>
@@ -355,12 +355,12 @@ window.DOCS_PAGES["user-guide/diagnostics-speedtest"] = {
         If your residential ISP issues an IPv6 block but your proxy server only routes IPv4, browsers can inadvertently leak your residential IPv6 address via dual-stack lookups or WebRTC STUN handshakes.
       </p>
       <p>
-        Apzur automatically disables unrouted IPv6 in TUN mode and drops rogue STUN queries to prevent browser-level deanonymization.
+        Kage automatically disables unrouted IPv6 in TUN mode and drops rogue STUN queries to prevent browser-level deanonymization.
       </p>
 
       <h2 id="speed-benchmarks">Speed & Throughput Benchmarks</h2>
       <p>
-        Measure realtime downstream and upstream bandwidth through the active tunnel. Apzur performs multi-stream chunk downloads to test server link capacity without exposing your real IP.
+        Measure realtime downstream and upstream bandwidth through the active tunnel. Kage performs multi-stream chunk downloads to test server link capacity without exposing your real IP.
       </p>
     </div>
   `
@@ -385,9 +385,9 @@ window.DOCS_PAGES["user-guide/data-usage"] = {
     <div class="docs-prose">
       <h2 id="usage-tracking">Local Telemetry Engine</h2>
       <p>
-        Apzur VPN periodically samples upload and download byte counters from sing-box's Clash API memory buffer. Unlike applications that clear statistics upon exit, Apzur writes counters to an embedded local SQLite database located at:
+        Kage VPN periodically samples upload and download byte counters from sing-box's Clash API memory buffer. Unlike applications that clear statistics upon exit, Kage writes counters to an embedded local SQLite database located at:
       </p>
-      <code>~/Library/Application Support/com.apzur.vpn/data/usage.db</code>
+      <code>~/Library/Application Support/com.apzur.kage/data/usage.db</code>
 
       <h2 id="sqlite-wal">SQLite Write-Ahead Logging (WAL)</h2>
       <p>
@@ -401,7 +401,7 @@ window.DOCS_PAGES["user-guide/data-usage"] = {
 
       <h2 id="quota-warnings">Data Cap Alerts</h2>
       <p>
-        If your node provider or mobile hotspot imposes monthly limits (e.g., 200 GB / month), set a quota threshold in <strong>Settings &rarr; Usage Limits</strong>. Apzur alerts you at 80% and 95% consumption.
+        If your node provider or mobile hotspot imposes monthly limits (e.g., 200 GB / month), set a quota threshold in <strong>Settings &rarr; Usage Limits</strong>. Kage alerts you at 80% and 95% consumption.
       </p>
     </div>
   `

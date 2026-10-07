@@ -2,7 +2,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
-const KEY = 'apzur-vpn.theme';
+const KEY = 'kage-vpn.theme';
 
 function read(): ThemeMode {
 	try {

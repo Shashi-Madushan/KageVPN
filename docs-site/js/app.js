@@ -1,5 +1,5 @@
 /**
- * Apzur VPN docs — router, rendering, search, TOC scrollspy, theme, drawer.
+ * Kage VPN docs — router, rendering, search, TOC scrollspy, theme, drawer.
  * Routes: #/<category>/<page> with an optional ?s=<section-id>.
  */
 (function () {
@@ -45,7 +45,7 @@
   $('theme-btn').addEventListener('click', function () {
     var next = isDark() ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
-    store('apzur-docs-theme', next);
+    store('kage-docs-theme', next);
     syncThemeImages();
   });
 
@@ -112,7 +112,7 @@
     markActive(page ? slug : '');
 
     if (!page) {
-      document.title = 'Page not found — Apzur VPN Docs';
+      document.title = 'Page not found — Kage VPN Docs';
       article.innerHTML = '<div class="not-found"><h1 tabindex="-1">Page not found</h1>' +
         '<p class="lead">That page doesn’t exist or has moved.</p><a class="btn-primary" href="#/' + DEFAULT_SLUG + '">Go to the overview</a></div>';
       renderToc([]);
@@ -120,7 +120,7 @@
       return;
     }
 
-    document.title = page.title + ' — Apzur VPN Docs';
+    document.title = page.title + ' — Kage VPN Docs';
     var toc = page.toc || [];
     var html = '<header><h1 tabindex="-1">' + esc(page.title) + '</h1>' +
       (page.lead ? '<p class="lead">' + page.lead + '</p>' : '') + '</header>';

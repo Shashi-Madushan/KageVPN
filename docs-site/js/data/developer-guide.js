@@ -1,5 +1,5 @@
 /**
- * Apzur VPN Documentation — Developer Guide Pages
+ * Kage VPN Documentation — Developer Guide Pages
  */
 window.DOCS_PAGES = window.DOCS_PAGES || {};
 
@@ -7,7 +7,7 @@ window.DOCS_PAGES["developer-guide/local-setup"] = {
   category: "Developer Guide",
   title: "Local Development Setup",
   featureBadge: "Environment",
-  lead: "Set up your macOS development workstation to compile, run, debug, and package Apzur VPN from source code.",
+  lead: "Set up your macOS development workstation to compile, run, debug, and package Kage VPN from source code.",
   toc: [
     { id: "prerequisites", label: "Prerequisites & Toolchain" },
     { id: "clone-repo", label: "Cloning & Installing Dependencies" },
@@ -18,7 +18,7 @@ window.DOCS_PAGES["developer-guide/local-setup"] = {
     <div class="docs-prose">
       <h2 id="prerequisites">Prerequisites & Toolchain</h2>
       <p>
-        Building Apzur VPN requires macOS (Intel or Apple Silicon) with the following developer dependencies:
+        Building Kage VPN requires macOS (Intel or Apple Silicon) with the following developer dependencies:
       </p>
       <ul>
         <li><strong>Xcode Command Line Tools:</strong> <code>xcode-select --install</code></li>
@@ -87,7 +87,7 @@ window.DOCS_PAGES["developer-guide/svelte-frontend"] = {
   category: "Developer Guide",
   title: "Svelte 5 Frontend Architecture",
   featureBadge: "Svelte 5 Runes",
-  lead: "Understand the reactive architecture powering Apzur's GUI, utilizing modern Svelte 5 runes ($state, $derived, $effect) and modular components.",
+  lead: "Understand the reactive architecture powering Kage's GUI, utilizing modern Svelte 5 runes ($state, $derived, $effect) and modular components.",
   toc: [
     { id: "runes-paradigm", label: "Svelte 5 Runes Paradigm" },
     { id: "component-hierarchy", label: "Component Hierarchy" },
@@ -97,7 +97,7 @@ window.DOCS_PAGES["developer-guide/svelte-frontend"] = {
     <div class="docs-prose">
       <h2 id="runes-paradigm">Svelte 5 Runes Paradigm</h2>
       <p>
-        Apzur VPN is built on Svelte 5, taking full advantage of fine-grained signal reactivity via runes:
+        Kage VPN is built on Svelte 5, taking full advantage of fine-grained signal reactivity via runes:
       </p>
       <ul>
         <li><code>$state()</code>: Manages mutable component state (e.g., active server, connection status, selected tab).</li>
@@ -181,9 +181,9 @@ window.DOCS_PAGES["developer-guide/rust-backend"] = {
     <div class="code-block-container">
       <div class="code-header">
         <span class="code-lang-label">rust</span>
-        <button class="btn-copy-code" data-code="pub const APP_ID: &str = &quot;com.apzur.vpn&quot;;&#10;pub const APP_UPDATE_PUBKEY: &str = &quot;...&quot;;&#10;pub const DEFAULT_SOCKS_PORT: u16 = 2080;">Copy</button>
+        <button class="btn-copy-code" data-code="pub const APP_ID: &str = &quot;com.apzur.kage&quot;;&#10;pub const APP_UPDATE_PUBKEY: &str = &quot;...&quot;;&#10;pub const DEFAULT_SOCKS_PORT: u16 = 2080;">Copy</button>
       </div>
-      <pre><code>pub const APP_ID: &amp;str = "com.apzur.vpn";
+      <pre><code>pub const APP_ID: &amp;str = "com.apzur.kage";
 pub const APP_UPDATE_PUBKEY: &amp;str = "RWTw9f...";
 pub const DEFAULT_SOCKS_PORT: u16 = 2080;
 pub const DEFAULT_CLASH_PORT: u16 = 9090;</code></pre>
@@ -213,7 +213,7 @@ window.DOCS_PAGES["developer-guide/adding-protocols"] = {
     <div class="docs-prose">
       <h2 id="trait-overview">The ProtocolDef Trait</h2>
       <p>
-        Each protocol in Apzur is an isolated module in <code>src-tauri/src/profile/</code> implementing the <code>ProtocolDef</code> trait. The editor UI, subscription parser, validation, duplicate detection, and config generator are all generated dynamically from this trait!
+        Each protocol in Kage is an isolated module in <code>src-tauri/src/profile/</code> implementing the <code>ProtocolDef</code> trait. The editor UI, subscription parser, validation, duplicate detection, and config generator are all generated dynamically from this trait!
       </p>
     </div>
 
@@ -270,7 +270,7 @@ window.DOCS_PAGES["developer-guide/releasing"] = {
     <div class="docs-prose">
       <h2 id="signing-keys">Private Signing Key Setup</h2>
       <p>
-        Apzur VPN builds enforce end-to-end cryptographic verification: installed copies refuse any auto-update that is not signed by the designated Minisign private key matching <code>APP_UPDATE_PUBKEY</code> in <code>app_config.rs</code>.
+        Kage VPN builds enforce end-to-end cryptographic verification: installed copies refuse any auto-update that is not signed by the designated Minisign private key matching <code>APP_UPDATE_PUBKEY</code> in <code>app_config.rs</code>.
       </p>
 
       <h2 id="release-script">The release.mjs Script</h2>
