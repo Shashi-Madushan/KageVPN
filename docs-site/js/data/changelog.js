@@ -22,6 +22,8 @@ window.DOCS_PAGES["changelog/changelog"] = {
       <ul>
         <li><strong>New:</strong> The app is now called <strong>Kage VPN</strong>, with a new moon-and-ninja icon and menu bar glyphs. Your servers, settings and usage history move over automatically on first launch.</li>
         <li><strong>Changed:</strong> The URL scheme is now <code>kagevpn://</code> (was <code>apzurvpn://</code>) and the data folder is <code>com.apzur.kage</code>.</li>
+        <li><strong>New:</strong> Kage VPN shows a Dock icon while its main window is open, and goes back to the menu bar only when you close it.</li>
+        <li><strong>Changed:</strong> The credit line now reads <strong>Kage by Apzur</strong> instead of "Powered by Apzur".</li>
       </ul>
 
       <h2 id="oct-5">5 October 2026</h2>
