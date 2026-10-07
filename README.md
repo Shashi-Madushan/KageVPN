@@ -221,5 +221,5 @@ Issues and pull requests are welcome. Please run the checks above before sending
 ---
 
 <div align="center">
-<sub>Powered by <b>Apzur</b></sub>
+<sub>Kage by <b>Apzur</b></sub>
 </div>
