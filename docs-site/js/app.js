@@ -105,7 +105,9 @@
 
   function renderPage(slug, section) {
     var page = pages[slug];
-    var idx = flat.findIndex(function (p) { return p.slug === slug; });
+    // The changelog is pinned in the sidebar, so it sits outside the previous/next order.
+    var ordered = flat.filter(function (p) { return p.category !== 'Changelog'; });
+    var idx = ordered.findIndex(function (p) { return p.slug === slug; });
     currentSlug = slug;
     markActive(page ? slug : '');
 
@@ -125,7 +127,7 @@
     if (page.heroImage) html += figure(page.heroImage);
     html += page.contentHtml;
 
-    var prev = idx > 0 ? flat[idx - 1] : null, next = idx >= 0 && idx < flat.length - 1 ? flat[idx + 1] : null;
+    var prev = idx > 0 ? ordered[idx - 1] : null, next = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null;
     if (prev || next) {
       html += '<nav class="article-pagination" aria-label="Pagination">' +
         (prev ? '<a class="pagination-card prev" href="#/' + esc(prev.slug) + '"><span class="pagination-label">Previous</span><span class="pagination-title">' + esc(prev.title) + '</span></a>' : '') +
