@@ -5,6 +5,7 @@ mod clash;
 mod commands;
 mod config;
 mod core;
+mod crashlog;
 mod diagnostics;
 mod downloads;
 mod error;

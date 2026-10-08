@@ -12,7 +12,7 @@ use crate::state::AppState;
 use crate::usage::collector::spawn_connection_poll;
 use crate::error::ErrorInfo;
 use crate::health::{self, Health, Reason};
-use crate::{applog, clash, core, net, notify, reliability, runner, traffic};
+use crate::{applog, clash, core, crashlog, net, notify, reliability, runner, traffic};
 
 const READY_ATTEMPTS: u32 = 60;
 const STOP_ATTEMPTS: u32 = 40;
@@ -121,7 +121,9 @@ pub async fn tunnel_lost(app: &AppHandle, pid: u32) {
     }
     let reconnect = state.store.lock().unwrap().reliability().auto_reconnect;
     applog::warn(format!("tunnel lost (pid {pid}): disconnecting, auto-reconnect {reconnect}"));
-    notify::send(app, "VPN tunnel dropped", if reconnect { "Reconnecting…" } else { "The tunnel stopped." });
+    let reason = "The tunnel stopped answering while sing-box was still running.";
+    crashlog::record(&state.paths.data_dir(), "tunnel lost", reason, &format!("auto-reconnect: {reconnect}\nlast error: {}", state.logs.last_error().unwrap_or_default()));
+    notify::send(app, "VPN tunnel dropped", &format!("{reason} {}", if reconnect { "Reconnecting…" } else { "It was disconnected." }));
     let _ = disconnect(app).await;
     if reconnect {
         reliability::spawn_reconnect(app.clone());
@@ -267,21 +269,34 @@ fn finish(app: &AppHandle, pid: u32) {
     *state.clash_secret.lock().unwrap() = None;
 
     let stopped_by_user = state.stopping.load(Ordering::SeqCst);
-    let error = if stopped_by_user { None } else { state.logs.last_error() };
+    let mut error = if stopped_by_user { None } else { state.logs.last_error() };
+    let mut failure = None;
     applog::info(format!(
         "supervisor pid {pid} gone ({}){}",
         if stopped_by_user { "stopped by app" } else { "UNEXPECTED" },
         error.as_deref().map(|e| format!("; last sing-box error: {e}")).unwrap_or_default()
     ));
+    let mut reason = String::new();
     if !stopped_by_user {
-        applog::warn(format!("sing-box stderr tail:\n{}", tail_of(&state.paths.stderr_log(), 15)));
+        let stderr = tail_of(&state.paths.stderr_log(), 15);
+        applog::warn(format!("sing-box stderr tail:\n{stderr}"));
+        reason = crashlog::summary(crashlog::exit_status(&stderr).as_deref(), error.as_deref());
+        let recent: Vec<String> = state.logs.snapshot().iter().rev().filter(|l| l.level == crate::logs::Level::Error).take(5).map(|l| l.text.clone()).collect();
+        crashlog::record(&state.paths.data_dir(), "sing-box stopped", &reason, &format!("Last errors:\n{}\n\nstderr:\n{stderr}", recent.join("\n")));
+        error = Some(reason.clone());
+        failure = Some(ErrorInfo {
+            code: "engineStopped".into(),
+            title: "sing-box stopped unexpectedly".into(),
+            detail: format!("{reason}. Details were saved to crashes.log."),
+            action: Some("retry".into()),
+        });
     }
     let mode = state.store.lock().unwrap().mode();
-    update(app, |s| *s = Status { error, ..Status::disconnected(mode) });
+    update(app, |s| *s = Status { error, failure, ..Status::disconnected(mode) });
     traffic::reset(app);
 
     if !stopped_by_user {
-        notify::send(app, "VPN connection lost", "sing-box stopped unexpectedly.");
+        notify::send(app, "VPN stopped unexpectedly", &reason);
         reliability::on_unexpected_exit(app);
     }
 }

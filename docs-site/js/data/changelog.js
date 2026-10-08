@@ -25,6 +25,8 @@ window.DOCS_PAGES["changelog/changelog"] = {
         <li><strong>New:</strong> The tunnel is monitored for as long as you are connected. If it stops passing traffic you see "Connected, but no internet" with the reason (server not answering, server rejected the connection, or no traffic). It recovers on its own when traffic returns.</li>
         <li><strong>New:</strong> Failed connections now explain what went wrong with a button for the fix. The server is checked before connecting, so an unreachable server fails in seconds.</li>
         <li><strong>New:</strong> A Connection health card on the home screen, a status line and a warning icon in the menu bar, and loading skeletons in the menu bar popover and home screen.</li>
+        <li><strong>New:</strong> The Connections page has an <strong>Apps</strong> view: every app using the VPN with its live sending and receiving speed and how much it has sent and received. Click an app to see which servers it is talking to.</li>
+        <li><strong>New:</strong> When sing-box or the tunnel stops on its own, you get a notification with the reason (exit status and last error), a banner in the app, and an entry in <code>crashes.log</code> in the data folder.</li>
         <li><strong>Changed:</strong> "Connection watchdog" is now "Restart a dead tunnel". Monitoring is always on, and the setting only controls whether a dead tunnel is restarted automatically.</li>
       </ul>
 
