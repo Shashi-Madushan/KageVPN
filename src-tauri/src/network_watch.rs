@@ -127,6 +127,7 @@ pub fn spawn(app: AppHandle) {
 
 async fn handle(app: &AppHandle, change: Change) {
     applog::info(format!("network watch: {change:?}"));
+    crate::health::recheck();
     if !should_react(app) {
         return;
     }

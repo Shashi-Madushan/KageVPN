@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -10,6 +10,7 @@ use tauri::{
     WindowEvent,
 };
 
+use crate::health::Health;
 use crate::session::{self, State, Status};
 use crate::{net, notify, speed_icon};
 use crate::state::AppState;
@@ -17,6 +18,7 @@ use crate::traffic::Traffic;
 
 const TRAY_ID: &str = "main";
 const POPOVER: &str = "tray";
+const STATUS: &str = "status";
 const OPEN: &str = "open";
 const TOGGLE: &str = "toggle";
 const PING: &str = "ping";
@@ -29,6 +31,8 @@ const POPOVER_IDLE_MS: u64 = 180_000;
 
 static LAST_BLUR_MS: AtomicU64 = AtomicU64::new(0);
 static POPOVER_GEN: AtomicU64 = AtomicU64::new(0);
+/// Set from the status event. `refresh` must not lock the status: events are emitted while it is held.
+static TUNNEL_DOWN: AtomicBool = AtomicBool::new(false);
 
 /// Smoothing factor for the menu bar rates: higher reacts faster, lower is calmer.
 const RATE_SMOOTHING: f64 = 0.45;
@@ -39,6 +43,8 @@ const RATE_FLOOR: f64 = 512.0;
 #[derive(PartialEq)]
 enum Frame {
     Plain(State),
+    /// Connected, but the tunnel carries no traffic.
+    Warning,
     Speed { up: String, down: String },
 }
 
@@ -46,13 +52,14 @@ static SHOWN: Mutex<Option<Frame>> = Mutex::new(None);
 static SMOOTHED: Mutex<Option<(f64, f64)>> = Mutex::new(None);
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
+    let status_line = MenuItem::with_id(app, STATUS, status_text(&Status::disconnected(Default::default())), false, None::<&str>)?;
     let open = MenuItem::with_id(app, OPEN, format!("Open {}", crate::app_config::APP_NAME), true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, TOGGLE, "Connect", true, None::<&str>)?;
     let ping = MenuItem::with_id(app, PING, "Ping Server", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, QUIT, "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&open, &toggle, &ping, &PredefinedMenuItem::separator(app)?, &quit],
+        &[&status_line, &PredefinedMenuItem::separator(app)?, &open, &toggle, &ping, &PredefinedMenuItem::separator(app)?, &quit],
     )?;
 
     TrayIconBuilder::with_id(TRAY_ID)
@@ -83,12 +90,29 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let handle = app.clone();
     app.listen("status", move |event| {
         let Ok(status) = serde_json::from_str::<Status>(event.payload()) else { return };
-        apply_status(&handle, &toggle, status.state);
+        apply_status(&handle, &toggle, &status_line, &status);
     });
     Ok(())
 }
 
-fn apply_status(app: &AppHandle, toggle: &MenuItem<tauri::Wry>, state: State) {
+/// The one-line summary at the top of the menu.
+fn status_text(status: &Status) -> String {
+    match (status.state, status.health) {
+        (State::Disconnected, _) => "Not protected".into(),
+        (State::Connecting, _) => "Connecting…".into(),
+        (State::Connected, Health::Healthy) => match status.latency_ms {
+            Some(ms) => format!("Protected · {ms} ms"),
+            None => "Protected".into(),
+        },
+        (State::Connected, Health::Down) => "Connected, but no internet".into(),
+        (State::Connected, _) => "Checking connection…".into(),
+    }
+}
+
+fn apply_status(app: &AppHandle, toggle: &MenuItem<tauri::Wry>, status_line: &MenuItem<tauri::Wry>, status: &Status) {
+    let state = status.state;
+    TUNNEL_DOWN.store(status.health == Health::Down, Ordering::Relaxed);
+    let _ = status_line.set_text(status_text(status));
     let label = match state {
         State::Disconnected => "Connect",
         State::Connecting => "Connecting…",
@@ -145,10 +169,13 @@ fn smooth(traffic: Option<Traffic>) -> Option<(u64, u64)> {
 /// icon always has the readout's full width, so the menu bar never shifts.
 fn refresh(app: &AppHandle, state: State, traffic: Option<Traffic>) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
+    let down = state == State::Connected && TUNNEL_DOWN.load(Ordering::Relaxed);
     let show = app.state::<AppState>().store.lock().unwrap().settings().show_speed;
     let rates = smooth(traffic.filter(|_| show && state == State::Connected));
 
-    let (frame, image) = if show && state == State::Connected {
+    let (frame, image) = if down {
+        (Frame::Warning, Image::from_bytes(include_bytes!("../icons/tray/warning.png")))
+    } else if show && state == State::Connected {
         let (up, down) = rates.unwrap_or((0, 0));
         let (up, down) = (format_rate(up), format_rate(down));
         let image = icon(State::Connected)

@@ -1,4 +1,4 @@
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
@@ -16,6 +16,8 @@ pub enum AppError {
     PermissionDenied,
     #[error("{0}")]
     Launch(String),
+    #[error("{0}")]
+    ServerUnreachable(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
@@ -33,3 +35,45 @@ impl Serialize for AppError {
 }
 
 pub type Result<T> = std::result::Result<T, AppError>;
+
+/// An error described for people: what happened, why, and what they can do about it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ErrorInfo {
+    pub code: String,
+    pub title: String,
+    pub detail: String,
+    /// `retry`, `installEngine` or `diagnostics`; the UI offers the matching button.
+    pub action: Option<String>,
+}
+
+impl AppError {
+    pub fn info(&self) -> ErrorInfo {
+        let detail = self.to_string();
+        let (code, title, action) = match self {
+            AppError::SingBoxMissing => ("engineMissing", "The VPN engine is not installed", Some("installEngine")),
+            AppError::Busy => ("busy", "Already connecting", None),
+            AppError::ConfigCheck(_) => ("configInvalid", "The configuration was rejected", Some("diagnostics")),
+            AppError::PermissionDenied => ("permissionDenied", "Administrator permission was denied", Some("retry")),
+            AppError::ServerUnreachable(_) => ("serverUnreachable", "The server cannot be reached", Some("retry")),
+            AppError::Launch(message) if message.contains("already in use") => ("portInUse", "The local port is busy", Some("retry")),
+            AppError::Launch(message) if message.contains("did not start") => ("startTimeout", "The engine did not start", Some("diagnostics")),
+            AppError::Launch(_) => ("launchFailed", "The connection could not start", Some("retry")),
+            AppError::Invalid(_) => ("invalid", "Something needs attention", None),
+            _ => ("internal", "Something went wrong", Some("diagnostics")),
+        };
+        ErrorInfo { code: code.into(), title: title.into(), detail, action: action.map(Into::into) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn errors_map_to_actionable_info() {
+        assert_eq!(AppError::SingBoxMissing.info().action.as_deref(), Some("installEngine"));
+        let busy = AppError::Launch("port 2080 is already in use, is another sing-box running?".into()).info();
+        assert_eq!(busy.code, "portInUse");
+        assert_eq!(AppError::ServerUnreachable("x".into()).info().code, "serverUnreachable");
+    }
+}

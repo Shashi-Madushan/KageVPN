@@ -28,7 +28,22 @@ export interface Status {
 	mode: Mode;
 	since: number | null;
 	error: string | null;
+	/** Whether the tunnel carries traffic; only meaningful while connected. */
+	health: Health;
+	reason: { cause: 'serverUnreachable' | 'handshake' | 'noTraffic'; message: string } | null;
+	latencyMs: number | null;
+	/** Why the last attempt to connect failed. */
+	failure: ErrorInfo | null;
 }
+
+export interface ErrorInfo {
+	code: string;
+	title: string;
+	detail: string;
+	action: 'retry' | 'installEngine' | 'diagnostics' | null;
+}
+
+export type Health = 'idle' | 'verifying' | 'healthy' | 'down';
 
 export type Hint = { kind: 'keyMismatch'; key: string } | { kind: 'unresolved' };
 

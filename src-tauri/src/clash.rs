@@ -102,7 +102,12 @@ pub async fn select_profile(app: &AppHandle, profile_id: &str) -> Result<()> {
 }
 
 pub async fn node_delay(app: &AppHandle, profile_id: &str) -> Result<u64> {
-    let path = format!("/proxies/{}/delay?url={DELAY_URL}&timeout={DELAY_TIMEOUT_MS}", node_tag(profile_id));
+    delay_by_tag(app, &node_tag(profile_id)).await
+}
+
+/// Delay of an outbound or group measured by sing-box itself, independent of the system route.
+pub async fn delay_by_tag(app: &AppHandle, tag: &str) -> Result<u64> {
+    let path = format!("/proxies/{tag}/delay?url={DELAY_URL}&timeout={DELAY_TIMEOUT_MS}");
     let response = request(app, reqwest::Method::GET, &path)?.send().await?.error_for_status()?;
     Ok(response.json::<DelayResponse>().await?.delay)
 }

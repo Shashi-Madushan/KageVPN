@@ -10,6 +10,8 @@ use crate::error::{AppError, Result};
 use crate::profile::Profile;
 use crate::state::AppState;
 use crate::usage::collector::spawn_connection_poll;
+use crate::error::ErrorInfo;
+use crate::health::{self, Health, Reason};
 use crate::{applog, clash, core, net, notify, reliability, runner, traffic};
 
 const READY_ATTEMPTS: u32 = 60;
@@ -33,11 +35,21 @@ pub struct Status {
     pub mode: Mode,
     pub since: Option<u64>,
     pub error: Option<String>,
+    /// Whether the tunnel carries traffic; only meaningful while connected.
+    #[serde(default)]
+    pub health: Health,
+    #[serde(default)]
+    pub reason: Option<Reason>,
+    #[serde(default)]
+    pub latency_ms: Option<u64>,
+    /// Why the last attempt to connect failed, described for people.
+    #[serde(default)]
+    pub failure: Option<ErrorInfo>,
 }
 
 impl Status {
     pub fn disconnected(mode: Mode) -> Self {
-        Self { state: State::Disconnected, mode, since: None, error: None }
+        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None }
     }
 }
 
@@ -62,19 +74,20 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
             update(app, |s| {
                 s.state = State::Connected;
                 s.since = Some(now_secs());
+                s.health = Health::Verifying;
             });
             applog::info(format!("connect: up, supervisor pid {pid}"));
             watch(app.clone(), pid);
             traffic::spawn(app.clone(), pid, secret);
             spawn_connection_poll(app.clone(), pid);
-            reliability::on_connected(app, pid);
+            health::spawn_monitor(app.clone(), pid);
             Ok(())
         }
         Err(error) => {
             applog::warn(format!("connect: failed: {error}"));
             *state.clash_secret.lock().unwrap() = None;
             let _ = runner::request_stop(&state.paths);
-            update(app, |s| *s = Status { error: Some(error.to_string()), ..Status::disconnected(mode) });
+            update(app, |s| *s = Status { error: Some(error.to_string()), failure: Some(error.info()), ..Status::disconnected(mode) });
             Err(error)
         }
     }
@@ -146,6 +159,12 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
             "port {} is already in use, is another sing-box running?",
             config::MIXED_PORT
         )));
+    }
+    if !state.store.lock().unwrap().auto().enabled {
+        let active = state.store.lock().unwrap().active_profile().cloned();
+        if let Some(profile) = active {
+            health::preflight(&profile).await?;
+        }
     }
     state.logs.clear();
     paths.reset_runtime_files()?;
@@ -278,7 +297,7 @@ fn tail_of(path: &std::path::Path, count: usize) -> String {
     }
 }
 
-fn update(app: &AppHandle, change: impl FnOnce(&mut Status)) {
+pub(crate) fn update(app: &AppHandle, change: impl FnOnce(&mut Status)) {
     let state = app.state::<AppState>();
     let mut status = state.status.lock().unwrap();
     change(&mut status);

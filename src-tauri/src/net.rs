@@ -1,3 +1,4 @@
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use reqwest::{Client, Proxy};
@@ -34,9 +35,16 @@ pub async fn exit_ip() -> Result<String> {
     Ok(body.trim().to_string())
 }
 
+/// One client for every probe: building a client loads TLS roots, which is wasteful to repeat
+/// every few seconds. Idle connections are not kept, so a restarted tunnel never meets a stale one.
 fn proxied_client() -> Result<Client> {
+    static CLIENT: OnceLock<Client> = OnceLock::new();
+    if let Some(client) = CLIENT.get() {
+        return Ok(client.clone());
+    }
     let proxy = Proxy::all(format!("socks5h://127.0.0.1:{MIXED_PORT}"))?;
-    Ok(Client::builder().proxy(proxy).timeout(HTTP_TIMEOUT).build()?)
+    let client = Client::builder().proxy(proxy).timeout(HTTP_TIMEOUT).pool_max_idle_per_host(0).build()?;
+    Ok(CLIENT.get_or_init(|| client).clone())
 }
 
 fn elapsed_ms(started: Instant) -> u64 {

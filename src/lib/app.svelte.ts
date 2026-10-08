@@ -31,7 +31,7 @@ class AppStore {
 	profiles = $state<Profile[]>([]);
 	activeId = $state<string | null>(null);
 	mode = $state<Mode>('tun');
-	status = $state<Status>({ state: 'disconnected', mode: 'tun', since: null, error: null });
+	status = $state<Status>({ state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null });
 	logs = $state<LogLine[]>([]);
 	traffic = $state<Traffic>(NO_TRAFFIC);
 	history = $state<Sample[]>([]);
@@ -59,6 +59,11 @@ class AppStore {
 	activeProfile = $derived(this.profiles.find((p) => p.id === this.activeId) ?? null);
 	busy = $derived(this.status.state === 'connecting');
 	connected = $derived(this.status.state === 'connected');
+	/** Connected and proven to carry traffic. */
+	protectedNow = $derived(this.status.state === 'connected' && this.status.health === 'healthy');
+	/** Connected, but the tunnel does not pass traffic. */
+	tunnelDown = $derived(this.status.state === 'connected' && this.status.health === 'down');
+	verifying = $derived(this.status.state === 'connected' && this.status.health === 'verifying');
 	locked = $derived(this.busy || this.connected);
 	groups = $derived([...new Set(this.profiles.map((p) => p.group).filter((g): g is string => !!g))].sort());
 	hint = $derived<Hint | null>(this.logs.findLast((l) => l.hint)?.hint ?? null);
@@ -145,6 +150,23 @@ class AppStore {
 			}
 		}
 		await this.run(this.connected ? api.disconnect : api.connect);
+	}
+
+	/** Drops the tunnel and brings it back up. */
+	async restartTunnel() {
+		await this.run(api.disconnect);
+		await this.run(api.connect);
+	}
+
+	/** Moves to the next server and reconnects; for when the current one is not passing traffic. */
+	async switchServer() {
+		if (this.profiles.length < 2) return;
+		const index = this.profiles.findIndex((p) => p.id === this.activeId);
+		const next = this.profiles[(index + 1) % this.profiles.length];
+		await this.run(api.disconnect);
+		if (this.auto.enabled) await this.setAuto({ ...this.auto, enabled: false });
+		await this.select(next.id);
+		await this.run(api.connect);
 	}
 
 	async verify() {

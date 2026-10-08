@@ -295,7 +295,10 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
 
       <h2 id="watchdog-monitoring">Process Watchdog Loop</h2>
       <p>
-        The Rust backend runs an asynchronous tokio timer polling the sing-box child PID. If the core terminates unexpectedly, the watchdog immediately flags an alert in the menu bar and prevents reconnection loops until verified by the user.
+        The Rust backend polls the sing-box child PID. If the core terminates unexpectedly, the app flags it in the menu bar and starts the usual reconnect attempts.
+      </p>
+      <p>
+        Separately, a health monitor checks that traffic really flows through the tunnel: once right after connecting, then with one small request every 15 seconds. When checks fail, the app shows "Connected, but no internet" with the reason, and backs off to at most one check a minute. Turn on <strong>Restart a dead tunnel</strong> in Settings to have it restart automatically.
       </p>
 
       <h2 id="manual-recovery">Emergency Network Recovery</h2>

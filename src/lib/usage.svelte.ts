@@ -28,6 +28,8 @@ class UsageStore {
 	quota = $state<QuotaStatus | null>(null);
 	settings = $state<UsageSettings | null>(null);
 	today = $state<{ up: number; down: number } | null>(null);
+	/** True until the first load of `today` finishes, so the UI can show a skeleton. */
+	todayLoading = $state(true);
 	loading = $state(false);
 
 	range = $derived(
@@ -78,6 +80,8 @@ class UsageStore {
 			this.quota = await usageApi.quota();
 		} catch {
 			this.today = null;
+		} finally {
+			this.todayLoading = false;
 		}
 	}
 

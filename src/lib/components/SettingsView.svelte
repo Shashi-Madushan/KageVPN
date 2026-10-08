@@ -53,7 +53,7 @@
 			<input type="checkbox" checked={app.reliability.autoReconnect} onchange={(e) => app.saveReliability({ autoReconnect: e.currentTarget.checked })} />
 		</label>
 		<label>
-			<span><strong>Connection watchdog</strong><small>Check the tunnel every 30 seconds and reconnect after three failures.</small></span>
+			<span><strong>Restart a dead tunnel</strong><small>The tunnel is always checked in the background. When it stops passing traffic, restart it automatically.</small></span>
 			<input type="checkbox" checked={app.reliability.watchdog} onchange={(e) => app.saveReliability({ watchdog: e.currentTarget.checked })} />
 		</label>
 		<label>

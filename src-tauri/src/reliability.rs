@@ -8,21 +8,13 @@ use tokio::time::sleep;
 
 use crate::error::{AppError, Result};
 use crate::state::AppState;
-use crate::{applog, net, notify, session};
+use crate::{applog, notify, session};
 
 const RECONNECT_DELAYS: [u64; 4] = [2, 5, 15, 30];
-const WATCHDOG_INTERVAL: Duration = Duration::from_secs(30);
-const WATCHDOG_FAILURES: u32 = 3;
 const HOTKEY: &str = "CommandOrControl+Alt+V";
 const PF_ANCHOR: &str = "com.apple/250.KageVPN";
 /// Anchor used before the rename; still flushed so an old kill switch can never strand the network.
 const LEGACY_PF_ANCHORS: [&str; 3] = ["com.apple/250.ApzurVPN", "com.apple/250.OspreyVPN", "com.apple/250.SingBoxGUI"];
-
-pub fn on_connected(app: &AppHandle, pid: u32) {
-    if app.state::<AppState>().store.lock().unwrap().reliability().watchdog {
-        spawn_watchdog(app.clone(), pid);
-    }
-}
 
 pub fn on_unexpected_exit(app: &AppHandle) {
     if app.state::<AppState>().store.lock().unwrap().reliability().auto_reconnect {
@@ -72,29 +64,6 @@ pub async fn restart_tunnel(app: &AppHandle, pid: u32, why: &str) {
     notify::send(app, "Reconnecting VPN", &format!("{why} and the tunnel stopped responding."));
     let _ = session::disconnect(app).await;
     spawn_reconnect(app.clone());
-}
-
-fn spawn_watchdog(app: AppHandle, pid: u32) {
-    tauri::async_runtime::spawn(async move {
-        let mut failures = 0;
-        loop {
-            sleep(WATCHDOG_INTERVAL).await;
-            if *app.state::<AppState>().pid.lock().unwrap() != Some(pid) {
-                return;
-            }
-            match net::proxy_delay().await {
-                Ok(_) => failures = 0,
-                Err(error) => {
-                    failures += 1;
-                    applog::warn(format!("watchdog probe failed ({failures}/{WATCHDOG_FAILURES}): {error}"));
-                }
-            }
-            if failures >= WATCHDOG_FAILURES {
-                session::tunnel_lost(&app, pid).await;
-                return;
-            }
-        }
-    });
 }
 
 pub fn apply_hotkey(app: &AppHandle) {

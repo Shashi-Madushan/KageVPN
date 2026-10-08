@@ -10,6 +10,7 @@ mod downloads;
 mod error;
 mod feedback;
 mod fsutil;
+mod health;
 mod logs;
 mod net;
 mod network_watch;

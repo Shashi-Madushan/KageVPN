@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-8", label: "8 Oct 2026" },
     { id: "oct-7", label: "7 Oct 2026" },
     { id: "oct-5", label: "5 Oct 2026" },
     { id: "oct-4", label: "4 Oct 2026" },
@@ -18,6 +19,15 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-8">8 October 2026</h2>
+      <ul>
+        <li><strong>Fixed:</strong> The app no longer says "You're protected" while the internet is down. It now checks that traffic really flows through the tunnel before showing green.</li>
+        <li><strong>New:</strong> The tunnel is monitored for as long as you are connected. If it stops passing traffic you see "Connected, but no internet" with the reason (server not answering, server rejected the connection, or no traffic). It recovers on its own when traffic returns.</li>
+        <li><strong>New:</strong> Failed connections now explain what went wrong with a button for the fix. The server is checked before connecting, so an unreachable server fails in seconds.</li>
+        <li><strong>New:</strong> A Connection health card on the home screen, a status line and a warning icon in the menu bar, and loading skeletons in the menu bar popover and home screen.</li>
+        <li><strong>Changed:</strong> "Connection watchdog" is now "Restart a dead tunnel". Monitoring is always on, and the setting only controls whether a dead tunnel is restarted automatically.</li>
+      </ul>
+
       <h2 id="oct-7">7 October 2026</h2>
       <ul>
         <li><strong>New:</strong> The app is now called <strong>Kage VPN</strong>, with a new moon-and-ninja icon and menu bar glyphs. Your servers, settings and usage history move over automatically on first launch.</li>

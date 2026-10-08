@@ -13,6 +13,9 @@
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, profileFlag } from '$lib/format';
 	import Icon from './Icon.svelte';
 	import HintBanner from './HintBanner.svelte';
+	import HealthCard from './HealthCard.svelte';
+	import Skeleton from './Skeleton.svelte';
+	import StatusBanner from './StatusBanner.svelte';
 	import PowerButton from './PowerButton.svelte';
 	import Select from './Select.svelte';
 	import Segmented from './Segmented.svelte';
@@ -39,13 +42,20 @@
 		};
 	});
 
-	const isProtected = $derived(app.status.state === 'connected');
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const statusText = $derived(
-		isProtected ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
+		app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
 	);
 	const headline = $derived(
-		isProtected ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
+		app.tunnelDown
+			? 'Connected, but no internet'
+			: app.verifying
+				? 'Checking your connection…'
+				: app.protectedNow
+					? "You're protected"
+					: isConnecting
+						? 'Connecting…'
+						: "You're not protected"
 	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
 	const serverValue = $derived(app.auto.enabled ? 'auto' : (app.activeId ?? ''));
@@ -126,11 +136,13 @@
 		</div>
 	{/if}
 
+	<StatusBanner {onnavigate} />
+
 	<div class="grid">
 		<!-- Connection -->
 		<section class="hero card" class:on={app.connected}>
 			<div class="card-header">
-				<div class="status-pill {app.status.state}">
+				<div class="status-pill {app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">
 					<span class="dot"></span>
 					<strong>{statusText}</strong>
 					{#if elapsed}<span class="elapsed tabular">{elapsed}</span>{/if}
@@ -146,8 +158,8 @@
 			</div>
 
 			<div class="power-center">
-				<PowerButton state={app.status.state} size={112} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
-				<h2 class="headline {app.status.state}">{headline}</h2>
+				<PowerButton tone={app.tunnelDown ? 'down' : app.verifying ? 'checking' : undefined} state={app.status.state} size={112} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
+				<h2 class="headline {app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">{headline}</h2>
 				<div class="ip-row">
 					{#if app.connected}
 						{#if app.exitIp}
@@ -223,7 +235,7 @@
 			<div class="today-block">
 				<div class="today-header">
 					<span class="caption">Today</span>
-					<strong class="tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong>
+					{#if !usage.todayLoading}<strong class="tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong>{:else}<Skeleton width="56px" height="14px" />{/if}
 				</div>
 				{#if usage.quota?.limit}
 					<div class="meter" class:warn={usage.quota.percent >= 80}>
@@ -235,6 +247,7 @@
 		</section>
 	</div>
 
+	<HealthCard />
 	<HintBanner />
 </div>
 
@@ -353,6 +366,10 @@
 		background: color-mix(in srgb, var(--warn) 16%, transparent);
 		color: var(--warn);
 	}
+	.status-pill.down {
+		background: color-mix(in srgb, var(--danger) 16%, transparent);
+		color: var(--danger);
+	}
 	.status-pill .dot {
 		width: 7px;
 		height: 7px;
@@ -373,6 +390,14 @@
 	}
 	.headline.connected {
 		color: var(--ok-text);
+	}
+	.headline.down {
+		color: var(--danger);
+	}
+	.down-reason {
+		color: var(--danger);
+		max-width: 32ch;
+		text-align: center;
 	}
 	.headline.connecting {
 		color: var(--warn);

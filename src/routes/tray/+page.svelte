@@ -12,6 +12,7 @@
 	import Select from '$lib/components/Select.svelte';
 	import Segmented from '$lib/components/Segmented.svelte';
 	import Sparkline from '$lib/components/Sparkline.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 
 	const modes = [
 		{ value: 'tun' as const, label: 'Full System' },
@@ -42,10 +43,9 @@
 		...app.profiles.map((p) => ({ value: p.id, label: p.name.replace(/^\p{RI}{2}\s*/u, ''), icon: profileFlag(p.name, p.server) }))
 	]);
 
-	const isProtected = $derived(app.status.state === 'connected');
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const headline = $derived(
-		isProtected ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
+		app.tunnelDown ? 'No internet' : app.verifying ? 'Checking…' : app.protectedNow ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
 	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
 	const activeName = $derived(
@@ -56,9 +56,16 @@
 <div class="popover">
 	<button class="close-btn" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
 
-	<section class="hero" class:pending={!app.loaded}>
-		<PowerButton state={app.status.state} size={76} disabled={!app.loaded || app.busy || !app.activeProfile} onclick={() => app.toggle()} />
-		<h1 class="headline {app.status.state}">{app.loaded ? headline : '\u00a0'}</h1>
+	{#if !app.loaded}
+		<section class="hero" aria-hidden="true">
+			<Skeleton width="76px" height="76px" radius="50%" />
+			<Skeleton width="150px" height="22px" radius="8px" />
+			<Skeleton width="110px" height="12px" />
+		</section>
+	{:else}
+	<section class="hero">
+		<PowerButton tone={app.tunnelDown ? 'down' : app.verifying ? 'checking' : undefined} state={app.status.state} size={76} disabled={!app.loaded || app.busy || !app.activeProfile} onclick={() => app.toggle()} />
+		<h1 class="headline {app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">{app.loaded ? headline : '\u00a0'}</h1>
 		<p class="sub">
 			{#if !app.loaded}
 				<span class="dim">&nbsp;</span>
@@ -74,16 +81,18 @@
 			{/if}
 		</p>
 		<div class="meta">
+			{#if app.loaded && app.connected && !app.exitIp && !app.tunnelDown}<Skeleton width="90px" height="14px" />{/if}
 			{#if app.loaded && app.connected && app.exitIp}<span class="ip mono tabular"><Sensitive id={privacyKey.exitIp}>{app.exitIp}</Sensitive><PrivacyToggle id={privacyKey.exitIp} label="IP address" /></span>{/if}
 			{#if app.loaded && app.profiles.length && !isConnecting}<PingButton />{/if}
 		</div>
 	</section>
+	{/if}
 
 	{#if !app.loaded}
 		<div class="skeleton" aria-hidden="true">
-			<div class="sk sk-select"></div>
-			<div class="sk sk-stats"></div>
-			<div class="sk sk-mode"></div>
+			<Skeleton height="34px" radius="8px" />
+			<Skeleton height="92px" radius="10px" />
+			<Skeleton height="30px" radius="8px" />
 		</div>
 	{:else if app.profiles.length}
 		<div class="pick">
@@ -115,7 +124,7 @@
 			<div class="graph"><Sparkline samples={app.history} height={34} /></div>
 		{/if}
 		<div class="today">
-			<span>Today <strong class="tabular">{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}</strong></span>
+			<span>Today <strong class="tabular">{#if usage.todayLoading}<Skeleton width="48px" height="12px" />{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</strong></span>
 			{#if usage.quota?.limit}<span class="tabular">{usage.quota.percent.toFixed(0)}% of cap</span>{/if}
 		</div>
 	</section>
@@ -181,6 +190,13 @@
 	.headline.connected {
 		color: var(--ok-text);
 	}
+	.headline.down {
+		color: var(--danger);
+	}
+	.wrap {
+		white-space: normal;
+		text-align: center;
+	}
 	.headline.connecting {
 		color: var(--warn);
 	}
@@ -233,25 +249,6 @@
 	.skeleton {
 		display: grid;
 		gap: 10px;
-	}
-	.sk {
-		border-radius: 8px;
-		background: var(--hairline);
-		animation: pulse 1.2s ease-in-out infinite;
-	}
-	.sk-select {
-		height: 34px;
-	}
-	.sk-stats {
-		height: 92px;
-	}
-	.sk-mode {
-		height: 30px;
-	}
-	@keyframes pulse {
-		50% {
-			opacity: 0.45;
-		}
 	}
 	.pick,
 	.stats {

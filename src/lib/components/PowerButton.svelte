@@ -5,8 +5,9 @@
 		state,
 		disabled = false,
 		size = 104,
+		tone,
 		onclick
-	}: { state: ConnState; disabled?: boolean; size?: number; onclick: () => void } = $props();
+	}: { state: ConnState; disabled?: boolean; size?: number; tone?: 'down' | 'checking'; onclick: () => void } = $props();
 
 	const labels: Record<ConnState, string> = {
 		disconnected: 'Connect to VPN',
@@ -16,7 +17,7 @@
 </script>
 
 <button
-	class="power {state}"
+	class="power {state} {tone ?? ''}"
 	style:--size="{size}px"
 	{disabled}
 	{onclick}
@@ -89,6 +90,13 @@
 			0 0 0 3px color-mix(in srgb, var(--ok) 35%, transparent),
 			0 0 28px color-mix(in srgb, var(--ok) 35%, transparent);
 	}
+	.connected.down {
+		color: var(--danger);
+		box-shadow:
+			0 0 0 3px color-mix(in srgb, var(--danger) 35%, transparent),
+			0 0 28px color-mix(in srgb, var(--danger) 30%, transparent);
+	}
+	.connected.checking,
 	.connecting {
 		color: var(--warn);
 		box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 35%, transparent);
