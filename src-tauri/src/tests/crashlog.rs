@@ -26,3 +26,15 @@ fn record_appends_and_trims() {
     assert!(text.contains("reason 2"));
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn read_returns_entries_and_clear_removes_them() {
+    let dir = std::env::temp_dir().join(format!("kage-crash-read-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    assert_eq!(read(&dir), "");
+    record(&dir, "exit", "boom", "details");
+    assert!(read(&dir).contains("boom"));
+    clear(&dir);
+    assert_eq!(read(&dir), "");
+    let _ = fs::remove_dir_all(&dir);
+}

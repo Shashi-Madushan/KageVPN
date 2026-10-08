@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
+	import { crashLog } from '$lib/crashLog.svelte';
 	import type { Page } from './Sidebar.svelte';
 
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
@@ -25,6 +26,7 @@
 			<button onclick={() => act(failure.action)}>
 				{failure.action === 'installEngine' ? 'Download engine' : failure.action === 'diagnostics' ? 'Open diagnostics' : 'Try again'}
 			</button>
+			{#if failure.code === 'engineStopped'}<button class="quiet" onclick={() => crashLog.show()}>View crash log</button>{/if}
 		</div>
 	</div>
 {:else if down}

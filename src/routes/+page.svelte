@@ -14,6 +14,7 @@
 	import HomePage from '$lib/components/HomePage.svelte';
 	import DownloadsMenu from '$lib/components/DownloadsMenu.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import CrashLogDialog from '$lib/components/CrashLogDialog.svelte';
 	import FeedbackDialog from '$lib/components/FeedbackDialog.svelte';
 	import EngineInstallDialog from '$lib/components/EngineInstallDialog.svelte';
 	import OnboardingDialog from '$lib/components/OnboardingDialog.svelte';
@@ -147,6 +148,7 @@
 <OnboardingDialog onnavigate={(p) => (page = p)} />
 <EngineInstallDialog open={core.promptInstall} />
 <FeedbackDialog />
+<CrashLogDialog />
 <ConfirmDialog
 	open={appUpdate.confirmRestart}
 	title="Restart and disconnect?"

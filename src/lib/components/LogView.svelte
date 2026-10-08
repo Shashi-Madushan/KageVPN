@@ -2,6 +2,7 @@
 	import { tick } from 'svelte';
 	import type { Level } from '$lib/api';
 	import { app } from '$lib/app.svelte';
+	import { crashLog } from '$lib/crashLog.svelte';
 	import HeaderActions from './HeaderActions.svelte';
 	import Segmented from './Segmented.svelte';
 
@@ -48,6 +49,7 @@
 </script>
 
 <HeaderActions>
+	<button class="btn" onclick={() => crashLog.show()}>Crash log</button>
 	<button class="btn" disabled={!visible.length} onclick={copy}>Copy</button>
 	<button class="btn danger" disabled={!app.logs.length} onclick={() => app.clearLogs()}>Clear</button>
 </HeaderActions>

@@ -199,6 +199,16 @@ pub fn trust_key(state: State<AppState>, id: String, key: String) -> Result<()> 
 }
 
 #[tauri::command]
+pub fn crash_log(state: State<AppState>) -> String {
+    crate::crashlog::read(&state.paths.data_dir())
+}
+
+#[tauri::command]
+pub fn clear_crash_log(state: State<AppState>) {
+    crate::crashlog::clear(&state.paths.data_dir());
+}
+
+#[tauri::command]
 pub fn clear_logs(state: State<AppState>) {
     state.logs.clear();
 }

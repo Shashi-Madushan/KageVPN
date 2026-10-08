@@ -154,6 +154,8 @@ pub fn run() {
             commands::set_mode,
             commands::trust_key,
             commands::clear_logs,
+            commands::crash_log,
+            commands::clear_crash_log,
             commands::connect,
             commands::disconnect,
             commands::ping_profile,

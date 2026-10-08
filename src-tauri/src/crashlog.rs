@@ -8,6 +8,7 @@ use std::path::Path;
 
 const FILE: &str = "crashes.log";
 const MAX_BYTES: u64 = 200_000;
+const READ_BYTES: usize = 100_000;
 
 /// The exit-status line the supervisor writes when sing-box dies, from its stderr log.
 pub fn exit_status(stderr: &str) -> Option<String> {
@@ -49,6 +50,24 @@ pub fn record(dir: &Path, kind: &str, reason: &str, details: &str) {
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
         let _ = file.write_all(entry.as_bytes());
     }
+}
+
+/// The newest part of the crash log (at most `READ_BYTES`), or an empty string when there is none.
+pub fn read(dir: &Path) -> String {
+    let Ok(text) = fs::read_to_string(dir.join(FILE)) else { return String::new() };
+    if text.len() <= READ_BYTES {
+        return text;
+    }
+    let mut start = text.len() - READ_BYTES;
+    while !text.is_char_boundary(start) {
+        start += 1;
+    }
+    let cut = text[start..].find("==== ").map_or(start, |i| start + i);
+    text[cut..].to_string()
+}
+
+pub fn clear(dir: &Path) {
+    let _ = fs::remove_file(dir.join(FILE));
 }
 
 #[cfg(test)]
