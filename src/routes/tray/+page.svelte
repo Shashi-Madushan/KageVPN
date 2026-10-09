@@ -117,7 +117,7 @@
 					<span class="cell"><strong class="tabular">{elapsed ?? '—'}</strong></span>
 					<span class="cell ip">
 						{#if app.exitIp}
-							<Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive>
+							<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
 							<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
 						{:else if app.tunnelDown}
 							<small>No IP</small>
@@ -334,8 +334,10 @@
 		color: var(--fg-muted);
 	}
 	.strip {
-		display: flex;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.1fr);
 		align-items: stretch;
+		overflow: hidden;
 		border: 1px solid var(--hairline);
 		border-radius: 12px;
 		background: var(--surface);
@@ -347,14 +349,15 @@
 		gap: 6px;
 		padding: 7px 8px;
 		min-width: 0;
-		flex: none;
+	}
+	.cell:nth-child(2) strong {
+		font-size: 11.5px;
 	}
 	.cell + .cell {
 		border-left: 1px solid var(--hairline);
 	}
 	.cell.grow {
-		flex: 1 1 0;
-		min-width: 104px;
+		overflow: hidden;
 	}
 	.two {
 		display: grid;
@@ -380,10 +383,20 @@
 		font-size: 20px;
 	}
 	.ip {
-		font-size: 10.5px;
-		max-width: 104px;
+		font-size: 10px;
+		gap: 0;
+		justify-content: space-between;
 		color: var(--fg-muted);
 		user-select: text;
+	}
+	.ip-text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.ip :global(button) {
+		flex: none;
 	}
 	.pick {
 		display: flex;
