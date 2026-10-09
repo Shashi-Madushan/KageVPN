@@ -62,7 +62,7 @@
 					? 'Add a server to get started'
 					: app.connected
 						? null
-						: 'Press the shield to connect'
+						: 'Press the button to connect'
 	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
 	const activeName = $derived(
@@ -91,10 +91,7 @@
 				aria-label={app.connected ? 'Disconnect from VPN' : 'Connect to VPN'}
 				aria-busy={isConnecting}
 			>
-				<svg viewBox="0 0 64 72" aria-hidden="true">
-					<path class="outline" d="M32 4 56 13v22c0 15-10 27-24 33C18 62 8 50 8 35V13L32 4Z" />
-					<g class="power"><path d="M32 24v14" /><path d="M23.5 30.5a13 13 0 1 0 17 0" /></g>
-				</svg>
+				<img class="logo" src="/app-icon.png" alt="" draggable="false" />
 				{#if isConnecting}<i class="ring"></i>{/if}
 			</button>
 			<h1 class="headline {tone}">{headline}</h1>
@@ -253,22 +250,19 @@
 		--c: var(--danger);
 		box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 25%, transparent), 0 0 28px color-mix(in srgb, var(--danger) 30%, transparent);
 	}
-	.shield svg {
-		width: 58%;
-		height: 58%;
-		overflow: visible;
+	.logo {
+		width: 70%;
+		height: 70%;
+		border-radius: 22%;
+		object-fit: cover;
+		transition: filter 0.25s, opacity 0.25s;
 	}
-	.outline {
-		fill: color-mix(in srgb, var(--c) 10%, transparent);
-		stroke: currentColor;
-		stroke-width: 3;
-		stroke-linejoin: round;
+	.shield.off .logo {
+		filter: grayscale(1);
+		opacity: 0.55;
 	}
-	.power path {
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 4;
-		stroke-linecap: round;
+	.shield.checking .logo {
+		opacity: 0.85;
 	}
 	.ring {
 		position: absolute;
