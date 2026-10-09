@@ -19,7 +19,7 @@
 		{ value: 'lastMonth', label: 'Last month' }
 	];
 	const more: { value: string; label: string }[] = [
-		{ value: '', label: 'More ranges…' },
+		{ value: '', label: 'More' },
 		{ value: 'yesterday', label: 'Yesterday' },
 		{ value: 'month30', label: 'Last 30 days' },
 		{ value: 'cycle', label: 'Billing cycle' },
@@ -174,21 +174,21 @@
 </script>
 
 <HeaderActions>
+	<Segmented options={quick} value={isMoreRange ? ('' as Preset) : usage.preset} label="Time period" onchange={setPreset} />
+	<Select value={isMoreRange ? usage.preset : ''} label="More ranges" options={more} onchange={(v) => v && setPreset(v as Preset)} />
 	<button class="btn" onclick={() => usage.exportCsv()}>Export CSV</button>
 </HeaderActions>
 
 <div class="page">
-	<div class="period">
-		<Segmented options={quick} value={isMoreRange ? ('' as Preset) : usage.preset} label="Time period" onchange={setPreset} />
-		<Select value={isMoreRange ? usage.preset : ''} label="More ranges" options={more} onchange={(v) => v && setPreset(v as Preset)} />
-		{#if usage.preset === 'custom'}
+	{#if usage.preset === 'custom'}
+		<div class="period">
 			<span class="dates">
 				<input class="input" type="date" aria-label="From" bind:value={usage.customFrom} max={usage.customTo} />
 				<span class="to">to</span>
 				<input class="input" type="date" aria-label="To" bind:value={usage.customTo} min={usage.customFrom} />
 			</span>
-		{/if}
-	</div>
+		</div>
+	{/if}
 
 	{#if filtered}
 		<div class="showing" role="status">

@@ -42,7 +42,7 @@
 	const subtitles: Record<Page, string> = {
 		home: 'Connection status and live traffic',
 		profiles: 'Choose, import and test your servers',
-		usage: 'See how much data each app and server uses',
+		usage: '',
 		routing: 'Decide which traffic goes through the VPN',
 		connections: 'Live connections passing through the tunnel',
 		diagnostics: 'Speed, leak and connectivity checks',
@@ -107,7 +107,7 @@
 	</aside>
 
 	<section class="content">
-		<header data-tauri-drag-region><div class="titles"><h1>{titles[page]}</h1><p>{subtitles[page]}</p></div>
+		<header data-tauri-drag-region><div class="titles"><h1>{titles[page]}</h1>{#if subtitles[page]}<p>{subtitles[page]}</p>{/if}</div>
 			<div class="actions">
 				{#if header.actions}{@render header.actions()}{/if}
 				<DownloadsMenu />
