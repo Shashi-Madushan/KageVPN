@@ -16,7 +16,7 @@
 	import HealthCard from './HealthCard.svelte';
 	import Skeleton from './Skeleton.svelte';
 	import StatusBanner from './StatusBanner.svelte';
-	import PowerButton from './PowerButton.svelte';
+	import MascotButton from './MascotButton.svelte';
 	import Select from './Select.svelte';
 	import Segmented from './Segmented.svelte';
 	import Sparkline from './Sparkline.svelte';
@@ -158,7 +158,7 @@
 			</div>
 
 			<div class="power-center">
-				<PowerButton tone={app.tunnelDown ? 'down' : app.verifying ? 'checking' : undefined} state={app.status.state} size={112} disabled={app.busy || !app.activeProfile} onclick={() => app.toggle()} />
+				<MascotButton size={150} />
 				<h2 class="headline {app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">{headline}</h2>
 				<div class="ip-row">
 					{#if app.connected}

@@ -4,9 +4,8 @@
 	import { app } from '$lib/app.svelte';
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, profileFlag } from '$lib/format';
 	import Icon from '$lib/components/Icon.svelte';
-	import Mascot from '$lib/components/Mascot.svelte';
+	import MascotButton from '$lib/components/MascotButton.svelte';
 	import { usage } from '$lib/usage.svelte';
-	import PowerButton from '$lib/components/PowerButton.svelte';
 	import PrivacyToggle from '$lib/components/PrivacyToggle.svelte';
 	import { privacyKey } from '$lib/privacy.svelte';
 	import Sensitive from '$lib/components/Sensitive.svelte';
@@ -51,7 +50,6 @@
 	]);
 
 	const isConnecting = $derived(app.status.state === 'connecting');
-	const mood = $derived(tone === 'ok' ? 'happy' : tone === 'down' ? 'worried' : tone === 'checking' || isConnecting ? 'busy' : 'sleep');
 	const headline = $derived(
 		app.tunnelDown ? 'No internet' : app.verifying ? 'Checking…' : app.protectedNow ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
 	);
@@ -86,15 +84,7 @@
 		</div>
 	{:else}
 		<section class="hero">
-			<button
-				class="shield {tone}"
-				disabled={app.busy || !app.activeProfile}
-				onclick={() => app.toggle()}
-				aria-label={app.connected ? 'Disconnect from VPN' : 'Connect to VPN'}
-				aria-busy={isConnecting}
-			>
-				<Mascot {mood} size={120} />
-			</button>
+			<MascotButton size={120} />
 			<h1 class="headline {tone}">{headline}</h1>
 			{#if sub}<p class="sub">{sub}</p>{/if}
 		</section>
@@ -224,34 +214,6 @@
 		justify-items: center;
 		gap: 4px;
 		padding-top: 6px;
-	}
-	.shield {
-		position: relative;
-		display: grid;
-		place-items: center;
-		padding: 6px 14px 0;
-		border: 0;
-		border-radius: 24px;
-		background: radial-gradient(closest-side, color-mix(in srgb, var(--c, var(--fg-muted)) 16%, transparent), transparent);
-		transition: transform 0.12s;
-	}
-	.shield.ok {
-		--c: var(--ok);
-	}
-	.shield.checking {
-		--c: var(--warn);
-	}
-	.shield.down {
-		--c: var(--danger);
-	}
-	.shield:hover:not(:disabled) {
-		transform: scale(1.03);
-	}
-	.shield:active:not(:disabled) {
-		transform: scale(0.97);
-	}
-	.shield:disabled {
-		opacity: 0.7;
 	}
 	.headline {
 		margin: 8px 0 0;
