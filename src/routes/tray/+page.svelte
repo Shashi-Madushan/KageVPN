@@ -4,6 +4,7 @@
 	import { app } from '$lib/app.svelte';
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, profileFlag } from '$lib/format';
 	import Icon from '$lib/components/Icon.svelte';
+	import Mascot from '$lib/components/Mascot.svelte';
 	import { usage } from '$lib/usage.svelte';
 	import PowerButton from '$lib/components/PowerButton.svelte';
 	import PrivacyToggle from '$lib/components/PrivacyToggle.svelte';
@@ -50,6 +51,7 @@
 	]);
 
 	const isConnecting = $derived(app.status.state === 'connecting');
+	const mood = $derived(tone === 'ok' ? 'happy' : tone === 'down' ? 'worried' : tone === 'checking' || isConnecting ? 'busy' : 'sleep');
 	const headline = $derived(
 		app.tunnelDown ? 'No internet' : app.verifying ? 'Checking…' : app.protectedNow ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
 	);
@@ -91,8 +93,7 @@
 				aria-label={app.connected ? 'Disconnect from VPN' : 'Connect to VPN'}
 				aria-busy={isConnecting}
 			>
-				<img class="logo" src="/app-icon.png" alt="" draggable="false" />
-				{#if isConnecting}<i class="ring"></i>{/if}
+				<Mascot {mood} size={120} />
 			</button>
 			<h1 class="headline {tone}">{headline}</h1>
 			{#if sub}<p class="sub">{sub}</p>{/if}
@@ -207,6 +208,9 @@
 		background: var(--hairline);
 		color: var(--fg);
 	}
+	.popover > :global(*) {
+		flex-shrink: 0;
+	}
 	.center {
 		display: grid;
 		justify-items: center;
@@ -222,65 +226,32 @@
 		padding-top: 6px;
 	}
 	.shield {
-		--c: var(--fg-muted);
 		position: relative;
-		width: 96px;
-		height: 96px;
 		display: grid;
 		place-items: center;
-		padding: 0;
-		border: 1px solid var(--hairline);
-		border-radius: 50%;
-		background: radial-gradient(circle at 50% 40%, var(--surface-strong), color-mix(in srgb, var(--c) 8%, var(--surface-strong)));
-		color: var(--c);
-		transition: box-shadow 0.25s, color 0.25s, transform 0.1s;
+		padding: 6px 14px 0;
+		border: 0;
+		border-radius: 24px;
+		background: radial-gradient(closest-side, color-mix(in srgb, var(--c, var(--fg-muted)) 16%, transparent), transparent);
+		transition: transform 0.12s;
+	}
+	.shield.ok {
+		--c: var(--ok);
+	}
+	.shield.checking {
+		--c: var(--warn);
+	}
+	.shield.down {
+		--c: var(--danger);
+	}
+	.shield:hover:not(:disabled) {
+		transform: scale(1.03);
 	}
 	.shield:active:not(:disabled) {
 		transform: scale(0.97);
 	}
-	.shield.ok {
-		--c: var(--ok);
-		box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent), 0 0 34px color-mix(in srgb, var(--ok) 38%, transparent);
-	}
-	.shield.checking {
-		--c: var(--warn);
-		box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 25%, transparent);
-	}
-	.shield.down {
-		--c: var(--danger);
-		box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 25%, transparent), 0 0 28px color-mix(in srgb, var(--danger) 30%, transparent);
-	}
-	.logo {
-		width: 70%;
-		height: 70%;
-		border-radius: 22%;
-		object-fit: cover;
-		transition: filter 0.25s, opacity 0.25s;
-	}
-	.shield.off .logo {
-		filter: grayscale(1);
-		opacity: 0.55;
-	}
-	.shield.checking .logo {
-		opacity: 0.85;
-	}
-	.ring {
-		position: absolute;
-		inset: -3px;
-		border-radius: 50%;
-		border: 3px solid transparent;
-		border-top-color: var(--warn);
-		animation: spin 1.1s linear infinite;
-	}
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.ring {
-			animation: none;
-		}
+	.shield:disabled {
+		opacity: 0.7;
 	}
 	.headline {
 		margin: 8px 0 0;
