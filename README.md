@@ -24,6 +24,8 @@ Kage VPN is a desktop app that sits in your menu bar and manages a [sing-box](ht
 
 It is for people who already have a VLESS, VMess, Trojan, Shadowsocks or Hysteria2 server or provider and want a polished Mac app instead of hand-editing config files. It does not sell or provide VPN servers.
 
+> Development happens on `dev` and is merged into `main` when it is ready; see [docs/BRANCHING.md](docs/BRANCHING.md).
+
 ## Install
 
 > **Requirements:** a Mac (Apple Silicon or Intel) and a server link or subscription. The app downloads the sing-box engine for you on first run.

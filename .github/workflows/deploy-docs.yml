@@ -1,3 +1,6 @@
+# Deploys the docs site, and only ever from `main`: a push to main that changes the docs, or a
+# manual run of this workflow on main. Pushes to dev or feature branches do nothing, and the
+# job's `if` refuses a manual run started from any other branch.
 name: Deploy Documentation Site to GitHub Pages
 
 on:
@@ -20,6 +23,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
