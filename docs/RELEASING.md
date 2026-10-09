@@ -28,18 +28,18 @@ them, and do not paste them into chats, issues or CI logs.
 
 1. **Choose a host** and set `APP_UPDATE_FEED` in `app_config.rs` to the URL of `latest.json`.
    For GitHub Releases that is
-   `https://github.com/<owner>/<repo>/releases/latest/download/latest.json`
-   (the script prints it when you pass `--github owner/repo`).
+   `https://github.com/Shashi-Madushan/KageVPN/releases/latest/download/latest.json`
+   (the script prints it when you pass `--github Shashi-Madushan/KageVPN`). This is already set in `app_config.rs`.
 2. Make sure `gh auth status` works if you want the script to publish to GitHub.
 
 ## Cutting a release
 
 ```bash
 # 1. Build, sign and stage (nothing leaves your machine)
-npm run release -- --version 0.2.0 --github owner/repo --notes "What changed"
+npm run release -- --version 0.2.0 --github Shashi-Madushan/KageVPN --notes "What changed"
 
 # 2. Look at release/0.2.0/, then publish
-npm run release -- --version 0.2.0 --github owner/repo --notes "What changed" --skip-build --publish
+npm run release -- --version 0.2.0 --github Shashi-Madushan/KageVPN --notes "What changed" --skip-build --publish
 ```
 
 What it does:

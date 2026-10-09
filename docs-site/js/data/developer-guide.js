@@ -33,11 +33,11 @@ window.DOCS_PAGES["developer-guide/local-setup"] = {
     <div class="code-block-container">
       <div class="code-header">
         <span class="code-lang-label">bash</span>
-        <button class="btn-copy-code" data-code="git clone https://github.com/shashimadushan/singbox-gui.git&#10;cd singbox-gui&#10;npm install">Copy</button>
+        <button class="btn-copy-code" data-code="git clone https://github.com/Shashi-Madushan/KageVPN.git&#10;cd KageVPN&#10;npm install">Copy</button>
       </div>
       <pre><code># Clone repository
-git clone https://github.com/shashimadushan/singbox-gui.git
-cd singbox-gui
+git clone https://github.com/Shashi-Madushan/KageVPN.git
+cd KageVPN
 
 # Install frontend JavaScript & Vite dependencies
 npm install</code></pre>

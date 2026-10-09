@@ -2,6 +2,8 @@
 name = "kage-vpn"
 version = "0.1.0"
 description = "Minimal sing-box VPN manager"
+repository = "https://github.com/Shashi-Madushan/KageVPN"
+homepage = "https://shashi-madushan.github.io/KageVPN/"
 authors = ["shashi"]
 edition = "2021"
 

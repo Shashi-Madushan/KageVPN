@@ -1,7 +1,10 @@
 {
   "name": "kage-vpn",
   "version": "0.1.0",
-  "description": "",
+  "description": "Kage VPN, a macOS menu bar manager for sing-box",
+  "homepage": "https://shashi-madushan.github.io/KageVPN/",
+  "repository": { "type": "git", "url": "https://github.com/Shashi-Madushan/KageVPN.git" },
+  "bugs": { "url": "https://github.com/Shashi-Madushan/KageVPN/issues" },
   "type": "module",
   "scripts": {
     "dev": "vite dev",

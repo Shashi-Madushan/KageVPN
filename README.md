@@ -9,6 +9,8 @@ Import your VLESS, VMess, Trojan, Shadowsocks or Hysteria2 servers, connect with
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%2B%20Svelte-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+[![Latest release](https://img.shields.io/github/v/release/Shashi-Madushan/KageVPN)](https://github.com/Shashi-Madushan/KageVPN/releases/latest)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://shashi-madushan.github.io/KageVPN/)
 
 <img src="docs/images/home.png" alt="Kage VPN home screen, connected" width="860">
 
@@ -26,7 +28,7 @@ It is for people who already have a VLESS, VMess, Trojan, Shadowsocks or Hysteri
 
 > **Requirements:** a Mac (Apple Silicon or Intel) and a server link or subscription. The app downloads the sing-box engine for you on first run.
 
-1. **Download** the latest `.dmg` from the [Releases page](../../releases).
+1. **Download** the latest `.dmg` from the [Releases page](https://github.com/Shashi-Madushan/KageVPN/releases).
 2. **Open** the disk image and drag **Kage VPN** into your **Applications** folder.
 3. **Open the app.** The first time, macOS will probably stop it. That is expected, and the next section explains how to get past it.
 
@@ -152,8 +154,8 @@ All screenshots use made-up demo data: example hosts and documentation-range IP 
 You need macOS, [Node.js](https://nodejs.org) 20 or newer, [Rust](https://rustup.rs) (stable) and the Xcode command line tools (`xcode-select --install`).
 
 ```bash
-git clone <this repository>
-cd <folder>
+git clone https://github.com/Shashi-Madushan/KageVPN.git
+cd KageVPN
 npm install
 npm run tauri dev          # run the app with hot reload
 ```
