@@ -48,7 +48,7 @@
 		diagnostics: 'Speed, leak and connectivity checks',
 		core: 'The sing-box engine that powers the tunnel',
 		logs: 'Technical output for troubleshooting',
-		settings: 'Startup, reliability and shortcuts'
+		settings: 'Startup, reliability, data limit and shortcuts'
 	};
 
 	let page = $state<Page>('home');
@@ -127,7 +127,7 @@
 			{:else if page === 'profiles'}
 				<ProfilesPage />
 			{:else if page === 'usage'}
-				<UsagePage />
+				<UsagePage onnavigate={(p) => (page = p)} />
 			{:else if page === 'routing'}
 				<RoutingPage />
 			{:else if page === 'connections'}

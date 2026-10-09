@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Page } from './Sidebar.svelte';
 	import Select from './Select.svelte';
 	import { onMount } from 'svelte';
 	import type { Bucket, Point, TopRow } from '$lib/api';
@@ -11,7 +12,8 @@
 	import Segmented from './Segmented.svelte';
 	import Skeleton from './Skeleton.svelte';
 
-	const GIB = 1024 ** 3;
+	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
+
 	const quick: { value: Preset; label: string }[] = [
 		{ value: 'today', label: 'Today' },
 		{ value: 'week', label: '7 days' },
@@ -42,9 +44,7 @@
 		custom: 'in this period'
 	};
 
-	let confirmReset = $state(false);
 	let tab = $state<'app' | 'domain' | 'profile'>('app');
-	let settingsBox: HTMLDetailsElement | undefined = $state();
 
 	onMount(() => {
 		usage.loadMeta();
@@ -132,14 +132,6 @@
 		usage.mode = null;
 	}
 
-	function openSettings() {
-		if (settingsBox) {
-			settingsBox.open = true;
-			settingsBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-		}
-	}
-
-	const quotaGb = $derived(usage.settings?.quotaBytes ? +(usage.settings.quotaBytes / GIB).toFixed(2) : '');
 	const rowTotal = (r: TopRow) => r.up + r.down;
 	const maxOf = (rows: TopRow[]) => Math.max(1, ...rows.map(rowTotal));
 	const sumOf = (rows: TopRow[]) => rows.reduce((sum, r) => sum + rowTotal(r), 0);
@@ -166,8 +158,8 @@
 	}
 
 	const tabs = $derived([
-		{ value: 'app' as const, label: 'Apps', rows: usage.topApps, empty: usage.settings?.recordApps ? 'No app data yet.' : 'App tracking is off. Turn it on in the settings below to see which apps use your data.' },
-		{ value: 'domain' as const, label: 'Websites', rows: usage.topDomains, empty: usage.settings?.recordDomains ? 'No website data yet.' : 'Website tracking is off to protect your privacy. You can turn it on in the settings below.' },
+		{ value: 'app' as const, label: 'Apps', rows: usage.topApps, empty: usage.settings?.recordApps ? 'No app data yet.' : 'App tracking is off. Turn it on in Settings to see which apps use your data.' },
+		{ value: 'domain' as const, label: 'Websites', rows: usage.topDomains, empty: usage.settings?.recordDomains ? 'No website data yet.' : 'Website tracking is off to protect your privacy. You can turn it on in Settings.' },
 		{ value: 'profile' as const, label: 'Servers', rows: usage.topProfiles, empty: 'No data yet.' }
 	]);
 	const current = $derived(tabs.find((t) => t.value === tab)!);
@@ -240,7 +232,7 @@
 				<small>{quota.percent >= 100 ? 'You have reached your limit.' : `${formatBytes(Math.max(0, quota.limit - quota.used))} left (${(100 - quota.percent).toFixed(0)}%)`}</small>
 			</div>
 		{:else if usage.settings}
-			<button class="link cap-hint" onclick={openSettings}>Set a monthly data limit</button>
+			<button class="link cap-hint" onclick={() => onnavigate('settings')}>Set a monthly data limit in Settings</button>
 		{/if}
 	</section>
 
@@ -327,58 +319,6 @@
 		</div>
 	</details>
 
-	{#if usage.settings}
-		{@const s = usage.settings}
-		<details class="card settings" bind:this={settingsBox}>
-			<summary>Data cap and privacy settings</summary>
-			<div class="form">
-				<label>Monthly cap (GB)
-					<input class="input" type="number" min="0" step="1" value={quotaGb} placeholder="No cap" onchange={(e) => usage.saveSettings({ quotaBytes: e.currentTarget.value ? Math.round(Number(e.currentTarget.value) * GIB) : null })} />
-				</label>
-				<label>Cycle starts on day
-					<input class="input" type="number" min="1" max="31" value={s.cycleDay} onchange={(e) => usage.saveSettings({ cycleDay: Math.min(31, Math.max(1, Number(e.currentTarget.value) || 1)) })} />
-				</label>
-				<label>At 100%
-					<Select
-						value={s.quotaAction}
-						label="At 100%"
-						options={[{ value: 'notify', label: 'Notify me' }, { value: 'disconnect', label: 'Disconnect' }]}
-						onchange={(v) => usage.saveSettings({ quotaAction: v })}
-					/>
-				</label>
-				<label>Keep app and site detail
-					<Select
-						value={String(s.detailRetentionDays)}
-						label="Keep app and site detail"
-						options={[
-							{ value: '30', label: '30 days' },
-							{ value: '90', label: '90 days' },
-							{ value: '180', label: '180 days' },
-							{ value: '365', label: '1 year' }
-						]}
-						onchange={(v) => usage.saveSettings({ detailRetentionDays: Number(v) })}
-					/>
-				</label>
-			</div>
-			<div class="toggles">
-				<label class="toggle"><span><strong>Record apps</strong><small>Which apps used the tunnel (estimated).</small></span>
-					<input type="checkbox" checked={s.recordApps} onchange={(e) => usage.saveSettings({ recordApps: e.currentTarget.checked })} /></label>
-				<label class="toggle"><span><strong>Record sites</strong><small>Domains you visit. Stored only on this Mac. Off by default.</small></span>
-					<input type="checkbox" checked={s.recordDomains} onchange={(e) => usage.saveSettings({ recordDomains: e.currentTarget.checked })} /></label>
-				<label class="toggle"><span><strong>Pause recording</strong><small>Stop counting new usage.</small></span>
-					<input type="checkbox" checked={s.paused} onchange={(e) => usage.saveSettings({ paused: e.currentTarget.checked })} /></label>
-			</div>
-			<div class="danger-zone">
-				<button class="btn" onclick={() => usage.clearDetails()}>Clear app and site history</button>
-				{#if confirmReset}
-					<button class="btn danger" onclick={() => (usage.resetAll(), (confirmReset = false))}>Yes, delete all usage</button>
-					<button class="btn" onclick={() => (confirmReset = false)}>Cancel</button>
-				{:else}
-					<button class="btn danger" onclick={() => (confirmReset = true)}>Reset all usage…</button>
-				{/if}
-			</div>
-		</details>
-	{/if}
 </div>
 
 <style>
@@ -587,8 +527,7 @@
 	.options {
 		font-size: 12.5px;
 	}
-	.options summary,
-	.settings summary {
+	.options summary {
 		cursor: pointer;
 		color: var(--fg-muted);
 		font-size: 12.5px;
@@ -688,50 +627,5 @@
 		grid-area: detail;
 		font-size: 11.5px;
 		color: var(--fg-muted);
-	}
-	.settings {
-		padding: 12px 16px;
-	}
-	.settings {
-		padding: 0;
-	}
-	.settings summary {
-		padding: 12px 16px;
-		font-weight: 600;
-		cursor: pointer;
-	}
-	.settings[open] summary {
-		border-bottom: 1px solid var(--hairline);
-	}
-	.form {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-		gap: 12px;
-		padding: 14px 16px;
-	}
-	.toggles {
-		border-top: 1px solid var(--hairline);
-	}
-	.toggle {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 16px;
-		padding: 12px 16px;
-		color: var(--fg);
-		font-size: 13px;
-	}
-	.toggle + .toggle {
-		border-top: 1px solid var(--hairline);
-	}
-	.toggle span {
-		display: grid;
-	}
-	.danger-zone {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		padding: 12px 16px 14px;
-		border-top: 1px solid var(--hairline);
 	}
 </style>

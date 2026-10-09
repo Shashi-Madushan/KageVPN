@@ -3,6 +3,7 @@
 	import { app } from '$lib/app.svelte';
 	import type { UpdatePolicy } from '$lib/api';
 	import Select from './Select.svelte';
+	import UsageSettingsSection from './UsageSettingsSection.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
 	import { appUpdate } from '$lib/appUpdate.svelte';
 	import { feedback } from '$lib/feedback.svelte';
@@ -93,6 +94,8 @@
 			</div>
 		{/if}
 	</div>
+
+	<UsageSettingsSection />
 
 	<span class="caption">App updates</span>
 	<div class="settings card">
