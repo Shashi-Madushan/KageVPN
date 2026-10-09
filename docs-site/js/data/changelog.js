@@ -27,6 +27,8 @@ window.DOCS_PAGES["changelog/changelog"] = {
         <li><strong>New:</strong> A Connection health card on the home screen, a status line and a warning icon in the menu bar, and loading skeletons in the menu bar popover and home screen.</li>
         <li><strong>New:</strong> The Connections page has an <strong>Apps</strong> view: every app using the VPN with its live sending and receiving speed and how much it has sent and received. Click an app to see which servers it is talking to.</li>
         <li><strong>New:</strong> When sing-box or the tunnel stops on its own, you get a notification with the reason (exit status and last error), a banner in the app, and an entry in <code>crashes.log</code> in the data folder. Open it from the banner or the <strong>Crash log</strong> button on the Logs page.</li>
+        <li><strong>Changed:</strong> The <strong>Data usage</strong> page is redesigned. It opens on <em>This month</em> and says in plain words how much you used and how that compares with last month. Choose Today, 7 days, This month or Last month with one tap. A new "Where did it go?" list shows which apps, websites and servers used the data. The confusing filters moved into optional sections.</li>
+        <li><strong>Changed:</strong> The Kage mascot is now the connect button on the home screen and in the menu bar popover, with a face that shows whether you are protected.</li>
         <li><strong>Changed:</strong> "Connection watchdog" is now "Restart a dead tunnel". Monitoring is always on, and the setting only controls whether a dead tunnel is restarted automatically.</li>
       </ul>
 

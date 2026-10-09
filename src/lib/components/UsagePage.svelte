@@ -3,23 +3,48 @@
 	import { onMount } from 'svelte';
 	import type { Bucket, Point, TopRow } from '$lib/api';
 	import { app } from '$lib/app.svelte';
-	import { bucketLabel, PRESETS, rangeDays, type Preset } from '$lib/dates';
+	import { bucketLabel, rangeDays, type Preset } from '$lib/dates';
 	import { formatBytes, profileFlag } from '$lib/format';
 	import { usage } from '$lib/usage.svelte';
 	import BarChart from './BarChart.svelte';
 	import HeaderActions from './HeaderActions.svelte';
 	import Segmented from './Segmented.svelte';
+	import Skeleton from './Skeleton.svelte';
 
 	const GIB = 1024 ** 3;
+	const quick: { value: Preset; label: string }[] = [
+		{ value: 'today', label: 'Today' },
+		{ value: 'week', label: '7 days' },
+		{ value: 'thisMonth', label: 'This month' },
+		{ value: 'lastMonth', label: 'Last month' }
+	];
+	const more: { value: string; label: string }[] = [
+		{ value: '', label: 'More ranges…' },
+		{ value: 'yesterday', label: 'Yesterday' },
+		{ value: 'month30', label: 'Last 30 days' },
+		{ value: 'cycle', label: 'Billing cycle' },
+		{ value: 'custom', label: 'Pick dates' }
+	];
 	const buckets: { value: Bucket; label: string }[] = [
 		{ value: 'hour', label: 'Hour' },
 		{ value: 'day', label: 'Day' },
 		{ value: 'week', label: 'Week' },
 		{ value: 'month', label: 'Month' }
 	];
+	const periodName: Partial<Record<Preset, string>> = {
+		today: 'today',
+		yesterday: 'yesterday',
+		week: 'in the last 7 days',
+		month30: 'in the last 30 days',
+		thisMonth: 'this month',
+		lastMonth: 'last month',
+		cycle: 'this billing cycle',
+		custom: 'in this period'
+	};
 
 	let confirmReset = $state(false);
 	let tab = $state<'app' | 'domain' | 'profile'>('app');
+	let settingsBox: HTMLDetailsElement | undefined = $state();
 
 	onMount(() => {
 		usage.loadMeta();
@@ -39,13 +64,25 @@
 	const report = $derived(usage.report);
 	const total = $derived(report ? report.total.up + report.total.down : 0);
 	const days = $derived(rangeDays(usage.range[0], usage.range[1]));
+	const quota = $derived(usage.quota);
+	const when = $derived(periodName[usage.preset] ?? 'in this period');
+	const isMoreRange = $derived(['yesterday', 'month30', 'cycle', 'custom'].includes(usage.preset));
 	const change = $derived.by(() => {
 		if (!report?.previous) return null;
 		const before = report.previous.up + report.previous.down;
-		if (before === 0) return total === 0 ? 0 : null;
+		if (before === 0) return null;
 		return ((total - before) / before) * 100;
 	});
-	const quota = $derived(usage.quota);
+	const changeText = $derived.by(() => {
+		if (change === null) return null;
+		const against = usage.preset === 'thisMonth' ? 'last month' : usage.preset === 'today' ? 'yesterday' : 'the period before';
+		if (Math.abs(change) < 1) return `About the same as ${against}`;
+		return `${Math.abs(change).toFixed(0)}% ${change > 0 ? 'more' : 'less'} than ${against}`;
+	});
+	const filtered = $derived(!!(usage.profileId || usage.mode || usage.app || usage.domain));
+	const downShare = $derived(total ? ((report?.total.down ?? 0) / total) * 100 : 50);
+	const perDay = $derived(formatBytes(total / days));
+	const busiest = $derived(report?.peak ? `${bucketLabel(report.peak.start, usage.bucket)} · ${formatBytes(report.peak.up + report.peak.down)}` : null);
 
 	function duration(seconds: number): string {
 		const h = Math.floor(seconds / 3600);
@@ -55,7 +92,7 @@
 
 	function profileName(id: string): string {
 		if (id === 'auto') return 'Auto (fastest)';
-		return app.profiles.find((p) => p.id === id)?.name ?? 'Removed profile';
+		return app.profiles.find((p) => p.id === id)?.name ?? 'Removed server';
 	}
 
 	function drill(point: Point) {
@@ -89,6 +126,19 @@
 		usage.bucketOverride = null;
 	}
 
+	function clearFilters() {
+		usage.clearDimension();
+		usage.profileId = null;
+		usage.mode = null;
+	}
+
+	function openSettings() {
+		if (settingsBox) {
+			settingsBox.open = true;
+			settingsBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+	}
+
 	const quotaGb = $derived(usage.settings?.quotaBytes ? +(usage.settings.quotaBytes / GIB).toFixed(2) : '');
 	const rowTotal = (r: TopRow) => r.up + r.down;
 	const maxOf = (rows: TopRow[]) => Math.max(1, ...rows.map(rowTotal));
@@ -116,13 +166,11 @@
 	}
 
 	const tabs = $derived([
-		{ value: 'app' as const, label: 'Apps', rows: usage.topApps, empty: usage.settings?.recordApps ? 'No app data yet.' : 'App recording is off. Turn it on under Limits and privacy.' },
-		{ value: 'domain' as const, label: 'Sites', rows: usage.topDomains, empty: usage.settings?.recordDomains ? 'No site data yet.' : 'Site recording is off. Turn it on under Limits and privacy.' },
+		{ value: 'app' as const, label: 'Apps', rows: usage.topApps, empty: usage.settings?.recordApps ? 'No app data yet.' : 'App tracking is off. Turn it on in the settings below to see which apps use your data.' },
+		{ value: 'domain' as const, label: 'Websites', rows: usage.topDomains, empty: usage.settings?.recordDomains ? 'No website data yet.' : 'Website tracking is off to protect your privacy. You can turn it on in the settings below.' },
 		{ value: 'profile' as const, label: 'Servers', rows: usage.topProfiles, empty: 'No data yet.' }
 	]);
 	const current = $derived(tabs.find((t) => t.value === tab)!);
-	const downShare = $derived(total ? ((report?.total.down ?? 0) / total) * 100 : 50);
-	const filtered = $derived(!!(usage.profileId || usage.mode || usage.app || usage.domain));
 </script>
 
 <HeaderActions>
@@ -130,144 +178,159 @@
 </HeaderActions>
 
 <div class="page">
-	<div class="range">
-		<Select
-			value={usage.preset}
-			label="Date range"
-			options={PRESETS.map((p) => ({ value: p.value, label: p.label }))}
-			onchange={(v) => setPreset(v as Preset)}
-		/>
+	<div class="period">
+		<Segmented options={quick} value={isMoreRange ? ('' as Preset) : usage.preset} label="Time period" onchange={setPreset} />
+		<Select value={isMoreRange ? usage.preset : ''} label="More ranges" options={more} onchange={(v) => v && setPreset(v as Preset)} />
 		{#if usage.preset === 'custom'}
-			<input class="input" type="date" aria-label="From" bind:value={usage.customFrom} max={usage.customTo} />
-			<span class="to">to</span>
-			<input class="input" type="date" aria-label="To" bind:value={usage.customTo} min={usage.customFrom} />
-		{/if}
-		<details class="filter-menu" class:active={filtered}>
-			<summary class="btn">Filters{filtered ? ' •' : ''}</summary>
-			<div class="filter-pop card">
-				<label>Server
-					<Select
-						value={usage.profileId ?? ''}
-						label="Server"
-						options={[
-							{ value: '', label: 'All servers' },
-							...app.profiles.map((p) => ({ value: p.id, label: p.name })),
-							{ value: 'auto', label: 'Auto (fastest)' }
-						]}
-						onchange={(v) => (usage.profileId = v || null)}
-					/>
-				</label>
-				<label>Mode
-					<Select
-						value={usage.mode ?? ''}
-						label="Mode"
-						options={[
-							{ value: '', label: 'All modes' },
-							{ value: 'tun', label: 'Full system (TUN)' },
-							{ value: 'proxy', label: 'Proxy only' }
-						]}
-						onchange={(v) => (usage.mode = (v || null) as typeof usage.mode)}
-					/>
-				</label>
-			</div>
-		</details>
-		{#if usage.app || usage.domain}
-			<button class="chip" onclick={() => usage.clearDimension()}>{usage.app ?? usage.domain} ✕</button>
-		{/if}
-		{#if usage.profileId}
-			<button class="chip" onclick={() => (usage.profileId = null)}>{profileName(usage.profileId)} ✕</button>
+			<span class="dates">
+				<input class="input" type="date" aria-label="From" bind:value={usage.customFrom} max={usage.customTo} />
+				<span class="to">to</span>
+				<input class="input" type="date" aria-label="To" bind:value={usage.customTo} min={usage.customFrom} />
+			</span>
 		{/if}
 	</div>
 
-	<section class="card summary">
-		<div class="total">
-			<span class="caption">Total used</span>
-			<strong class="big tabular">{formatBytes(total)}</strong>
-			{#if change !== null}
-				<small class="delta" class:more={change > 0}>{change >= 0 ? '▲' : '▼'} {Math.abs(change).toFixed(0)}% vs previous period</small>
-			{/if}
+	{#if filtered}
+		<div class="showing" role="status">
+			<span>Showing only:</span>
+			{#if usage.app || usage.domain}<span class="chip">{usage.app ?? usage.domain}</span>{/if}
+			{#if usage.profileId}<span class="chip">{profileName(usage.profileId)}</span>{/if}
+			{#if usage.mode}<span class="chip">{usage.mode === 'tun' ? 'Full system' : 'Proxy only'}</span>{/if}
+			<button class="link" onclick={clearFilters}>Show everything</button>
 		</div>
-		<div class="split" role="img" aria-label="Download {formatBytes(report?.total.down ?? 0)}, upload {formatBytes(report?.total.up ?? 0)}">
-			<div class="bar"><i class="d" style:width="{downShare}%"></i><i class="u" style:width="{100 - downShare}%"></i></div>
-			<div class="legend">
-				<span><i class="dot down-dot"></i>Download <strong class="tabular">{formatBytes(report?.total.down ?? 0)}</strong></span>
-				<span><i class="dot up-dot"></i>Upload <strong class="tabular">{formatBytes(report?.total.up ?? 0)}</strong></span>
+	{/if}
+
+	<section class="card hero" aria-live="polite">
+		{#if !report}
+			<Skeleton width="60%" height="22px" />
+			<Skeleton width="40%" height="44px" radius="10px" />
+			<Skeleton height="10px" radius="5px" />
+		{:else if total === 0 && !usage.loading}
+			<div class="none">
+				<strong>No data {when} yet</strong>
+				<span>Usage is counted while you are connected. Connect and browse a little, then come back.</span>
 			</div>
-		</div>
-		<p class="facts tabular">
-			<span>Daily avg <strong>{formatBytes(total / days)}</strong></span>
-			<span>Peak <strong>{report?.peak ? formatBytes(report.peak.up + report.peak.down) : '—'}</strong>{#if report?.peak}{' '}<small>({bucketLabel(report.peak.start, usage.bucket)})</small>{/if}</span>
-			{#if !usage.hasDimensionFilter}<span>Connected <strong>{duration(report?.connectedSecs ?? 0)}</strong></span>{/if}
-		</p>
+		{:else}
+			<span class="lead">You used</span>
+			<strong class="big tabular">{formatBytes(total)}</strong>
+			<span class="lead">{when}{#if changeText} · <em class:more={change !== null && change > 0}>{changeText}</em>{/if}</span>
+
+			<div class="split" role="img" aria-label="Downloaded {formatBytes(report.total.down)}, uploaded {formatBytes(report.total.up)}">
+				<div class="bar"><i class="d" style:width="{downShare}%"></i><i class="u" style:width="{100 - downShare}%"></i></div>
+				<div class="legend">
+					<span><i class="dot down-dot"></i>Downloaded <strong class="tabular">{formatBytes(report.total.down)}</strong></span>
+					<span><i class="dot up-dot"></i>Uploaded <strong class="tabular">{formatBytes(report.total.up)}</strong></span>
+				</div>
+			</div>
+
+			<div class="facts">
+				<div><small>Per day</small><strong class="tabular">{perDay}</strong></div>
+				{#if busiest}<div><small>Busiest {usage.bucket === 'hour' ? 'hour' : usage.bucket}</small><strong class="tabular">{busiest}</strong></div>{/if}
+				{#if !usage.hasDimensionFilter}<div><small>Time connected</small><strong class="tabular">{duration(report.connectedSecs)}</strong></div>{/if}
+			</div>
+		{/if}
+
 		{#if quota?.limit}
 			<div class="quota" class:warn={quota.percent >= 80} class:over={quota.percent >= 100}>
 				<div class="quota-head">
-					<span>Data cap · resets {new Date(quota.cycleEnd * 1000).toLocaleDateString()}</span>
-					<span class="tabular">{formatBytes(quota.used)} of {formatBytes(quota.limit)} · {quota.percent.toFixed(0)}%</span>
+					<span>Monthly limit · resets {new Date(quota.cycleEnd * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+					<strong class="tabular">{formatBytes(quota.used)} of {formatBytes(quota.limit)}</strong>
 				</div>
 				<div class="meter"><div style:width="{Math.min(100, quota.percent)}%"></div></div>
+				<small>{quota.percent >= 100 ? 'You have reached your limit.' : `${formatBytes(Math.max(0, quota.limit - quota.used))} left (${(100 - quota.percent).toFixed(0)}%)`}</small>
 			</div>
+		{:else if usage.settings}
+			<button class="link cap-hint" onclick={openSettings}>Set a monthly data limit</button>
 		{/if}
 	</section>
 
 	<section class="card chart-card">
-		<div class="chart-head">
-			<span class="caption">Over time</span>
-			<div class="chart-tools">
-				<label class="compare"><input type="checkbox" bind:checked={usage.compare} /> Compare</label>
-				<Segmented options={buckets} value={usage.bucket} label="Group by" onchange={(b) => (usage.bucketOverride = b)} />
-			</div>
+		<div class="section-head">
+			<h2>{usage.bucket === 'hour' ? 'Hour by hour' : usage.bucket === 'day' ? 'Day by day' : usage.bucket === 'week' ? 'Week by week' : 'Month by month'}</h2>
+			{#if usage.preset === 'custom' && usage.bucketOverride}<button class="link" onclick={() => setPreset('thisMonth')}>Back to this month</button>{/if}
 		</div>
 		{#if report && report.series.length}
 			<BarChart points={report.series} bucket={usage.bucket} onselect={drill} />
+			<small>Hover a bar to see its total. Click a bar to zoom in.</small>
 		{:else}
-			<p class="empty">{usage.loading ? 'Loading…' : 'No data for this range yet. Usage is recorded while you are connected.'}</p>
+			<p class="empty">{usage.loading ? 'Loading…' : 'Nothing to show for this period yet.'}</p>
 		{/if}
-		{#if usage.hasDimensionFilter}<small>Per-app and per-site figures are estimates and are recorded hourly.</small>{/if}
+		{#if usage.hasDimensionFilter}<small>Per-app and per-website figures are estimates.</small>{/if}
+		<details class="options">
+			<summary>Chart options</summary>
+			<div class="options-body">
+				<label>Group bars by
+					<Segmented options={buckets} value={usage.bucket} label="Group by" onchange={(b) => (usage.bucketOverride = b)} />
+				</label>
+				<label class="check"><input type="checkbox" bind:checked={usage.compare} /> Compare with the previous period</label>
+			</div>
+		</details>
 	</section>
 
-	<section class="section breakdown">
+	<section class="card breakdown">
 		<div class="section-head">
-			<span class="caption">Breakdown</span>
-			<Segmented options={tabs.map((t) => ({ value: t.value, label: t.label }))} value={tab} label="Breakdown by" onchange={(v) => (tab = v)} />
+			<h2>Where did it go?</h2>
+			<Segmented options={tabs.map((t) => ({ value: t.value, label: t.label }))} value={tab} label="Break down by" onchange={(v) => (tab = v)} />
 		</div>
 		{#if current.rows.length}
 			{@const max = maxOf(current.rows)}
-			<div class="group table" role="table" aria-label="Usage by {current.label.toLowerCase()}">
-				<div class="row th" role="row">
-					<span role="columnheader">{current.label.slice(0, -1)}</span>
-					<span class="num down" role="columnheader">Download</span>
-					<span class="num up" role="columnheader">Upload</span>
-					<span class="num" role="columnheader">Total</span>
-					<span class="shr" role="columnheader">Share</span>
-				</div>
+			<ul class="list">
 				{#each current.rows as row (row.key)}
 					{@const info = describe(tab, row)}
-					<button class="row" role="row" onclick={() => pick(tab, row)} title="Show only {info.title}">
-						<span class="name" role="cell">
-							{#if info.flag}<span class="flag" aria-hidden="true">{info.flag}</span>{/if}
-							<span class="text">{info.title}</span>
-							{#if info.note}<span class="tag">{info.note}</span>{/if}
-						</span>
-						<span class="num down tabular" role="cell">{formatBytes(row.down)}</span>
-						<span class="num up tabular" role="cell">{formatBytes(row.up)}</span>
-						<span class="num strong tabular" role="cell">{formatBytes(rowTotal(row))}</span>
-						<span class="shr" role="cell" aria-label="{percentOf(row, current.rows)} of the traffic shown">
-							<span class="track"><i style:width="{(rowTotal(row) / max) * 100}%"></i></span>
-							<span class="pct tabular">{percentOf(row, current.rows)}</span>
-						</span>
-					</button>
+					<li>
+						<button class="item" onclick={() => pick(tab, row)} title="Show only {info.title}">
+							<span class="name">
+								{#if info.flag}<span class="flag" aria-hidden="true">{info.flag}</span>{/if}
+								<span class="text">{info.title}</span>
+								{#if info.note}<span class="tag">{info.note}</span>{/if}
+							</span>
+							<span class="amount tabular"><strong>{formatBytes(rowTotal(row))}</strong><small>{percentOf(row, current.rows)}</small></span>
+							<span class="track" aria-hidden="true"><i style:width="{(rowTotal(row) / max) * 100}%"></i></span>
+							<span class="detail tabular">↓ {formatBytes(row.down)} · ↑ {formatBytes(row.up)}</span>
+						</button>
+					</li>
 				{/each}
-			</div>
+			</ul>
+			<small>Click one to see only its usage.</small>
 		{:else}
 			<p class="empty small">{current.empty}</p>
 		{/if}
 	</section>
 
+	<details class="card options narrow">
+		<summary>Filter by server or connection type</summary>
+		<div class="options-body grid2">
+			<label>Server
+				<Select
+					value={usage.profileId ?? ''}
+					label="Server"
+					options={[
+						{ value: '', label: 'All servers' },
+						...app.profiles.map((p) => ({ value: p.id, label: p.name })),
+						{ value: 'auto', label: 'Auto (fastest)' }
+					]}
+					onchange={(v) => (usage.profileId = v || null)}
+				/>
+			</label>
+			<label>Connection type
+				<Select
+					value={usage.mode ?? ''}
+					label="Connection type"
+					options={[
+						{ value: '', label: 'All' },
+						{ value: 'tun', label: 'Full system' },
+						{ value: 'proxy', label: 'Proxy only' }
+					]}
+					onchange={(v) => (usage.mode = (v || null) as typeof usage.mode)}
+				/>
+			</label>
+		</div>
+	</details>
+
 	{#if usage.settings}
 		{@const s = usage.settings}
-		<details class="card settings">
-			<summary>Limits and privacy</summary>
+		<details class="card settings" bind:this={settingsBox}>
+			<summary>Data cap and privacy settings</summary>
 			<div class="form">
 				<label>Monthly cap (GB)
 					<input class="input" type="number" min="0" step="1" value={quotaGb} placeholder="No cap" onchange={(e) => usage.saveSettings({ quotaBytes: e.currentTarget.value ? Math.round(Number(e.currentTarget.value) * GIB) : null })} />
@@ -321,88 +384,101 @@
 <style>
 	.page {
 		display: grid;
-		gap: 12px;
+		gap: 14px;
 		align-content: start;
 	}
-	.range {
+	h2 {
+		margin: 0;
+		font-size: 15px;
+		font-weight: 650;
+	}
+	small {
+		color: var(--fg-muted);
+		font-size: 11.5px;
+	}
+	.link {
+		border: 0;
+		background: none;
+		padding: 2px 0;
+		color: var(--accent);
+		font-size: 12.5px;
+	}
+	.link:hover {
+		text-decoration: underline;
+	}
+	.period {
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
 		gap: 8px;
 	}
+	.dates {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
 	.to {
 		color: var(--fg-muted);
 	}
+	.showing {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 8px;
+		padding: 8px 12px;
+		border-radius: 10px;
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		font-size: 12.5px;
+	}
 	.chip {
-		border: 1px solid var(--accent);
-		background: color-mix(in srgb, var(--accent) 16%, transparent);
-		color: var(--accent);
+		padding: 2px 10px;
 		border-radius: 999px;
-		padding: 3px 11px;
-		font-size: 12px;
+		background: var(--accent);
+		color: #fff;
+		font-weight: 600;
 	}
-	.filter-menu {
-		position: relative;
-	}
-	.filter-menu summary {
-		list-style: none;
-	}
-	.filter-menu summary::-webkit-details-marker {
-		display: none;
-	}
-	.filter-menu.active summary {
-		border-color: var(--accent);
-		color: var(--accent);
-	}
-	.filter-pop {
-		position: absolute;
-		z-index: 30;
-		top: calc(100% + 6px);
-		left: 0;
-		min-width: 220px;
-		padding: 12px;
+	.hero {
+		padding: 20px 22px;
 		display: grid;
-		gap: 10px;
-		background: var(--surface-strong);
+		gap: 6px;
 	}
-	label {
-		display: grid;
-		gap: 4px;
-		font-size: 11px;
+	.lead {
 		color: var(--fg-muted);
+		font-size: 13.5px;
 	}
-	small {
-		color: var(--fg-muted);
+	.lead em {
+		font-style: normal;
+		font-weight: 600;
+		color: var(--ok-text);
 	}
-	.summary {
-		padding: 18px 20px;
-		display: grid;
-		gap: 16px;
-	}
-	.total {
-		display: grid;
-		gap: 2px;
+	.lead em.more {
+		color: var(--warn);
 	}
 	.big {
-		font-size: 34px;
-		font-weight: 650;
-		letter-spacing: -0.02em;
-		line-height: 1.1;
+		font-size: 44px;
+		font-weight: 700;
+		letter-spacing: -0.03em;
+		line-height: 1.05;
 	}
-	.delta {
-		font-size: 12px;
+	.none {
+		display: grid;
+		gap: 4px;
+		padding: 10px 0;
+		color: var(--fg-muted);
 	}
-	.delta.more {
-		color: var(--warn);
+	.none strong {
+		color: var(--fg);
+		font-size: 16px;
 	}
 	.split {
 		display: grid;
 		gap: 8px;
+		margin-top: 12px;
 	}
 	.bar {
 		display: flex;
-		height: 8px;
-		border-radius: 4px;
+		height: 10px;
+		border-radius: 5px;
 		overflow: hidden;
 		background: var(--hairline);
 		gap: 2px;
@@ -416,13 +492,8 @@
 	.legend {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 4px 20px;
-		font-size: 12px;
-		color: var(--fg-muted);
-	}
-	.legend strong {
-		color: var(--fg);
-		margin-left: 4px;
+		gap: 4px 22px;
+		font-size: 12.5px;
 	}
 	.dot {
 		display: inline-block;
@@ -438,41 +509,46 @@
 		background: var(--up);
 	}
 	.facts {
-		margin: 0;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 4px 18px;
+		gap: 10px 32px;
+		margin-top: 12px;
 		padding-top: 12px;
 		border-top: 1px solid var(--hairline);
-		font-size: 12px;
-		color: var(--fg-muted);
+	}
+	.facts div {
+		display: grid;
+		gap: 2px;
 	}
 	.facts strong {
-		color: var(--fg);
-		font-weight: 600;
+		font-size: 14px;
 	}
 	.quota {
 		display: grid;
 		gap: 6px;
-		font-size: 12px;
-		color: var(--fg-muted);
+		margin-top: 14px;
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
 	}
 	.quota-head {
 		display: flex;
 		justify-content: space-between;
+		gap: 8px;
 		flex-wrap: wrap;
-		gap: 4px 12px;
+		font-size: 12.5px;
 	}
 	.meter {
-		height: 6px;
-		border-radius: 3px;
+		height: 10px;
+		border-radius: 5px;
 		background: var(--hairline);
 		overflow: hidden;
 	}
 	.meter div {
 		height: 100%;
+		border-radius: 5px;
 		background: var(--accent);
-		transition: width 0.3s;
+		transition: width 0.4s;
 	}
 	.quota.warn .meter div {
 		background: var(--warn);
@@ -480,106 +556,123 @@
 	.quota.over .meter div {
 		background: var(--danger);
 	}
-	.chart-card {
-		padding: 14px 16px;
+	.cap-hint {
+		justify-self: start;
+		margin-top: 8px;
+	}
+	.chart-card,
+	.breakdown {
+		padding: 16px 18px;
 		display: grid;
 		gap: 10px;
-		align-content: start;
 	}
-	.chart-head {
+	.section-head {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
 		flex-wrap: wrap;
 		gap: 8px;
 	}
-	.chart-tools {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-	.compare {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		font-size: 12px;
-	}
 	.empty {
-		margin: 20px 0;
+		margin: 0;
+		padding: 18px 0;
 		text-align: center;
 		color: var(--fg-muted);
+		font-size: 13px;
 	}
 	.empty.small {
-		margin: 10px 0;
-		font-size: 12px;
-	}
-	.breakdown {
-		container-type: inline-size;
-		display: grid;
-		gap: 8px;
-	}
-	.breakdown .row {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) 92px 92px 92px 150px;
-		align-items: center;
-		gap: 12px;
-		width: 100%;
-		min-height: 40px;
-		padding: 8px 14px;
-		border: 0;
-		background: none;
-		color: inherit;
+		padding: 8px 0;
 		text-align: left;
 	}
-	.breakdown .row + .row {
-		border-top: 1px solid var(--hairline);
+	.options {
+		font-size: 12.5px;
 	}
-	.breakdown button.row:hover {
-		background: var(--hairline);
-	}
-	.breakdown .th {
-		min-height: 30px;
-		padding-block: 4px;
-		font-size: 11px;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
+	.options summary,
+	.settings summary {
+		cursor: pointer;
 		color: var(--fg-muted);
-		background: color-mix(in srgb, var(--hairline) 50%, transparent);
+		font-size: 12.5px;
 	}
-	.name {
+	.options.narrow {
+		padding: 12px 16px;
+	}
+	.options-body {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 14px;
+		padding-top: 10px;
+	}
+	.options-body.grid2 {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	}
+	label {
+		display: grid;
+		gap: 4px;
+		font-size: 11.5px;
+		color: var(--fg-muted);
+	}
+	label.check {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		min-width: 0;
+		font-size: 12.5px;
+		color: var(--fg);
 	}
-	.name .text {
+	.list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 4px;
+	}
+	.item {
+		width: 100%;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas: 'name amount' 'track track' 'detail detail';
+		gap: 4px 12px;
+		padding: 9px 10px;
+		border: 0;
+		border-radius: 10px;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+	}
+	.item:hover {
+		background: var(--hairline);
+	}
+	.name {
+		grid-area: name;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+		font-weight: 600;
+	}
+	.text {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.tag {
-		flex: none;
-		font-size: 11px;
+		padding: 1px 7px;
+		border-radius: 999px;
+		background: var(--hairline);
+		font-size: 10.5px;
 		color: var(--fg-muted);
+		font-weight: 500;
 	}
-	.num {
-		text-align: right;
-		color: var(--fg-muted);
-		font-size: 12px;
-	}
-	.num.strong {
-		color: var(--fg);
-		font-size: 13px;
-		font-weight: 600;
-	}
-	.shr {
+	.amount {
+		grid-area: amount;
 		display: flex;
-		align-items: center;
-		gap: 10px;
+		align-items: baseline;
+		gap: 8px;
 	}
 	.track {
-		flex: 1;
+		grid-area: track;
 		height: 6px;
 		border-radius: 3px;
 		background: var(--hairline);
@@ -591,28 +684,13 @@
 		border-radius: 3px;
 		background: var(--accent);
 	}
-	.pct {
-		width: 34px;
-		text-align: right;
-		font-size: 12px;
+	.detail {
+		grid-area: detail;
+		font-size: 11.5px;
 		color: var(--fg-muted);
 	}
-	@container (max-width: 640px) {
-		.breakdown .row {
-			grid-template-columns: minmax(0, 1fr) 92px 130px;
-		}
-		.num.down,
-		.num.up {
-			display: none;
-		}
-	}
-	@container (max-width: 420px) {
-		.breakdown .row {
-			grid-template-columns: minmax(0, 1fr) 80px 70px;
-		}
-		.track {
-			display: none;
-		}
+	.settings {
+		padding: 12px 16px;
 	}
 	.settings {
 		padding: 0;

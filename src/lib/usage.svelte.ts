@@ -11,7 +11,7 @@ import {
 import { autoBucket, rangeFor, toDateInput, type Preset } from './dates';
 
 class UsageStore {
-	preset = $state<Preset>('week');
+	preset = $state<Preset>('thisMonth');
 	customFrom = $state(toDateInput(new Date(Date.now() - 6 * 86400000)));
 	customTo = $state(toDateInput(new Date()));
 	bucketOverride = $state<Bucket | null>(null);
