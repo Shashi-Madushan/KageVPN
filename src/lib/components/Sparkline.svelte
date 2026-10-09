@@ -3,8 +3,9 @@
 
 	let {
 		samples,
-		height = 56
-	}: { samples: Sample[]; length?: number; height?: number } = $props();
+		height = 56,
+		fill = false
+	}: { samples: Sample[]; length?: number; height?: number; /** Stretch to the height of the parent instead of `height` px. */ fill?: boolean } = $props();
 
 	const WIDTH = 240;
 	const PAD = 3;
@@ -32,7 +33,7 @@
 	);
 </script>
 
-<svg viewBox="0 0 {WIDTH} {height}" preserveAspectRatio="none" style:height="{height}px" aria-hidden="true">
+<svg viewBox="0 0 {WIDTH} {height}" preserveAspectRatio="none" style:height={fill ? '100%' : `${height}px`} aria-hidden="true">
 	{#if samples.length > 1}
 		<polygon points={area} class="area" />
 		<polyline points={down} class="line down" />

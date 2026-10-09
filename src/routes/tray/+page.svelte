@@ -87,6 +87,11 @@
 			<MascotButton size={120} />
 			<h1 class="headline {tone}">{headline}</h1>
 			{#if sub}<p class="sub">{sub}</p>{/if}
+			{#if app.profiles.length}
+				<button class="pill {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
+					<Icon name="bolt" size={13} />{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test latency'}
+				</button>
+			{/if}
 		</section>
 
 		{#if app.profiles.length}
@@ -125,11 +130,6 @@
 				</div>
 			{/if}
 
-			<button class="card latency {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
-				<span class="label">Latency</span>
-				<span class="value tabular"><Icon name="bolt" size={16} />{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Tap to test'}</span>
-			</button>
-
 			<section class="card usage" aria-label="Data usage">
 				<span class="label">Data usage</span>
 				<div class="rates">
@@ -140,7 +140,7 @@
 					</span>
 				</div>
 				<div class="graph">
-					<Sparkline samples={app.history} height={46} />
+					<Sparkline samples={app.history} height={72} fill />
 					{#if !app.connected}<span class="graph-empty">Connect to see live traffic</span>{/if}
 				</div>
 			</section>
@@ -318,39 +318,45 @@
 		letter-spacing: 0.07em;
 		text-transform: uppercase;
 	}
-	.latency {
-		display: grid;
-		justify-items: center;
-		gap: 2px;
-		width: 100%;
-		color: var(--fg);
-	}
-	.latency .value {
+	.pill {
 		display: inline-flex;
 		align-items: center;
-		gap: 6px;
-		font-size: 17px;
+		gap: 5px;
+		min-height: 26px;
+		margin-top: 6px;
+		padding: 3px 12px;
+		border: 1px solid var(--hairline);
+		border-radius: 999px;
+		background: var(--surface);
+		color: var(--fg);
+		font-size: 12.5px;
 		font-weight: 700;
 	}
-	.latency.ok {
+	.pill:hover:not(:disabled) {
+		border-color: var(--accent);
+	}
+	.pill.ok {
 		border-color: color-mix(in srgb, var(--ok) 45%, transparent);
-		background: color-mix(in srgb, var(--ok) 10%, var(--surface));
+		background: color-mix(in srgb, var(--ok) 12%, var(--surface));
 		color: var(--ok-text);
 	}
-	.latency.warn {
+	.pill.warn {
 		border-color: color-mix(in srgb, var(--warn) 55%, transparent);
-		background: color-mix(in srgb, var(--warn) 13%, var(--surface));
+		background: color-mix(in srgb, var(--warn) 14%, var(--surface));
 		color: var(--warn);
 	}
-	.latency.bad {
+	.pill.bad {
 		border-color: color-mix(in srgb, var(--danger) 50%, transparent);
 		background: color-mix(in srgb, var(--danger) 10%, var(--surface));
 		color: var(--danger);
 	}
 	.usage {
+		flex: 1 0 auto;
 		display: grid;
-		gap: 6px;
+		grid-template-rows: auto auto minmax(56px, 1fr);
+		gap: 8px;
 		justify-items: center;
+		padding-bottom: 10px;
 	}
 	.rates {
 		display: flex;
@@ -381,6 +387,7 @@
 	.graph {
 		position: relative;
 		width: 100%;
+		min-height: 0;
 	}
 	.graph-empty {
 		position: absolute;
