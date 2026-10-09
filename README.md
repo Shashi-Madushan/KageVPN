@@ -63,7 +63,7 @@ Then open the app normally. You only need to do this once per downloaded version
 1. A short **welcome tour** explains the basics. You can replay it from **Settings → Help**.
 2. **Download the engine.** If sing-box is not installed, the app offers to download the official release, checks its published checksum, and keeps it in its own folder. If you already installed sing-box with Homebrew, the app uses that and skips the prompt.
 3. **Add a server.** Paste a server link (or several, mixed protocols are fine), drop a text file, or add a subscription URL.
-4. **Connect.** Press the big power button. In **Full System (TUN)** mode macOS asks for your administrator password once so the app can create the tunnel.
+4. **Connect.** Click the Kage mascot. In **Full System (TUN)** mode macOS asks for your administrator password once so the app can create the tunnel.
 
 ### Uninstall
 
@@ -85,7 +85,7 @@ Then open the app normally. You only need to do this once per downloaded version
 - **One-click connection** with a clear status: protected, connecting or not protected, plus session time, exit IP and latency.
 - **Two modes.** *Full System (TUN)* sends all of your Mac's traffic through the VPN. *Proxy Only* runs a local proxy on `127.0.0.1:2080` for just the apps you point at it.
 - **Five protocols.** VLESS (TLS or Reality), VMess, Trojan, Shadowsocks (including the 2022 ciphers) and Hysteria2 (with Salamander obfuscation). VLESS, VMess and Trojan run over TCP, WebSocket, gRPC or HTTPUpgrade.
-- **Menu-bar app** with live download and upload speed beside the icon, and a compact popover to connect, switch mode and see traffic.
+- **Menu-bar app** with live download and upload speed beside the icon, and a compact popover led by the Kage mascot, which is also the connect button and shows at a glance whether you are protected. The popover has a latency pill, server and timer, live traffic and a mode switch, and shows loading skeletons while data loads.
 - **Hide addresses.** Server addresses and IP addresses are blurred until you click the eye icon (next to the IP address, in the app and in the menu-bar popover), so screen shares and screenshots do not give them away. The choice is remembered.
 - **Optional global shortcut** (⌥⌘V, off by default) to connect or disconnect from anywhere.
 - **Launch at login** and **connect on launch**.
@@ -100,15 +100,17 @@ Then open the app normally. You only need to do this once per downloaded version
 
 ### Protection and reliability
 
-- **Auto-reconnect** when the tunnel drops, and an optional **connection watchdog** that checks the tunnel on a timer.
+- **Verified connections.** The app says "You're protected" only after a real request has gone through the tunnel, keeps checking in the background, and tells you why when traffic stops (server not answering, server rejected the connection, or no traffic). Failed connects explain what went wrong, with a fix button.
+- **Auto-reconnect** when the tunnel drops, and an optional **restart a dead tunnel** setting.
+- **Crash log.** If sing-box or the tunnel stops on its own you get a notification with the reason, and an entry in a crash log you can open inside the app.
 - **Kill switch** (experimental, TUN mode) that blocks traffic if the tunnel stops unexpectedly.
 - **Routing rules** with Global, Rules and Direct modes. Match by domain, domain suffix, keyword, IP range or app name, send traffic through the VPN, direct, or block it, add country lists, bypass your local network, and choose your DNS resolver. A built-in tester shows which rule a domain would hit.
-- **Live connections** table showing every open connection, its app, destination, route and traffic, with the option to close any of them.
+- **Live connections** with an **Apps** view (which app is sending and receiving data right now, with live speeds) and a table of every open connection, its app, destination, route and traffic, with the option to close any of them.
 
 ### Insight
 
 - **Diagnostics** with a leak check (tunnel IP, system route and DNS resolver side by side) and a live **speed test** gauge for ping, jitter, download and upload through the tunnel.
-- **Data usage** by day, week or month, broken down by app, site and server, with an optional monthly cap and alerts. Export to CSV. Detailed app and site recording can be turned off.
+- **Data usage** that opens on this month in plain language, with a day-by-day chart and a "Where did it go?" list of apps, sites and servers. An optional monthly limit and the privacy options live in Settings. Export to CSV. Detailed app and site recording can be turned off.
 - **Logs** with level filters, search and plain-language hints for common errors.
 
 ### Engine and updates

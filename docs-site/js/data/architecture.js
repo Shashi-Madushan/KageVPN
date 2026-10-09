@@ -172,7 +172,9 @@ window.DOCS_PAGES["architecture/core-supervision"] = {
   toc: [
     { id: "orphan-problem", label: "The Orphan Process Risk" },
     { id: "stopfile-handshake", label: "The .stop Handshake Protocol" },
-    { id: "pid-monitoring", label: "PID Reaping & Signal Traps" }
+    { id: "pid-monitoring", label: "PID Reaping & Signal Traps" },
+    { id: "health-monitor", label: "Tunnel Health Monitor" },
+    { id: "crash-records", label: "Unexpected Stops" }
   ],
   contentHtml: `
     <div class="docs-prose">
@@ -223,6 +225,19 @@ window.DOCS_PAGES["architecture/core-supervision"] = {
       <h2 id="pid-monitoring">PID Reaping & Signal Traps</h2>
       <p>
         If sing-box does not terminate within the grace period, <code>helper.sh</code> issues a forced <code>SIGKILL</code> (<code>kill -9</code>) and runs a thorough cleanup on all leftover pfctl rules, guaranteeing that the user's internet is restored without manual rebooting.
+      </p>
+
+      <h2 id="health-monitor">Tunnel Health Monitor</h2>
+      <p>
+        The sing-box port opening says nothing about whether the server works, so <code>health.rs</code> verifies the tunnel. After connecting, a staged probe asks sing-box for the delay of the <code>proxy</code> outbound (Clash API) and makes a request through the local proxy; only a passing request sets <code>Status.health</code> to <code>healthy</code>. A pure <code>classify</code> function turns the two results plus the last sing-box error into a cause: <code>serverUnreachable</code>, <code>handshake</code> or <code>noTraffic</code>.
+      </p>
+      <p>
+        One monitor task per connection then sends a single small request every 15 seconds, confirms a failure after 3 seconds, runs the full probe on the second failure, backs off up to 60 seconds while down, and optionally restarts the tunnel after four failures. It shares one cached HTTP client and wakes early on <code>network_watch</code> events. <code>session::connect</code> also runs a DNS and TCP preflight (<code>health::preflight</code>) before starting sing-box. Do not lock <code>AppState.status</code> inside an event listener: <code>session::update</code> emits while holding that lock.
+      </p>
+
+      <h2 id="crash-records">Unexpected Stops</h2>
+      <p>
+        When <code>session::finish</code> sees the supervisor disappear without a stop request, or <code>tunnel_lost</code> fires, <code>crashlog.rs</code> appends an entry (time, reason, sing-box exit status from <code>sing-box.stderr.log</code>, last errors) to <code>crashes.log</code>, which is trimmed to its newest half past 200 KB. The same reason feeds the notification and <code>Status.failure</code>, an <code>ErrorInfo</code> built by <code>AppError::info()</code>.
       </p>
     </div>
   `

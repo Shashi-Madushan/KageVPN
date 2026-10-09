@@ -103,7 +103,12 @@ try {
 	});
 	await shot('usage.png', { size: [1280, 1180], act: nav('Data usage') });
 	await shot('routing.png', { size: [1280, 900], act: nav('Routing') });
-	await shot('connections.png', { act: nav('Connections') });
+	await shot('connections.png', {
+		act: async (page) => {
+			await nav('Connections')(page);
+			await page.getByRole('tab', { name: 'Connections' }).click();
+		}
+	});
 	await shot('diagnostics.png', {
 		size: [1280, 900],
 		act: async (page) => {

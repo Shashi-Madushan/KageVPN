@@ -251,7 +251,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
 
 window.DOCS_PAGES["user-guide/kill-switch"] = {
   category: "User Guide",
-  title: "Kill Switch & Connection Watchdog",
+  title: "Kill Switch & Connection Health",
   featureBadge: "Fail-Safe",
   lead: "Prevent accidental IP leaks when a server disconnects or your Wi-Fi renegotiates using macOS packet filter (pfctl) locks.",
   heroImage: {
@@ -263,6 +263,8 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
     { id: "threat-model", label: "The Leak Threat Model" },
     { id: "pfctl-anchor-mechanism", label: "macOS pfctl Anchor Mechanism" },
     { id: "watchdog-monitoring", label: "Process Watchdog Loop" },
+    { id: "connection-health", label: "Connection Health Monitor" },
+    { id: "crash-log", label: "When the VPN Stops Unexpectedly" },
     { id: "manual-recovery", label: "Emergency Network Recovery" }
   ],
   contentHtml: `
@@ -298,7 +300,27 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
         The Rust backend polls the sing-box child PID. If the core terminates unexpectedly, the app flags it in the menu bar and starts the usual reconnect attempts.
       </p>
       <p>
-        Separately, a health monitor checks that traffic really flows through the tunnel: once right after connecting, then with one small request every 15 seconds. When checks fail, the app shows "Connected, but no internet" with the reason, and backs off to at most one check a minute. Turn on <strong>Restart a dead tunnel</strong> in Settings to have it restart automatically.
+        Separately, a health monitor checks that traffic really flows through the tunnel: once right after connecting, then with one small request every 15 seconds. When checks fail, the app shows "Connected, but no internet" with the reason, and backs off to at most one check a minute. Turn on <strong>Restart a dead tunnel</strong> in Settings to have it restart automatically. It also re-checks right away when your Mac wakes or changes network.
+      </p>
+
+      <h2 id="connection-health">Connection Health Monitor</h2>
+      <p>
+        "Connected" does not always mean "working": sing-box opens its local port even when the server is down. Kage therefore only shows <strong>You're protected</strong> after a real request has gone through the tunnel. While it checks, you see <strong>Checking your connection…</strong>.
+      </p>
+      <ul>
+        <li><strong>Protected (green):</strong> traffic flows. The latency pill shows the measured round trip.</li>
+        <li><strong>Connected, but no internet (red):</strong> the tunnel is up but traffic does not pass. The reason is one of <em>server not answering</em> (offline, blocked, wrong address or port), <em>server rejected the connection</em> (credentials, TLS or protocol settings) or <em>no traffic passes</em> (the server answers but DNS or routing is broken).</li>
+      </ul>
+      <p>
+        A red state offers <strong>Try another server</strong>, <strong>Reconnect</strong>, <strong>Diagnostics</strong> and <strong>Disconnect</strong>. The menu bar icon switches to a warning icon and the menu shows the status on its first line. When traffic returns, the status turns green on its own.
+      </p>
+      <p>
+        Before connecting, Kage also checks that the server name resolves and (for TCP protocols) accepts a connection, so an unusable server fails in seconds with a clear message. Hysteria2 uses UDP and skips the TCP check.
+      </p>
+
+      <h2 id="crash-log">When the VPN Stops Unexpectedly</h2>
+      <p>
+        If sing-box exits on its own, or the tunnel stops answering while sing-box is still running, Kage shows a notification with the reason (for example the exit status and the last error), a red banner on the home screen, and writes an entry to <code>crashes.log</code> in the data folder. Open it in the app from the banner's <strong>View crash log</strong> button or the <strong>Crash log</strong> button on the Logs page. It has Copy and Clear buttons.
       </p>
 
       <h2 id="manual-recovery">Emergency Network Recovery</h2>
@@ -371,26 +393,57 @@ window.DOCS_PAGES["user-guide/diagnostics-speedtest"] = {
 
 window.DOCS_PAGES["user-guide/data-usage"] = {
   category: "User Guide",
-  title: "Persistent Data Usage & Quotas",
+  title: "Data Usage & Limits",
   featureBadge: "Telemetry",
-  lead: "Monitor your bandwidth consumption across hours, days, and months. Store telemetry safely in a local SQLite database with write-ahead logging.",
+  lead: "See in plain words how much data you used, which apps and servers used it, and stay under your monthly limit. Everything is stored locally on your Mac.",
   heroImage: {
     src: "assets/images/usage.png",
-    alt: "Data Usage Analytics and Charts",
-    title: "Data Usage & Quota Tracking"
+    alt: "Data Usage page",
+    title: "Data Usage"
   },
   toc: [
+    { id: "reading-the-page", label: "Reading the Page" },
+    { id: "where-did-it-go", label: "Where Did It Go?" },
+    { id: "limits-privacy", label: "Limits & Privacy (Settings)" },
     { id: "usage-tracking", label: "Local Telemetry Engine" },
-    { id: "sqlite-wal", label: "SQLite WAL Performance" },
-    { id: "quota-warnings", label: "Data Cap Alerts" }
+    { id: "sqlite-wal", label: "SQLite WAL Performance" }
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="reading-the-page">Reading the Page</h2>
+      <p>
+        The page opens on <strong>This month</strong>. Use the buttons in the header to switch to <strong>Today</strong>, <strong>7 days</strong> or <strong>Last month</strong>; <strong>More</strong> adds Yesterday, Last 30 days, your billing cycle and custom dates.
+      </p>
+      <ul>
+        <li><strong>You used…</strong> shows the total, how it compares with the previous period, and the split between downloaded and uploaded data.</li>
+        <li><strong>Per day, busiest day and time connected</strong> give you the shape of your usage at a glance.</li>
+        <li><strong>Monthly limit</strong> appears when you set one, with a bar showing how much is left.</li>
+        <li><strong>Day by day</strong> is a bar chart. Hover a bar for its total; click it to zoom in (a "Back to this month" link brings you back). <em>Chart options</em> lets you group by hour, day, week or month and compare with the previous period.</li>
+      </ul>
+
+      <h2 id="where-did-it-go">Where Did It Go?</h2>
+      <p>
+        Switch between <strong>Apps</strong>, <strong>Websites</strong> and <strong>Servers</strong> to see what used the data, with each one's share and its download and upload split. Click a row to show only that item; a "Showing only…" bar appears with a <strong>Show everything</strong> link. A <em>Filter by server or connection type</em> section at the bottom narrows the whole page further.
+      </p>
+
+      <h2 id="limits-privacy">Limits & Privacy (Settings)</h2>
+      <p>
+        The data limit and tracking options live in <strong>Settings</strong>, under <em>Data usage</em> and <em>Usage privacy</em>:
+      </p>
+      <ul>
+        <li><strong>Monthly data limit</strong>, the day the month starts, and what happens when the limit is reached (notify, or notify and disconnect).</li>
+        <li><strong>Track apps</strong> and <strong>Track websites</strong> (off by default), <strong>Pause counting</strong>, and how long app and website history is kept.</li>
+        <li><strong>Clear app and website history</strong> and <strong>Reset all usage</strong> (asks you to confirm).</li>
+      </ul>
+      <p>
+        You are alerted as you approach the limit. Per-app and per-website figures are estimates.
+      </p>
+
       <h2 id="usage-tracking">Local Telemetry Engine</h2>
       <p>
         Kage VPN periodically samples upload and download byte counters from sing-box's Clash API memory buffer. Unlike applications that clear statistics upon exit, Kage writes counters to an embedded local SQLite database located at:
       </p>
-      <code>~/Library/Application Support/com.apzur.kage/data/usage.db</code>
+      <code>~/Library/Application Support/com.apzur.kage/usage.db</code>
 
       <h2 id="sqlite-wal">SQLite Write-Ahead Logging (WAL)</h2>
       <p>
@@ -401,11 +454,6 @@ window.DOCS_PAGES["user-guide/data-usage"] = {
         <li><code>PRAGMA synchronous = NORMAL;</code> — Minimizes disk sync operations while guaranteeing atomic consistency.</li>
         <li><code>PRAGMA cache_size = -2000;</code> — Constrains memory footprint to just 2 MB RAM.</li>
       </ul>
-
-      <h2 id="quota-warnings">Data Cap Alerts</h2>
-      <p>
-        If your node provider or mobile hotspot imposes monthly limits (e.g., 200 GB / month), set a quota threshold in <strong>Settings &rarr; Usage Limits</strong>. Kage alerts you at 80% and 95% consumption.
-      </p>
     </div>
   `
 };

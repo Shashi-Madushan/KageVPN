@@ -122,7 +122,7 @@ window.DOCS_PAGES["getting-started/overview"] = {
           <span class="step-badge-tag">Ready</span>
         </div>
         <div class="step-body">
-          <p>Click the circular Power button in the dashboard or menu bar. Enter your macOS administrator password once if using TUN mode to authorize network interface creation.</p>
+          <p>Click the Kage mascot in the dashboard or menu bar popover. It wakes up and smiles once your connection is verified. Enter your macOS administrator password once if using TUN mode to authorize network interface creation.</p>
         </div>
       </div>
     </div>
@@ -255,13 +255,15 @@ window.DOCS_PAGES["getting-started/first-run"] = {
 
       <h2 id="menu-bar-controller">Menu Bar Quick Popover</h2>
       <p>
-        Clicking the shield icon in the macOS menu bar triggers an ultra-fast popover allowing you to:
+        Clicking the Kage icon in the macOS menu bar opens a quick popover. Its mascot is also the connect button: it sleeps when you are off, looks busy while connecting, smiles when you are protected, and looks worried when the tunnel is up but traffic is not flowing.
       </p>
       <ul>
-        <li><strong>Toggle Connection:</strong> One-tap connect or disconnect without interrupting your active workspace.</li>
-        <li><strong>Server Switcher:</strong> Quickly swap between favorite nodes with live latency indicators.</li>
-        <li><strong>Realtime Speeds:</strong> Instant glance at current upload (TX) and download (RX) throughput.</li>
-        <li><strong>Mode Indicator:</strong> See whether Full System TUN or Proxy Only mode is currently operational.</li>
+        <li><strong>Toggle Connection:</strong> One-tap connect or disconnect by clicking the mascot.</li>
+        <li><strong>Status at a glance:</strong> A headline ("You're protected", "Checking…", "No internet") with a latency pill you can tap to re-test.</li>
+        <li><strong>Server, timer and IP:</strong> The current server, how long you have been connected, and your exit IP (hidden until you click the eye). While disconnected this row is a server picker.</li>
+        <li><strong>Data usage:</strong> Live download and upload speed, today's total and a live graph.</li>
+        <li><strong>Mode switch:</strong> Full System TUN or Proxy Only, locked while connected.</li>
+        <li><strong>Menu bar menu:</strong> Right-click the icon for a status line, Connect, Ping Server and Quit.</li>
       </ul>
 
       <h2 id="main-dashboard">Full Dashboard Window</h2>
@@ -271,9 +273,10 @@ window.DOCS_PAGES["getting-started/first-run"] = {
       <ul>
         <li><strong>Servers:</strong> Comprehensive node organizer, latency pings, and subscription manager.</li>
         <li><strong>Routing:</strong> Rule-based traffic routing editor with direct GeoIP / GeoSite bypasses.</li>
-        <li><strong>Connections:</strong> Live socket inspector powered by sing-box's Clash API ring buffer.</li>
+        <li><strong>Connections:</strong> An <em>Apps</em> view showing which apps are sending and receiving data right now (with live speeds), and a <em>Connections</em> view with every open socket, powered by sing-box's Clash API.</li>
         <li><strong>Diagnostics:</strong> One-click DNS and IPv6 leak diagnostics and latency graphs.</li>
-        <li><strong>Settings:</strong> Kill switch activation, core engine updater, and privacy toggles.</li>
+        <li><strong>Data usage:</strong> This month's total, a day-by-day chart and what used the data.</li>
+        <li><strong>Settings:</strong> Kill switch, reliability, data limit, usage privacy and app updates.</li>
       </ul>
 
       <h2 id="permission-setup">Initial Permission Authorization</h2>

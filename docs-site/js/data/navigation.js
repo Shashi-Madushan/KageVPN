@@ -56,7 +56,7 @@ window.DOCS_NAVIGATION = [
       },
       {
         slug: "user-guide/kill-switch",
-        title: "Kill Switch & Watchdog",
+        title: "Kill Switch & Connection Health",
         badge: "Safety",
         description: "macOS pfctl anchor locks preventing traffic leaks during disconnects."
       },
@@ -68,7 +68,7 @@ window.DOCS_NAVIGATION = [
       },
       {
         slug: "user-guide/data-usage",
-        title: "Data Usage & Quotas",
+        title: "Data Usage & Limits",
         badge: "Telemetry",
         description: "Tracking hourly, daily, and monthly bandwidth with SQLite persistence."
       }

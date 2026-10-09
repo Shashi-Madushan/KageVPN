@@ -170,6 +170,9 @@ window.DOCS_PAGES["developer-guide/rust-backend"] = {
         <li><code>profile/</code>: Pluggable protocol registry and <code>ProtocolDef</code> trait implementations.</li>
         <li><code>core/</code>: Process lifecycle management, ping tester, and Clash API client.</li>
         <li><code>helper/</code>: Integration with <code>helper.sh</code> and root privilege handshakes.</li>
+        <li><code>health.rs</code>: Tunnel verification, the background health monitor, failure classification and connect preflight.</li>
+        <li><code>crashlog.rs</code>: The <code>crashes.log</code> record of unexpected stops, shown in the app by the Crash log dialog.</li>
+        <li><code>error.rs</code>: <code>AppError</code> and <code>ErrorInfo</code> (title, detail, suggested action) shown in the UI banner.</li>
       </ul>
 
       <h2 id="app-config">The app_config.rs Module</h2>
