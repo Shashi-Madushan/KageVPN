@@ -10,6 +10,8 @@ use crate::settings::{Action, DnsProvider, DnsSettings, RouteMode, RoutingSettin
 pub const MIXED_PORT: u16 = 2080;
 pub const CLASH_PORT: u16 = 19090;
 const MAX_NODES: usize = 150;
+/// Debug so that the reason for a silent sing-box exit (status 0, no error) reaches the log.
+const LOG_LEVEL: &str = "debug";
 use crate::app_config::urls::{CONNECTION_PROBE as PROBE_URL, GEOIP_RULE_SETS as GEOIP_URL, GEOSITE_RULE_SETS as GEOSITE_URL};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,7 +102,7 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
     }
 
     Ok(json!({
-        "log": { "level": "info", "timestamp": true, "output": input.log_path },
+        "log": { "level": LOG_LEVEL, "timestamp": true, "output": input.log_path },
         "dns": dns(&input.routing.dns),
         "experimental": experimental,
         "inbounds": inbounds,

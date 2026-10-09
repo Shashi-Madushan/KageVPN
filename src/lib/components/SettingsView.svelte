@@ -9,6 +9,21 @@
 	import { onboarding } from '$lib/onboarding.svelte';
 
 	let restoring = $state(false);
+	let rootService = $state(false);
+	let rootBusy = $state(false);
+	api.rootServiceInstalled().then((installed) => (rootService = installed), () => {});
+
+	async function toggleRootService(install: boolean) {
+		rootBusy = true;
+		await (install ? api.installRootService() : api.uninstallRootService()).then(
+			() => {
+				rootService = install;
+				app.notify(install ? 'VPN service installed. TUN mode will not ask for your password again.' : 'VPN service removed.', 'info');
+			},
+			(e) => app.notify(String(e))
+		);
+		rootBusy = false;
+	}
 
 	async function restore() {
 		restoring = true;
@@ -55,6 +70,10 @@
 		<label>
 			<span><strong>Restart a dead tunnel</strong><small>The tunnel is always checked in the background. When it stops passing traffic, restart it automatically.</small></span>
 			<input type="checkbox" checked={app.reliability.watchdog} onchange={(e) => app.saveReliability({ watchdog: e.currentTarget.checked })} />
+		</label>
+		<label>
+			<span><strong>Run as a root service</strong><small>Install a background service once so TUN mode never asks for your password again. It runs only when you connect, and sing-box still stops if the app quits. Needs your password to install or remove.</small></span>
+			<input type="checkbox" checked={rootService} disabled={rootBusy} onchange={(e) => toggleRootService(e.currentTarget.checked)} />
 		</label>
 		<label>
 			<span><strong>Global shortcut</strong><small>Toggle the VPN from anywhere with {app.hotkey.replace('CommandOrControl', '⌘').replace('Alt', '⌥').replace(/\+/g, ' ')}.</small></span>

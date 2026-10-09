@@ -37,7 +37,14 @@ done
 
 if ! kill -0 "$child" 2>/dev/null; then
   wait "$child" 2>/dev/null
-  echo "$(date '+%F %T') sing-box exited with status $? (stop requested: $([ -e "$stop" ] && echo yes || echo no))" >> "$errlog"
+  status=$?
+  echo "$(date '+%F %T') sing-box exited with status $status (stop requested: $([ -e "$stop" ] && echo yes || echo no))" >> "$errlog"
+  if [ ! -e "$stop" ]; then
+    {
+      echo "$(date '+%F %T') context: exit status $status, supervisor pid $$, parent $parent"
+      ps -axo pid,ppid,user,etime,comm 2>/dev/null | grep -iE 'vpn|tunnel|proxy|clash|v2ray|xray|wireguard|tailscale|openvpn|surge|tun2' | grep -v grep | head -6
+    } >> "$errlog"
+  fi
 fi
 
 if [ -n "$ips" ] && [ ! -e "$stop" ] && kill -0 "$parent" 2>/dev/null && ! kill -0 "$child" 2>/dev/null; then

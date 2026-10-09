@@ -1,3 +1,5 @@
+pub mod daemon;
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -29,7 +31,13 @@ pub async fn start(paths: &AppPaths, binary: &Path, mode: Mode, kill_switch_ips:
 }
 
 async fn start_with_root_helper(paths: &AppPaths, binary: &Path, kill_switch_ips: Option<String>) -> Result<u32> {
-    ensure_helper(paths, binary).await?;
+    if daemon::installed() {
+        if !daemon::binary_current(binary) {
+            daemon::install(paths, binary).await?;
+        }
+    } else {
+        ensure_helper(paths, binary).await?;
+    }
 
     let _ = std::fs::remove_file(paths.child_pid_file());
     let command = match kill_switch_ips {
@@ -38,7 +46,8 @@ async fn start_with_root_helper(paths: &AppPaths, binary: &Path, kill_switch_ips
         Some(ips) => ips,
     };
     let pending = paths.helper_start_file().with_extension("tmp");
-    std::fs::write(&pending, command)?;
+    // Line 2 names this app, so the root service stops sing-box if the app disappears.
+    std::fs::write(&pending, format!("{command}\n{}\n", std::process::id()))?;
     std::fs::rename(&pending, paths.helper_start_file())?;
 
     let waits = RUN_START_WAIT.as_millis() / 100;
@@ -127,14 +136,27 @@ fn spawn_plain(args: &[String]) -> Result<u32> {
     Ok(child.id())
 }
 
+const ADMIN_PROMPT: &str = "Kage VPN needs administrator access to create the VPN tunnel. Install the VPN service in Settings to avoid being asked each time you open the app.";
+
 async fn spawn_privileged(args: &[String]) -> Result<u32> {
     let command = format!(
         "/bin/sh {} >/dev/null 2>&1 </dev/null & echo $!",
         args.iter().map(|a| shell_quote(a)).collect::<Vec<_>>().join(" ")
     );
+    run_admin_script(&command, ADMIN_PROMPT)
+        .await?
+        .trim()
+        .parse()
+        .map_err(|_| AppError::Launch("could not read the started process id".into()))
+}
+
+/// Runs a shell command as root through the macOS administrator prompt, showing `prompt` as the
+/// reason, and returns what it printed.
+pub(crate) async fn run_admin_script(command: &str, prompt: &str) -> Result<String> {
     let script = format!(
-        "do shell script \"{}\" with administrator privileges",
-        applescript_escape(&command)
+        "do shell script \"{}\" with prompt \"{}\" with administrator privileges",
+        applescript_escape(command),
+        applescript_escape(prompt)
     );
 
     let output = tauri::async_runtime::spawn_blocking(move || {
@@ -151,10 +173,7 @@ async fn spawn_privileged(args: &[String]) -> Result<u32> {
             AppError::Launch(stderr.trim().to_string())
         });
     }
-    String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .parse()
-        .map_err(|_| AppError::Launch("could not read the started process id".into()))
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 fn shell_quote(value: &str) -> String {

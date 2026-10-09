@@ -1,7 +1,8 @@
 #!/bin/sh
 # usage: helper.sh <sing-box> <config> <dir> <parent-pid>
 # Started once per app launch through a single administrator prompt, then kept running as root
-# until the app exits. Each connect writes <dir>/helper.start (first line: kill-switch IPs, "-"
+# until the app exits. With parent "-" it is the installed launchd service instead: it never exits
+# on its own, and takes the app's pid from line 2 of helper.start. Each connect writes <dir>/helper.start (first line: kill-switch IPs, "-"
 # for none listed, or "none" to leave the kill switch off); the helper starts sing-box, writes
 # its pid to <dir>/child.pid, and stops it when <dir>/stop appears. Disconnecting and
 # reconnecting therefore never prompt again. <dir>/helper.quit makes the helper exit.
@@ -30,7 +31,20 @@ release_block() {
   token=""
 }
 
-alive() { kill -0 "$1" 2>/dev/null; }
+# "-" stands for "no parent": the launchd root service, which has no app to watch of its own.
+alive() { [ "$1" = "-" ] || kill -0 "$1" 2>/dev/null; }
+
+# Status 128+N means sing-box was killed by signal N (143 = TERM, 129 = HUP, 130 = INT); 0 is its
+# own clean exit. The process list names other VPN or proxy tools that could have interfered.
+note_context() {
+  {
+    echo "$(date '+%F %T') context: exit status $status, helper pid $$, parent $parent"
+    ps -axo pid,ppid,user,etime,comm 2>/dev/null | grep -iE 'vpn|tunnel|proxy|clash|v2ray|xray|wireguard|tailscale|openvpn|surge|tun2' | grep -v grep | head -6
+  } >> "$errlog"
+}
+
+# A signal sent to the helper itself is logged, so the cause is not lost.
+trap 'echo "$(date "+%F %T") helper received a signal" >> "$errlog"; [ -n "$child" ] && kill "$child" 2>/dev/null; exit 0' TERM INT HUP
 
 # sing-box's own stderr (Go panics, fatal errors) and exit status, so a silent death leaves a trace.
 errlog="$dir/sing-box.stderr.log"
@@ -42,6 +56,11 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
   fi
 
   ips=$(head -n 1 "$startf")
+  # The root service has no parent; each run names the app that asked for it on line 2, and
+  # sing-box stops if that app disappears.
+  owner="$parent"
+  [ "$parent" = "-" ] && owner=$(sed -n 2p "$startf")
+  [ -z "$owner" ] && owner="-"
   rm -f "$startf" "$stop"
   release_block
 
@@ -50,19 +69,21 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
   child=$!
   echo "$child" > "$pidf.tmp" && mv "$pidf.tmp" "$pidf"
 
-  while alive "$child" && [ ! -e "$stop" ] && [ ! -e "$quitf" ] && alive "$parent"; do
+  while alive "$child" && [ ! -e "$stop" ] && [ ! -e "$quitf" ] && alive "$owner"; do
     sleep 0.5
   done
 
   if ! alive "$child"; then
     wait "$child" 2>/dev/null
-    echo "$(date '+%F %T') sing-box exited with status $? (stop requested: $([ -e "$stop" ] && echo yes || echo no))" >> "$errlog"
+    status=$?
+    echo "$(date '+%F %T') sing-box exited with status $status (stop requested: $([ -e "$stop" ] && echo yes || echo no))" >> "$errlog"
+    [ ! -e "$stop" ] && note_context
   fi
 
   # sing-box died on its own: with a kill switch, block traffic until the app asks for a new run.
-  if [ "$ips" != "none" ] && [ ! -e "$stop" ] && alive "$parent" && ! alive "$child"; then
+  if [ "$ips" != "none" ] && [ ! -e "$stop" ] && alive "$owner" && ! alive "$child"; then
     engage_block
-    while [ ! -e "$stop" ] && [ ! -e "$startf" ] && [ ! -e "$quitf" ] && alive "$parent"; do
+    while [ ! -e "$stop" ] && [ ! -e "$startf" ] && [ ! -e "$quitf" ] && alive "$owner"; do
       sleep 0.5
     done
     release_block

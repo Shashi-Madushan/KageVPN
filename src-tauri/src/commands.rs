@@ -328,6 +328,26 @@ pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: Reliabi
 }
 
 #[tauri::command]
+pub fn root_service_installed() -> bool {
+    crate::runner::daemon::installed()
+}
+
+#[tauri::command]
+pub async fn install_root_service(state: State<'_, AppState>) -> Result<()> {
+    let (spec, settings) = {
+        let store = state.store.lock().unwrap();
+        (store.active_core(), store.core_settings())
+    };
+    let (binary, _) = crate::core::resolve(&state.paths, spec, &settings)?;
+    crate::runner::daemon::install(&state.paths, &binary).await
+}
+
+#[tauri::command]
+pub async fn uninstall_root_service() -> Result<()> {
+    crate::runner::daemon::uninstall().await
+}
+
+#[tauri::command]
 pub async fn restore_network() -> Result<()> {
     reliability::restore_network().await
 }

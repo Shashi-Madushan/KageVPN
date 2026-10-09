@@ -1,4 +1,3 @@
-use std::process::Command;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
@@ -87,13 +86,5 @@ pub async fn restore_network() -> Result<()> {
         .map(|anchor| format!("pfctl -a '{anchor}' -F all"))
         .collect::<Vec<_>>()
         .join("; ");
-    let script = format!("do shell script \"{flush}\" with administrator privileges");
-    let output = tauri::async_runtime::spawn_blocking(move || Command::new("osascript").arg("-e").arg(script).output())
-        .await
-        .map_err(|e| AppError::Launch(e.to_string()))??;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(AppError::PermissionDenied)
-    }
+    crate::runner::run_admin_script(&flush, "Kage VPN wants to remove the kill switch firewall rules so your internet works again.").await.map(|_| ())
 }

@@ -282,7 +282,12 @@ fn finish(app: &AppHandle, pid: u32) {
         applog::warn(format!("sing-box stderr tail:\n{stderr}"));
         reason = crashlog::summary(crashlog::exit_status(&stderr).as_deref(), error.as_deref());
         let recent: Vec<String> = state.logs.snapshot().iter().rev().filter(|l| l.level == crate::logs::Level::Error).take(5).map(|l| l.text.clone()).collect();
-        crashlog::record(&state.paths.data_dir(), "sing-box stopped", &reason, &format!("Last errors:\n{}\n\nstderr:\n{stderr}", recent.join("\n")));
+        crashlog::record(&state.paths.data_dir(), "sing-box stopped", &reason, &format!(
+                "Last errors:\n{}\n\nstderr:\n{stderr}\n\nLast sing-box log lines:\n{}",
+                recent.join("\n"),
+                tail_of(&state.paths.log_file(), 40)
+            ),
+        );
         error = Some(reason.clone());
         failure = Some(ErrorInfo {
             code: "engineStopped".into(),

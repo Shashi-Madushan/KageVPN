@@ -108,4 +108,33 @@ mod helper {
         wait_for("the core to follow the app", || !alive(child));
         let _ = fs::remove_dir_all(dir);
     }
+
+    #[test]
+    fn the_root_service_outlives_the_app_but_its_core_does_not() {
+        let dir = scratch("service");
+        let core = fake_core(&dir);
+        let mut app = Command::new("sleep").arg("300").spawn().unwrap();
+        let script = dir.join("helper.sh");
+        fs::write(&script, super::super::HELPER).unwrap();
+        // "-" as the parent argument is how launchd starts the service.
+        let mut service = Command::new("/bin/sh")
+            .args([script.to_str().unwrap(), core.to_str().unwrap(), "unused.json", dir.to_str().unwrap(), "-"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+
+        let _ = fs::remove_file(dir.join("child.pid"));
+        fs::write(dir.join("helper.start"), format!("none\n{}\n", app.id())).unwrap();
+        wait_for("a run", || child_pid(&dir).is_some());
+        let child = child_pid(&dir).unwrap();
+
+        app.kill().unwrap();
+        let _ = app.wait();
+        wait_for("the core to follow the app", || !alive(child));
+        assert!(service.try_wait().unwrap().is_none(), "the service itself keeps running");
+        let _ = service.kill();
+        let _ = service.wait();
+        let _ = fs::remove_dir_all(dir);
+    }
 }

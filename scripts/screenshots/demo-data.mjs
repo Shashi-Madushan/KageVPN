@@ -47,8 +47,8 @@ function install(opts) {
 	}));
 
 	const status = opts.connected
-		? { state: 'connected', mode: 'tun', since: now - 5400, error: null }
-		: { state: 'disconnected', mode: 'tun', since: null, error: null };
+		? { state: 'connected', mode: 'tun', since: now - 5400, error: null, health: 'healthy', reason: null, latencyMs: 38, failure: null }
+		: { state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null };
 	const logLine = (level, text) => ({ level, text, hint: null });
 	const logs = opts.connected
 		? [
