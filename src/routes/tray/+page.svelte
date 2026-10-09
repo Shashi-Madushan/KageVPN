@@ -71,13 +71,7 @@
 </script>
 
 <div class="popover">
-	<header class="bar">
-		<span class="brand"><Icon name="shield" size={18} />{app.info.name || 'Kage VPN'}</span>
-		<span class="bar-actions">
-			<button class="icon-btn" onclick={() => api.openMainWindow()} aria-label="Open settings" title="Open {app.info.name}"><Icon name="settings" size={16} /></button>
-			<button class="icon-btn" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
-		</span>
-	</header>
+	<button class="icon-btn close" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
 
 	{#if !app.loaded}
 		<div class="skeleton" aria-hidden="true">
@@ -186,7 +180,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding: 0 12px 6px;
+		padding: 14px 12px 6px;
 		background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -194,28 +188,6 @@
 		border-radius: 12px;
 		overflow: hidden;
 		box-sizing: border-box;
-	}
-	.bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin: 0 -12px;
-		padding: 8px 10px 8px 14px;
-		border-bottom: 1px solid var(--hairline);
-		background: color-mix(in srgb, var(--surface) 70%, transparent);
-	}
-	.brand {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		font-size: 13px;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-	}
-	.bar-actions {
-		display: flex;
-		gap: 4px;
 	}
 	.icon-btn {
 		width: 28px;
@@ -227,6 +199,12 @@
 		background: none;
 		color: var(--fg-muted);
 		font-size: 12px;
+	}
+	.icon-btn.close {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		z-index: 1;
 	}
 	.icon-btn:hover {
 		background: var(--hairline);

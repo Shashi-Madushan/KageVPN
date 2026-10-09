@@ -124,7 +124,7 @@ try {
 	});
 	await shot('logs.png', { act: nav('Logs') });
 	await shot('settings.png', { size: [1280, 1100], act: nav('Settings') });
-	await shot('menu-bar-popover.png', { path: '/tray', framed: false, size: [320, 560] });
+	await shot('menu-bar-popover.png', { path: '/tray', framed: false, size: [320, 530] });
 	// First launch with no servers: the welcome tour opens by itself.
 	await shot('welcome.png', { connected: false, withServers: false, tourSeen: false, size: [1280, 860] });
 } finally {

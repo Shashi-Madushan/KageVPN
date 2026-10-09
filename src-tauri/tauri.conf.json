@@ -35,7 +35,7 @@
         "create": false,
         "url": "/tray",
         "width": 320,
-        "height": 560,
+        "height": 530,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
