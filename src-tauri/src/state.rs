@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::Mutex;
 
 use crate::downloads::Downloads;
@@ -19,6 +19,11 @@ pub struct AppState {
     pub downloads: Downloads,
     pub stopping: AtomicBool,
     pub reconnecting: AtomicBool,
+    /// The reconnect loop gave up while the network was down; it starts again when the network returns.
+    pub reconnect_waiting: AtomicBool,
+    /// Counts the times the user connected or disconnected by hand. A reconnect in flight compares
+    /// it with the value it started under and stands down when it changed.
+    pub manual_actions: AtomicU64,
     pub clash_secret: Mutex<Option<String>>,
     pub usage: UsageState,
 }
@@ -38,6 +43,8 @@ impl AppState {
             downloads: Downloads::default(),
             stopping: AtomicBool::new(false),
             reconnecting: AtomicBool::new(false),
+            reconnect_waiting: AtomicBool::new(false),
+            manual_actions: AtomicU64::new(0),
             clash_secret: Mutex::new(None),
             usage: UsageState::open(&paths_for_usage),
         }

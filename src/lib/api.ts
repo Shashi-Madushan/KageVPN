@@ -192,6 +192,8 @@ export interface RefreshSummary {
 	removed: number;
 	total: number;
 	skipped: number;
+	/** Why the first skipped link was skipped. */
+	skippedReason: string | null;
 }
 
 export interface NodeLatency {

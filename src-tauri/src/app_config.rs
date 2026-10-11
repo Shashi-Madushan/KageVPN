@@ -91,6 +91,10 @@ pub fn default_core() -> &'static CoreSpec {
 pub mod urls {
     /// Tiny endpoint used to time a connection and confirm it works.
     pub const CONNECTION_PROBE: &str = "http://cp.cloudflare.com/generate_204";
+    /// Tried in turn when the first does not answer. Any one site can be blocked or down for reasons
+    /// that have nothing to do with the tunnel, and a false "no internet" restarts a working VPN.
+    pub const CONNECTION_PROBE_FALLBACKS: [&str; 2] =
+        ["http://captive.apple.com/hotspot-detect.html", "http://www.gstatic.com/generate_204"];
     /// Returns the caller's public IP as plain text.
     pub const EXIT_IP: &str = "https://api.ipify.org";
     /// Returns IP, country and network details as JSON (diagnostics).
@@ -102,4 +106,7 @@ pub mod urls {
     /// Prefixes for per-country and per-category rule sets; the file name is appended.
     pub const GEOIP_RULE_SETS: &str = "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-";
     pub const GEOSITE_RULE_SETS: &str = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-";
+    /// The same files through a CDN, tried when GitHub itself cannot be reached.
+    pub const GEOIP_RULE_SETS_MIRROR: &str = "https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-";
+    pub const GEOSITE_RULE_SETS_MIRROR: &str = "https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-";
 }

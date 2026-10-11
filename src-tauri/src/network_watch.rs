@@ -128,10 +128,18 @@ pub fn spawn(app: AppHandle) {
 async fn handle(app: &AppHandle, change: Change) {
     applog::info(format!("network watch: {change:?}"));
     crate::health::recheck();
+    let settle = if change == Change::Woke { WAKE_SETTLE } else { NETWORK_SETTLE };
+    // A reconnect that gave up while the network was down starts over now that it changed.
+    if reliability::take_resume(app) {
+        applog::info("network watch: reconnecting after the network returned");
+        sleep(settle).await;
+        reliability::spawn_reconnect(app.clone());
+        return;
+    }
     if !should_react(app) {
         return;
     }
-    sleep(if change == Change::Woke { WAKE_SETTLE } else { NETWORK_SETTLE }).await;
+    sleep(settle).await;
     let pid = *app.state::<AppState>().pid.lock().unwrap();
     let Some(pid) = pid else { return };
     for attempt in 0..PROBE_ATTEMPTS {

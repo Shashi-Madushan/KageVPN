@@ -78,3 +78,12 @@ fn bulk_import_accepts_an_uppercase_scheme() {
     let (profiles, errors) = parse_many(&format!("VLESS://{ID}@a.example.com:443?security=tls#A vless://{ID}@b.example.com:443?security=tls#B"));
     assert_eq!((profiles.len(), errors.len()), (2, 0));
 }
+
+#[test]
+fn a_non_ascii_certificate_hash_is_ignored_instead_of_crashing_the_app() {
+    // `pcs` is hex. Slicing it by byte offsets used to panic in the middle of a multi-byte
+    // character, and a panic ends the whole app (and the VPN with it).
+    let link = format!("vless://{ID}@h.example.com:443?security=tls&pcs=a%E2%82%AC#odd");
+    let p = parse_vless(&link).expect("the link is still importable");
+    assert_eq!(cfg(&p).tls.pinned_key, None);
+}

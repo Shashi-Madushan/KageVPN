@@ -100,12 +100,18 @@ export function profileFlag(name: string, server: string = ''): string {
 	return '🌐';
 }
 
+/** " (why)" for the first reason a link was skipped, or nothing. Long reasons are cut short. */
+export function skippedReason(reason: string | null | undefined): string {
+	if (!reason) return '';
+	return ` (${reason.length > 90 ? reason.slice(0, 89) + '…' : reason})`;
+}
+
 /** One-line result of an import, covering duplicates and unreadable links. */
 export function importMessage(summary: ImportSummary): string {
 	const parts: string[] = [];
 	if (summary.added) parts.push(`Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}`);
 	if (summary.duplicates) parts.push(summary.added ? `${summary.duplicates} already saved` : 'Already imported');
-	if (summary.failed.length) parts.push(`${summary.failed.length} skipped`);
+	if (summary.failed.length) parts.push(`${summary.failed.length} skipped${skippedReason(summary.failed[0])}`);
 	return (parts.join(', ') || 'Nothing to import') + '.';
 }
 

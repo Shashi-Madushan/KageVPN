@@ -183,6 +183,8 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
             store.reliability(),
         )
     };
+    prepare_rule_sets(app, &routing).await;
+
     let candidates: Vec<Profile> = match (&auto_group, auto) {
         (Some(group), true) => profiles.iter().filter(|p| p.group.as_deref() == Some(group.as_str())).cloned().collect(),
         _ => profiles.clone(),
@@ -196,7 +198,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         mode,
         routing: &routing,
         log_path: &paths.log_file(),
-        cache_path: &paths.cache_file(),
+        rule_sets_dir: &paths.rule_sets_dir(),
         secret,
     })?;
     crate::fsutil::write_private_atomic(&paths.config_file(), &serde_json::to_vec_pretty(&config)?)?;
@@ -216,6 +218,33 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         }
     }
     Ok(pid)
+}
+
+/// Makes sure the country and category lists the routing uses are on disk. A list that is missing
+/// is fetched now (a connection cannot use it otherwise); one that is merely old is refreshed in
+/// the background. A list that cannot be fetched is left out and the user is told, but it never
+/// stops the connection.
+async fn prepare_rule_sets(app: &AppHandle, routing: &crate::settings::RoutingSettings) {
+    let dir = app.state::<AppState>().paths.rule_sets_dir();
+    let (missing, stale) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(routing), crate::rulesets::MAX_AGE);
+    // A list that just failed is not waited for again: reconnect attempts follow each other fast.
+    let missing = crate::rulesets::skip_recent_failures(missing);
+    if !missing.is_empty() {
+        applog::info(format!("downloading {} rule list(s) before connecting", missing.len()));
+        let failed = crate::rulesets::fetch_all(&dir, missing).await;
+        for (item, error) in &failed {
+            applog::warn(format!("rule list {} left out: {error}", item.tag));
+        }
+        if !failed.is_empty() {
+            let tags: Vec<String> = failed.into_iter().map(|(item, _)| item.tag).collect();
+            notify::send(app, "Some lists were left out", &crate::rulesets::skipped_message(&tags));
+        }
+    }
+    if !stale.is_empty() {
+        tauri::async_runtime::spawn(async move {
+            let _ = crate::rulesets::fetch_all(&dir, stale).await;
+        });
+    }
 }
 
 async fn resolve_servers(profiles: &[Profile]) -> String {

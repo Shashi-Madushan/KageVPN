@@ -215,11 +215,13 @@ pub fn clear_logs(state: State<AppState>) {
 
 #[tauri::command]
 pub async fn connect(app: AppHandle) -> Result<()> {
+    reliability::user_took_over(&app);
     session::connect(&app).await
 }
 
 #[tauri::command]
 pub async fn disconnect(app: AppHandle) -> Result<()> {
+    reliability::user_took_over(&app);
     session::disconnect(&app).await
 }
 
@@ -316,8 +318,22 @@ pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn set_routing(state: State<AppState>, settings: RoutingSettings) -> Result<()> {
-    state.store.lock().unwrap().set_routing(settings)
+pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSettings) -> Result<()> {
+    crate::config::validate_dns(&settings.dns)?;
+    let dir = state.paths.rule_sets_dir();
+    let (missing, _) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(&settings), crate::rulesets::MAX_AGE);
+    state.store.lock().unwrap().set_routing(settings)?;
+    // Fetch new lists now, so connecting later does not wait for them and a failure shows up here.
+    if !missing.is_empty() {
+        tauri::async_runtime::spawn(async move {
+            let failed = crate::rulesets::fetch_all(&dir, missing).await;
+            if !failed.is_empty() {
+                let tags: Vec<String> = failed.into_iter().map(|(item, _)| item.tag).collect();
+                notify::send(&app, "Some lists could not be downloaded", &crate::rulesets::skipped_message(&tags));
+            }
+        });
+    }
+    Ok(())
 }
 
 #[tauri::command]

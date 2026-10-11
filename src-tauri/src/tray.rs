@@ -208,8 +208,11 @@ fn format_rate(bytes_per_second: u64) -> String {
         format!("{bytes_per_second}B")
     } else if value < MIB {
         format!("{:.0}K", value / KIB)
-    } else {
+    } else if value < 10.0 * MIB {
         format!("{:.1}M", value / MIB)
+    } else {
+        // The readout has five cells; "120.0M" would lose its unit.
+        format!("{:.0}M", value / MIB)
     }
 }
 
@@ -316,6 +319,7 @@ fn place_below(app: &AppHandle, window: &tauri::WebviewWindow, anchor: Rect) {
 pub fn toggle_connection(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        crate::reliability::user_took_over(&app);
         let state = app.state::<AppState>().status.lock().unwrap().state;
         let result = match state {
             State::Disconnected => session::connect(&app).await,

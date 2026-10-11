@@ -1,5 +1,6 @@
 import { listen } from '@tauri-apps/api/event';
 import { setPath } from './path';
+import { skippedReason } from './format';
 import { protocols } from './protocols.svelte';
 import {
 	api,
@@ -139,6 +140,20 @@ class AppStore {
 		}
 	}
 
+	/**
+	 * Runs an action that changes saved state. Returns false, after telling the user, when it failed,
+	 * so the screen never shows a change the app did not keep.
+	 */
+	private async attempt(action: () => Promise<unknown>): Promise<boolean> {
+		try {
+			await action();
+			return true;
+		} catch (e) {
+			this.notify(String(e));
+			return false;
+		}
+	}
+
 	async toggle() {
 		if (this.busy) return;
 		if (!this.connected) {
@@ -154,7 +169,7 @@ class AppStore {
 
 	/** Drops the tunnel and brings it back up. */
 	async restartTunnel() {
-		await this.run(api.disconnect);
+		if (!(await this.attempt(api.disconnect))) return;
 		await this.run(api.connect);
 	}
 
@@ -163,7 +178,7 @@ class AppStore {
 		if (this.profiles.length < 2) return;
 		const index = this.profiles.findIndex((p) => p.id === this.activeId);
 		const next = this.profiles[(index + 1) % this.profiles.length];
-		await this.run(api.disconnect);
+		if (!(await this.attempt(api.disconnect))) return;
 		if (this.auto.enabled) await this.setAuto({ ...this.auto, enabled: false });
 		await this.select(next.id);
 		await this.run(api.connect);
@@ -218,7 +233,7 @@ class AppStore {
 	}
 
 	async select(id: string) {
-		await this.run(() => api.selectProfile(id));
+		if (!(await this.attempt(() => api.selectProfile(id)))) return;
 		this.activeId = id;
 		if (this.connected && !this.auto.enabled) this.verify();
 	}
@@ -236,55 +251,55 @@ class AppStore {
 	async rename(id: string, name: string) {
 		const profile = this.profiles.find((p) => p.id === id);
 		if (!profile || !name.trim() || name === profile.name) return;
-		await this.run(() => api.renameProfile(id, name));
+		if (!(await this.attempt(() => api.renameProfile(id, name)))) return;
 		profile.name = name.trim();
 	}
 
 	async toggleFavorite(id: string) {
 		const profile = this.profiles.find((p) => p.id === id);
 		if (!profile) return;
-		await this.run(() => api.setFavorite(id, !profile.favorite));
+		if (!(await this.attempt(() => api.setFavorite(id, !profile.favorite)))) return;
 		profile.favorite = !profile.favorite;
 	}
 
 	async setGroup(id: string, group: string | null) {
 		const profile = this.profiles.find((p) => p.id === id);
 		if (!profile) return;
-		await this.run(() => api.setGroup(id, group));
+		if (!(await this.attempt(() => api.setGroup(id, group)))) return;
 		profile.group = group?.trim() || null;
 	}
 
 	async setMode(mode: Mode) {
 		if (this.locked) return;
-		await this.run(() => api.setMode(mode));
+		if (!(await this.attempt(() => api.setMode(mode)))) return;
 		this.mode = mode;
 	}
 
 	async setAuto(auto: AutoSettings) {
-		await this.run(() => api.setAuto(auto));
+		if (!(await this.attempt(() => api.setAuto(auto)))) return;
 		this.auto = auto;
 		if (this.connected) this.notify('Reconnect to apply the auto setting.', 'info');
 	}
 
 	async updateSettings(patch: Partial<Settings>) {
 		const next = { ...this.settings, ...patch };
-		await this.run(() => api.updateSettings(next));
+		if (!(await this.attempt(() => api.updateSettings(next)))) return;
 		this.settings = next;
 	}
 
 	async setLaunchAtLogin(enabled: boolean) {
-		await this.run(() => api.setLaunchAtLogin(enabled));
+		if (!(await this.attempt(() => api.setLaunchAtLogin(enabled)))) return;
 		this.launchAtLogin = enabled;
 	}
 
 	async saveReliability(patch: Partial<ReliabilitySettings>) {
 		const next = { ...this.reliability, ...patch };
-		await this.run(() => api.setReliability(next));
+		if (!(await this.attempt(() => api.setReliability(next)))) return;
 		this.reliability = next;
 	}
 
 	async saveRouting(next: RoutingSettings) {
-		await this.run(() => api.setRouting(next));
+		if (!(await this.attempt(() => api.setRouting(next)))) return;
 		this.routing = next;
 		this.notify(this.connected ? 'Routing saved. Reconnect to apply it.' : 'Routing saved.', 'info');
 	}
@@ -320,7 +335,8 @@ class AppStore {
 		try {
 			const summary = await api.addSubscription(name, url);
 			await this.reloadSnapshot();
-			this.notify(`Added ${summary.total} profiles.`, 'info');
+			const skipped = summary.skipped ? `, ${summary.skipped} skipped${skippedReason(summary.skippedReason)}` : '';
+			this.notify(`Added ${summary.total} profiles${skipped}.`, 'info');
 			return null;
 		} catch (e) {
 			return String(e);
@@ -330,7 +346,10 @@ class AppStore {
 	async refreshSubscription(id: string) {
 		const summary = await this.run(() => api.refreshSubscription(id));
 		await this.reloadSnapshot();
-		if (summary) this.notify(`Updated: ${summary.added} new, ${summary.removed} removed.`, 'info');
+		if (summary) {
+			const skipped = summary.skipped ? `, ${summary.skipped} skipped${skippedReason(summary.skippedReason)}` : '';
+			this.notify(`Updated: ${summary.added} new, ${summary.removed} removed${skipped}.`, 'info');
+		}
 	}
 
 	async removeSubscription(id: string) {
@@ -341,7 +360,7 @@ class AppStore {
 	async trustHintedKey(key: string) {
 		if (!this.activeId) return;
 		const id = this.activeId;
-		await this.run(() => api.trustKey(id, key));
+		if (!(await this.attempt(() => api.trustKey(id, key)))) return;
 		const profile = this.profiles.find((p) => p.id === id);
 		if (profile) setPath(profile.settings, 'tls.pinnedKey', key);
 		this.logs = [];

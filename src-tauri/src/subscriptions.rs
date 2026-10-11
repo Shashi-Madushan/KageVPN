@@ -14,6 +14,8 @@ use crate::state::AppState;
 
 const MAX_BODY_BYTES: usize = 5 * 1024 * 1024;
 const SCHEDULER_TICK: Duration = Duration::from_secs(30 * 60);
+/// A subscription ending within this long counts as "expires soon".
+const SOON_SECS: u64 = 3 * 24 * 3600;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,6 +24,31 @@ pub struct RefreshSummary {
     pub removed: usize,
     pub total: usize,
     pub skipped: usize,
+    /// Why the first skipped link was skipped.
+    pub skipped_reason: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Expiry {
+    Soon,
+    Expired,
+}
+
+/// Which expiry notice is due now, if any. `announced` is the `(date, stage)` last shown, so each
+/// stage is announced once per expiry date; renewing the subscription gives a new date and starts over.
+pub fn due_expiry_notice(expire: u64, now: u64, announced: (u64, u8)) -> Option<Expiry> {
+    if expire == 0 {
+        return None;
+    }
+    let stage = if expire <= now {
+        2
+    } else if expire - now <= SOON_SECS {
+        1
+    } else {
+        0
+    };
+    let seen = if announced.0 == expire { announced.1 } else { 0 };
+    (stage > seen).then_some(if stage == 2 { Expiry::Expired } else { Expiry::Soon })
 }
 
 pub fn validate_url(url: &str) -> Result<()> {
@@ -32,16 +59,45 @@ pub fn validate_url(url: &str) -> Result<()> {
     Ok(())
 }
 
-async fn fetch(url: &str) -> Result<(Vec<Profile>, Option<UserInfo>, usize)> {
+/// What a failed request means for a person: the server is not reachable from here.
+fn explain(error: reqwest::Error) -> AppError {
+    let why = if error.is_timeout() {
+        "did not answer in time"
+    } else if error.is_connect() {
+        "could not be reached"
+    } else {
+        return error.into();
+    };
+    AppError::ServerUnreachable(format!(
+        "The subscription server {why}. If your provider is blocked on this network, connect to a server first and refresh again."
+    ))
+}
+
+async fn request(url: &str, through_tunnel: bool) -> std::result::Result<reqwest::Response, reqwest::Error> {
+    let mut client = reqwest::Client::builder().user_agent(crate::app_config::user_agent()).timeout(Duration::from_secs(20));
+    if through_tunnel {
+        client = client.proxy(reqwest::Proxy::all(format!("socks5h://127.0.0.1:{}", crate::config::MIXED_PORT))?);
+    }
+    client.build()?.get(url.trim()).send().await
+}
+
+async fn fetch(url: &str) -> Result<(Vec<Profile>, Option<UserInfo>, Vec<String>)> {
     validate_url(url)?;
-    let response = reqwest::Client::builder()
-        .user_agent(crate::app_config::user_agent())
-        .timeout(Duration::from_secs(20))
-        .build()?
-        .get(url.trim())
-        .send()
-        .await?
-        .error_for_status()?;
+    // Providers are often blocked on the very networks where people need a VPN. If the direct
+    // request cannot connect and a tunnel is up, ask through it (Proxy Only mode would otherwise
+    // fetch directly even while connected).
+    let response = match request(url, false).await {
+        Ok(response) => response,
+        Err(error) if error.is_connect() || error.is_timeout() => {
+            if crate::net::proxy_port_open().await {
+                request(url, true).await.map_err(explain)?
+            } else {
+                return Err(explain(error));
+            }
+        }
+        Err(error) => return Err(error.into()),
+    }
+    .error_for_status()?;
 
     let user_info = response
         .headers()
@@ -55,9 +111,10 @@ async fn fetch(url: &str) -> Result<(Vec<Profile>, Option<UserInfo>, usize)> {
     let text = decode_body(&String::from_utf8_lossy(&body));
     let (profiles, errors) = parse_many(&text);
     if profiles.is_empty() {
-        return Err(AppError::Invalid("no supported server links were found in this subscription".into()));
+        let why = errors.first().map(|reason| format!(" ({reason})")).unwrap_or_default();
+        return Err(AppError::Invalid(format!("no supported server links were found in this subscription{why}")));
     }
-    Ok((profiles, user_info, errors.len()))
+    Ok((profiles, user_info, errors))
 }
 
 /// Subscriptions are either a plain list of links or the same list base64-encoded.
@@ -112,18 +169,37 @@ pub async fn refresh(app: &AppHandle, id: &str) -> Result<RefreshSummary> {
             updated.last_updated = now_secs();
             updated.last_error = None;
             updated.user_info = user_info;
+            let notice = updated
+                .user_info
+                .as_ref()
+                .and_then(|u| due_expiry_notice(u.expire, now_secs(), (updated.notified_expire, updated.notified_stage)).map(|n| (u.expire, n)));
+            if let Some((expire, notice)) = notice {
+                updated.notified_expire = expire;
+                updated.notified_stage = if notice == Expiry::Expired { 2 } else { 1 };
+            }
             store.update_subscription(updated.clone())?;
             drop(store);
-            if updated.user_info.as_ref().is_some_and(|u| u.expire > 0 && u.expire < now_secs()) {
-                notify::send(app, "Subscription expired", &format!("{} has expired.", updated.name));
+            if let Some((expire, notice)) = notice {
+                let body = match notice {
+                    Expiry::Expired => format!("{} has expired.", updated.name),
+                    Expiry::Soon => format!("{} expires in {}.", updated.name, days_left(expire, now_secs())),
+                };
+                notify::send(app, "Subscription", &body);
             }
-            Ok(RefreshSummary { added, removed, total, skipped })
+            Ok(RefreshSummary { added, removed, total, skipped: skipped.len(), skipped_reason: skipped.into_iter().next() })
         }
         Err(error) => {
             updated.last_error = Some(error.to_string());
             let _ = store.update_subscription(updated);
             Err(error)
         }
+    }
+}
+
+fn days_left(expire: u64, now: u64) -> String {
+    match expire.saturating_sub(now).div_ceil(24 * 3600) {
+        0 | 1 => "a day".to_string(),
+        days => format!("{days} days"),
     }
 }
 
@@ -151,3 +227,7 @@ pub fn spawn_scheduler(app: AppHandle) {
 pub fn now_secs() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
+
+#[cfg(test)]
+#[path = "tests/subscriptions.rs"]
+mod tests;

@@ -73,7 +73,7 @@ impl DownloadProvider for CoreProvider {
                         mode: Mode::Proxy,
                         routing: &routing,
                         log_path: &state.paths.log_file(),
-                        cache_path: &state.paths.cache_file(),
+                        rule_sets_dir: &state.paths.rule_sets_dir(),
                         secret: "check",
                     })
                     .ok()

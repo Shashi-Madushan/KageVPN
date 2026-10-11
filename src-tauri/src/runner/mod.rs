@@ -2,9 +2,11 @@ pub mod daemon;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use crate::applog;
 use crate::config::Mode;
 use crate::error::{AppError, Result};
 use crate::paths::AppPaths;
@@ -14,6 +16,13 @@ const HELPER: &str = include_str!("helper.sh");
 const USER_CANCELED: &str = "-128";
 const RUN_START_WAIT: Duration = Duration::from_secs(15);
 const HELPER_QUIT_WAIT: Duration = Duration::from_secs(4);
+
+/// Set once the app has tried to refresh an out-of-date root service script in this launch, so a
+/// declined password prompt is not repeated on every connect.
+static SCRIPT_UPDATE_TRIED: AtomicBool = AtomicBool::new(false);
+
+/// Set once the app has reinstalled a root service that did not answer, for the same reason.
+static SERVICE_REPAIR_TRIED: AtomicBool = AtomicBool::new(false);
 
 /// The root helper for this app launch and the sing-box binary it was started for.
 static ROOT_HELPER: Mutex<Option<(u32, PathBuf)>> = Mutex::new(None);
@@ -31,33 +40,63 @@ pub async fn start(paths: &AppPaths, binary: &Path, mode: Mode, kill_switch_ips:
 }
 
 async fn start_with_root_helper(paths: &AppPaths, binary: &Path, kill_switch_ips: Option<String>) -> Result<u32> {
-    if daemon::installed() {
+    let service = daemon::installed();
+    if service {
         if !daemon::binary_current(binary) {
             daemon::install(paths, binary).await?;
+        } else if !daemon::script_current() && !SCRIPT_UPDATE_TRIED.swap(true, Ordering::SeqCst) {
+            // The service that is running still works, so a declined or failed update must not stop
+            // the connection; it is tried again next launch.
+            applog::info("root service script is out of date: asking to update it");
+            if let Err(error) = daemon::install(paths, binary).await {
+                applog::warn(format!("could not update the root service script: {error}"));
+            }
         }
     } else {
         ensure_helper(paths, binary).await?;
     }
 
-    let _ = std::fs::remove_file(paths.child_pid_file());
     let command = match kill_switch_ips {
         None => "none".to_string(),
         Some(ips) if ips.is_empty() => "-".to_string(),
         Some(ips) => ips,
     };
+    if let Some(pid) = request_start(paths, &command, RUN_START_WAIT).await? {
+        return Ok(pid);
+    }
+    // The service's files are there but nothing answered, which is what a service that was
+    // unloaded (an OS update can do it) looks like. Installing it again starts it. This is tried
+    // once per launch, so a service that cannot be revived costs one extra password prompt.
+    if service && !SERVICE_REPAIR_TRIED.swap(true, Ordering::SeqCst) {
+        applog::warn("the root service did not answer: installing it again");
+        daemon::install(paths, binary).await?;
+        if let Some(pid) = request_start(paths, &command, RUN_START_WAIT).await? {
+            return Ok(pid);
+        }
+    }
+    // Give up cleanly: a helper that wakes up later must not find this request and start sing-box
+    // as root while the app thinks it is disconnected.
+    let _ = std::fs::remove_file(paths.helper_start_file());
+    Err(AppError::Launch("the privileged helper did not start sing-box".into()))
+}
+
+/// Asks the root helper for a run and waits up to `wait` for the pid it reports, or `None` when it
+/// stays silent.
+async fn request_start(paths: &AppPaths, command: &str, wait: Duration) -> Result<Option<u32>> {
+    let _ = std::fs::remove_file(paths.child_pid_file());
     let pending = paths.helper_start_file().with_extension("tmp");
     // Line 2 names this app, so the root service stops sing-box if the app disappears.
     std::fs::write(&pending, format!("{command}\n{}\n", std::process::id()))?;
     std::fs::rename(&pending, paths.helper_start_file())?;
 
-    let waits = RUN_START_WAIT.as_millis() / 100;
+    let waits = wait.as_millis() / 100;
     for _ in 0..waits {
         if let Some(pid) = std::fs::read_to_string(paths.child_pid_file()).ok().and_then(|t| t.trim().parse().ok()) {
-            return Ok(pid);
+            return Ok(Some(pid));
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    Err(AppError::Launch("the privileged helper did not start sing-box".into()))
+    Ok(None)
 }
 
 /// Makes sure a root helper for `binary` is running, asking for the administrator password only

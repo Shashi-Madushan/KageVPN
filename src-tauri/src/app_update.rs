@@ -3,7 +3,9 @@
 //! manager, are signature-checked by the updater plugin, and never restart the app on their
 //! own: the user chooses when, because a restart ends a live VPN connection.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime, State};
@@ -18,6 +20,11 @@ use crate::state::AppState;
 
 const CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const CANCEL_POLL: Duration = Duration::from_millis(150);
+/// How long the update check may take. The download itself has no time limit in the updater
+/// plugin, so `install` watches for a stall instead.
+const CHECK_TIMEOUT: Duration = Duration::from_secs(15);
+/// How long a download may go without receiving a single byte before it is given up on.
+const STALL_AFTER: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -47,7 +54,7 @@ fn build_updater<R: Runtime>(app: &AppHandle<R>, feed: &str, key: &str) -> Resul
         .endpoints(vec![feed])
         .map_err(failure)?
         .pubkey(key)
-        .timeout(Duration::from_secs(15))
+        .timeout(CHECK_TIMEOUT)
         .build()
         .map_err(failure)
 }
@@ -90,23 +97,36 @@ impl DownloadProvider for AppProvider {
     }
 
     async fn install(&self, _app: &AppHandle, release: &Update, reporter: &Reporter) -> Result<()> {
+        let started = Instant::now();
+        // Milliseconds after `started` at which the last bytes arrived.
+        let last_progress = Arc::new(AtomicU64::new(0));
+        let progress = last_progress.clone();
         let mut received = 0u64;
         let download = release.download(
-            |chunk, total| {
+            move |chunk, total| {
                 received += chunk as u64;
+                progress.store(started.elapsed().as_millis() as u64, Ordering::Relaxed);
                 reporter.report(Stage::Download, received, total.unwrap_or(0));
             },
             || reporter.report(Stage::Verify, 0, 0),
         );
-        let cancelled = async {
-            while !reporter.cancelled() {
+        // Ends the download when the user cancels or nothing has arrived for `STALL_AFTER`.
+        let watchdog = async {
+            loop {
                 sleep(CANCEL_POLL).await;
+                if reporter.cancelled() {
+                    return AppError::Launch("download cancelled".into());
+                }
+                let idle = started.elapsed().as_millis() as u64 - last_progress.load(Ordering::Relaxed);
+                if Duration::from_millis(idle) >= STALL_AFTER {
+                    return AppError::Launch("the update download stalled, check your connection and try again".into());
+                }
             }
         };
-        // Dropping the download future when the user cancels stops the transfer.
+        // Dropping the download future when the watchdog fires stops the transfer.
         let bytes = tokio::select! {
             result = download => result.map_err(|e| AppError::Launch(format!("update download failed: {e}")))?,
-            _ = cancelled => return Err(AppError::Launch("download cancelled".into())),
+            error = watchdog => return Err(error),
         };
 
         reporter.report(Stage::Install, 0, 0);

@@ -178,6 +178,10 @@ pub struct Subscription {
     pub last_updated: u64,
     pub last_error: Option<String>,
     pub user_info: Option<UserInfo>,
+    /// The expiry date the last expiry notice was for, and which one it was (1 soon, 2 expired),
+    /// so each notice appears once per date instead of on every refresh.
+    pub notified_expire: u64,
+    pub notified_stage: u8,
 }
 
 impl Default for Subscription {
@@ -190,6 +194,8 @@ impl Default for Subscription {
             last_updated: 0,
             last_error: None,
             user_info: None,
+            notified_expire: 0,
+            notified_stage: 0,
         }
     }
 }

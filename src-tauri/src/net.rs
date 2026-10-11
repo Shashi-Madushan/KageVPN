@@ -10,7 +10,9 @@ use crate::error::{AppError, Result};
 
 const TCP_TIMEOUT: Duration = Duration::from_secs(5);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
-use crate::app_config::urls::{CONNECTION_PROBE as PROBE_URL, EXIT_IP as IP_URL};
+/// Each probe address gets this long, so three failing in a row still finish within a health cycle.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(6);
+use crate::app_config::urls::{CONNECTION_PROBE as PROBE_URL, CONNECTION_PROBE_FALLBACKS as PROBE_FALLBACKS, EXIT_IP as IP_URL};
 
 pub async fn tcp_latency(host: &str, port: u16) -> Result<u64> {
     let started = Instant::now();
@@ -24,10 +26,24 @@ pub async fn proxy_port_open() -> bool {
     TcpStream::connect(("127.0.0.1", MIXED_PORT)).await.is_ok()
 }
 
+/// How long a tiny page takes through the tunnel. A healthy tunnel costs one request; the other
+/// addresses are only tried when the first fails.
 pub async fn proxy_delay() -> Result<u64> {
-    let started = Instant::now();
-    proxied_client()?.get(PROBE_URL).send().await?.error_for_status()?;
-    Ok(elapsed_ms(started))
+    let urls: Vec<&str> = std::iter::once(PROBE_URL).chain(PROBE_FALLBACKS).collect();
+    first_answer(&proxied_client()?, &urls).await
+}
+
+/// The time of the first address in `urls` that answers, or the last error when none does.
+async fn first_answer(client: &Client, urls: &[&str]) -> Result<u64> {
+    let mut last = AppError::Launch("no address to check".into());
+    for url in urls {
+        let started = Instant::now();
+        match client.get(*url).timeout(PROBE_TIMEOUT).send().await.and_then(|response| response.error_for_status()) {
+            Ok(_) => return Ok(elapsed_ms(started)),
+            Err(error) => last = error.into(),
+        }
+    }
+    Err(last)
 }
 
 pub async fn exit_ip() -> Result<String> {
@@ -50,3 +66,7 @@ fn proxied_client() -> Result<Client> {
 fn elapsed_ms(started: Instant) -> u64 {
     started.elapsed().as_millis() as u64
 }
+
+#[cfg(test)]
+#[path = "tests/net.rs"]
+mod tests;

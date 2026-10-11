@@ -58,8 +58,12 @@ fn active_core(state: &AppState) -> (&'static CoreSpec, CoreSettings) {
     (store.active_core(), store.core_settings())
 }
 
-#[tauri::command]
-pub fn core_status(state: State<AppState>) -> CoreStatus {
+/// Runs the engine binary twice to read its version, so it must not run on the main thread: a
+/// synchronous command does, and the first launch of a binary after boot can take a second or more
+/// while macOS checks it, freezing the window and the menu bar meanwhile.
+#[tauri::command(async)]
+pub fn core_status(app: AppHandle) -> CoreStatus {
+    let state = app.state::<AppState>();
     let (spec, settings) = active_core(&state);
     let system = super::locate(spec).ok().and_then(|path| super::inspect(spec, &path, Source::System).ok());
     let (active, error) = match resolve(&state.paths, spec, &settings) {

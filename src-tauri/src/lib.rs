@@ -19,6 +19,7 @@ mod notify;
 mod paths;
 mod profile;
 mod reliability;
+mod rulesets;
 mod runner;
 mod sampler;
 mod session;
@@ -234,6 +235,7 @@ fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
         "connect" => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
+                reliability::user_took_over(&app);
                 if let Err(error) = session::connect(&app).await {
                     notify::send(&app, "Connection failed", &error.to_string());
                 }
@@ -242,6 +244,7 @@ fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
         "disconnect" => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
+                reliability::user_took_over(&app);
                 let _ = session::disconnect(&app).await;
             });
         }
@@ -258,7 +261,19 @@ fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
 
 /// Tells the user when the saved servers could not be read and were set aside.
 fn warn_if_data_was_recovered(app: &tauri::AppHandle) {
-    let recovered = app.state::<AppState>().store.lock().unwrap().take_recovery();
+    let state = app.state::<AppState>();
+    let (recovered, unreadable) = {
+        let mut store = state.store.lock().unwrap();
+        (store.take_recovery(), store.unreadable_count())
+    };
+    if unreadable > 0 {
+        applog::warn(format!("{unreadable} saved server(s) use something this version does not know and are kept untouched"));
+        notify::send(
+            app,
+            "Some servers are hidden",
+            &format!("{unreadable} saved server{} use something this version does not understand. They are kept safe and return when you update.", if unreadable == 1 { "" } else { "s" }),
+        );
+    }
     if let Some(path) = recovered {
         notify::send(
             app,

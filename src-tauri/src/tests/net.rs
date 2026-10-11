@@ -1,0 +1,59 @@
+use super::*;
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
+/// A local web server that answers every request with `status` and counts them.
+fn counted_site(status: &'static str) -> (String, Arc<AtomicUsize>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/generate_204", listener.local_addr().unwrap());
+    let hits = Arc::new(AtomicUsize::new(0));
+    let counter = hits.clone();
+    std::thread::spawn(move || {
+        while let Ok((mut stream, _)) = listener.accept() {
+            counter.fetch_add(1, Ordering::SeqCst);
+            let _ = stream.read(&mut [0u8; 2048]);
+            let _ = stream.write_all(format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes());
+        }
+    });
+    (url, hits)
+}
+
+fn site(status: &'static str) -> String {
+    counted_site(status).0
+}
+
+/// An address nothing listens on.
+fn closed_port() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    format!("http://{}/", listener.local_addr().unwrap())
+}
+
+fn run<T>(future: impl std::future::Future<Output = T>) -> T {
+    tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(future)
+}
+
+#[test]
+fn one_blocked_probe_site_does_not_make_a_working_tunnel_look_dead() {
+    let (dead, alive) = (closed_port(), site("204 No Content"));
+    let client = Client::builder().no_proxy().build().unwrap();
+    assert!(run(first_answer(&client, &[&dead, &alive])).is_ok());
+}
+
+#[test]
+fn the_check_fails_only_when_every_site_fails() {
+    let (first, second, rejecting) = (closed_port(), closed_port(), site("503 Service Unavailable"));
+    let client = Client::builder().no_proxy().build().unwrap();
+    assert!(run(first_answer(&client, &[&first, &second, &rejecting])).is_err());
+    assert!(run(first_answer(&client, &[])).is_err());
+}
+
+#[test]
+fn a_site_answering_first_is_not_followed_by_more_requests() {
+    // A healthy tunnel must cost one request per check, not three.
+    let ((first, first_hits), (second, second_hits)) = (counted_site("204 No Content"), counted_site("204 No Content"));
+    let client = Client::builder().no_proxy().build().unwrap();
+    assert!(run(first_answer(&client, &[&first, &second])).is_ok());
+    assert_eq!((first_hits.load(Ordering::SeqCst), second_hits.load(Ordering::SeqCst)), (1, 0));
+}

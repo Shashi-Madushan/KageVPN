@@ -283,7 +283,7 @@ fn latency_stats(samples: &[f64]) -> (f64, f64) {
     let mut sorted = samples.to_vec();
     sorted.sort_by(|a, b| a.total_cmp(b));
     let mid = sorted.len() / 2;
-    let median = if sorted.len() % 2 == 0 { (sorted[mid - 1] + sorted[mid]) / 2.0 } else { sorted[mid] };
+    let median = if sorted.len().is_multiple_of(2) { (sorted[mid - 1] + sorted[mid]) / 2.0 } else { sorted[mid] };
     let jitter = if samples.len() < 2 {
         0.0
     } else {

@@ -11,6 +11,9 @@ use crate::applog;
 use crate::state::AppState;
 
 const CAPACITY: usize = 2000;
+/// A sing-box log past this size is set aside and restarted. At debug level it grows by several
+/// megabytes an hour, and nothing else shrinks it while a connection stays up.
+const MAX_LOG_BYTES: u64 = 20 * 1024 * 1024;
 const POLL_INTERVAL: Duration = Duration::from_millis(400);
 /// At most this many lines go to the UI per poll; a traffic burst can log thousands.
 const MAX_LINES_PER_POLL: usize = 300;
@@ -116,6 +119,19 @@ impl LogBuffer {
     }
 }
 
+/// Keeps the log from growing for as long as a connection lives: past `cap` bytes the file is
+/// copied to `<name>.log.prev` and emptied. sing-box opens it for appending, so it simply carries
+/// on writing at the new start. Returns whether the file was restarted.
+pub fn trim_if_large(path: &std::path::Path, cap: u64) -> bool {
+    if !std::fs::metadata(path).is_ok_and(|m| m.len() > cap) {
+        return false;
+    }
+    // Keep the newest run as evidence. Emptying the file matters more than the copy, so a full
+    // disk (where the copy fails) still gets its space back.
+    let _ = std::fs::copy(path, path.with_extension("log.prev"));
+    std::fs::OpenOptions::new().write(true).open(path).and_then(|file| file.set_len(0)).is_ok()
+}
+
 pub fn spawn_tailer(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut offset = 0u64;
@@ -125,6 +141,11 @@ pub fn spawn_tailer(app: AppHandle) {
             tokio::time::sleep(POLL_INTERVAL).await;
             let state = app.state::<AppState>();
             let lines = read_new_lines(&state.paths.log_file(), &mut offset, &mut pending);
+            if trim_if_large(&state.paths.log_file(), MAX_LOG_BYTES) {
+                applog::info("sing-box.log passed its size limit: kept as sing-box.log.prev and restarted");
+                offset = 0;
+                pending.clear();
+            }
             if lines.is_empty() {
                 continue;
             }

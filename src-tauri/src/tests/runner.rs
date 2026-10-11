@@ -64,6 +64,41 @@ mod helper {
         fs::read_to_string(dir.join("child.pid")).ok()?.trim().parse().ok()
     }
 
+    fn paths_in(dir: &Path) -> crate::paths::AppPaths {
+        crate::paths::AppPaths::new(dir.to_path_buf()).unwrap()
+    }
+
+    fn block_on<T>(future: impl std::future::Future<Output = T>) -> T {
+        tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(future)
+    }
+
+    #[test]
+    fn a_helper_that_answers_gives_the_pid_of_the_run_it_started() {
+        let dir = scratch("request");
+        let core = fake_core(&dir);
+        let mut helper = start_helper(&dir, &core, std::process::id());
+
+        let pid = block_on(super::super::request_start(&paths_in(&dir), "none", Duration::from_secs(8))).unwrap().expect("an answer");
+        assert!(alive(pid));
+        assert_eq!(Some(pid), child_pid(&dir));
+
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_helper_that_never_answers_gives_nothing_instead_of_hanging() {
+        // What a service that was unloaded looks like: the request is written and nobody reads it.
+        let dir = scratch("silent");
+        let started = Instant::now();
+        let answer = block_on(super::super::request_start(&paths_in(&dir), "none", Duration::from_millis(400))).unwrap();
+        assert_eq!(answer, None);
+        assert!(started.elapsed() < Duration::from_secs(3));
+        assert!(dir.join("helper.start").exists(), "the request is left for a helper that starts later");
+        let _ = fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn one_helper_serves_connect_stop_and_reconnect_without_being_started_again() {
         let dir = scratch("reuse");

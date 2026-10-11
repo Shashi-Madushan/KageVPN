@@ -53,8 +53,9 @@ impl AppPaths {
         self.data_dir.join("usage.db")
     }
 
-    pub fn cache_file(&self) -> PathBuf {
-        self.data_dir.join("cache.db")
+    /// Where the country and category lists live, one `.srs` file per list.
+    pub fn rule_sets_dir(&self) -> PathBuf {
+        self.data_dir.join("rule-sets")
     }
 
     pub fn config_file(&self) -> PathBuf {

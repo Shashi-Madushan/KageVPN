@@ -12,10 +12,11 @@ use super::{inspect, Manifest, Source, MANIFEST_NAME};
 use crate::app_config::CoreSpec;
 use crate::error::{AppError, Result};
 use crate::paths::AppPaths;
-use crate::downloads::{Reporter, Stage};
+use crate::downloads::{read_body, Reporter, Stage, STALL_AFTER};
 use crate::singbox;
 
 const PROGRESS_STEP: u64 = 256 * 1024;
+const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 const ARCHIVE_NAME: &str = "archive.tar.gz";
 
 pub async fn install(
@@ -88,30 +89,31 @@ async fn run(
 }
 
 async fn download(reporter: &Reporter, release: &Release, destination: &Path) -> Result<String> {
-    let mut response = reqwest::Client::builder()
+    let client = reqwest::Client::builder()
         .user_agent(crate::app_config::user_agent())
-        .build()?
-        .get(&release.url)
-        .send()
-        .await?
+        .connect_timeout(CONNECT_TIMEOUT)
+        .build()?;
+    // Connecting is bounded above; this bounds the wait for the server's first answer.
+    let response = tokio::time::timeout(STALL_AFTER, client.get(&release.url).send())
+        .await
+        .map_err(|_| AppError::Launch("the download server did not respond, try again later".into()))??
         .error_for_status()?;
 
     let mut file = File::create(destination)?;
     let mut hasher = Sha256::new();
     let (mut received, mut last_emit) = (0u64, 0u64);
 
-    while let Some(chunk) = response.chunk().await? {
-        if reporter.cancelled() {
-            return Err(AppError::Launch("download cancelled".into()));
-        }
-        hasher.update(&chunk);
-        file.write_all(&chunk)?;
+    read_body(response, STALL_AFTER, || reporter.cancelled(), |chunk| {
+        hasher.update(chunk);
+        file.write_all(chunk)?;
         received += chunk.len() as u64;
         if received - last_emit >= PROGRESS_STEP {
             last_emit = received;
             reporter.report(Stage::Download, received, release.size);
         }
-    }
+        Ok(())
+    })
+    .await?;
     reporter.report(Stage::Download, received, release.size);
     Ok(hex(&hasher.finalize()))
 }

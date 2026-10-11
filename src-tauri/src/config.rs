@@ -1,7 +1,8 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use url::Url;
 
 use crate::error::{AppError, Result};
 use crate::profile::Profile;
@@ -9,10 +10,12 @@ use crate::settings::{Action, DnsProvider, DnsSettings, RouteMode, RoutingSettin
 
 pub const MIXED_PORT: u16 = 2080;
 pub const CLASH_PORT: u16 = 19090;
+const TUN_ADDRESS_V4: &str = "172.19.0.1/30";
+const TUN_ADDRESS_V6: &str = "fdfe:dcba:9876::1/126";
 const MAX_NODES: usize = 150;
 /// Debug so that the reason for a silent sing-box exit (status 0, no error) reaches the log.
 const LOG_LEVEL: &str = "debug";
-use crate::app_config::urls::{CONNECTION_PROBE as PROBE_URL, GEOIP_RULE_SETS as GEOIP_URL, GEOSITE_RULE_SETS as GEOSITE_URL};
+use crate::app_config::urls::CONNECTION_PROBE as PROBE_URL;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -38,7 +41,8 @@ pub struct ConfigInput<'a> {
     pub mode: Mode,
     pub routing: &'a RoutingSettings,
     pub log_path: &'a Path,
-    pub cache_path: &'a Path,
+    /// Where the country and category lists are kept (see `rulesets`).
+    pub rule_sets_dir: &'a Path,
     pub secret: &'a str,
 }
 
@@ -73,33 +77,33 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
         "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": MIXED_PORT,
     })];
     if input.mode == Mode::Tun {
+        // sing-box only routes an address family into the tunnel when the interface has an address
+        // of that family. With IPv4 alone, IPv6 traffic would skip the VPN on any network that has
+        // IPv6 and show the user's real address.
         inbounds.push(json!({
-            "type": "tun", "tag": "tun-in", "address": ["172.19.0.1/30"], "auto_route": true,
+            "type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS_V4, TUN_ADDRESS_V6], "auto_route": true,
         }));
     }
 
+    // Lists are local files, so a missing one is left out rather than failing the connection.
+    let rule_sets = available_rule_sets(input.routing, input.rule_sets_dir);
     let mut route = json!({
         "auto_detect_interface": true,
         "find_process": true,
         "default_domain_resolver": "local",
-        "rules": route_rules(input.routing),
+        "rules": route_rules(input.routing, &rule_sets),
         "final": final_outbound(input.routing),
     });
-    let rule_sets = rule_set_definitions(input.routing);
-    let uses_rule_sets = !rule_sets.is_empty();
-    if uses_rule_sets {
-        route["rule_set"] = Value::Array(rule_sets);
+    if !rule_sets.is_empty() {
+        route["rule_set"] = Value::Array(rule_set_definitions(&rule_sets));
     }
 
-    let mut experimental = json!({
+    let experimental = json!({
         "clash_api": {
             "external_controller": format!("127.0.0.1:{CLASH_PORT}"),
             "secret": input.secret,
         },
     });
-    if uses_rule_sets {
-        experimental["cache_file"] = json!({ "enabled": true, "path": input.cache_path });
-    }
 
     Ok(json!({
         "log": { "level": LOG_LEVEL, "timestamp": true, "output": input.log_path },
@@ -121,7 +125,7 @@ fn select_nodes<'a>(input: &ConfigInput<'a>) -> Vec<&'a Profile> {
     nodes
 }
 
-fn route_rules(routing: &RoutingSettings) -> Vec<Value> {
+fn route_rules(routing: &RoutingSettings, available: &[(String, PathBuf)]) -> Vec<Value> {
     let mut rules = vec![json!({ "action": "sniff" }), json!({ "protocol": "dns", "action": "hijack-dns" })];
     if routing.bypass_lan {
         rules.push(json!({ "ip_is_private": true, "outbound": "direct" }));
@@ -130,6 +134,9 @@ fn route_rules(routing: &RoutingSettings) -> Vec<Value> {
         rules.extend(routing.rules.iter().filter_map(rule_json));
         rules.extend(routing.rule_sets.iter().filter(|s| s.enabled).filter_map(|set| {
             let tag = rule_set_tag(set.kind, &set.country)?;
+            if !available.iter().any(|(known, _)| *known == tag) {
+                return None;
+            }
             let mut rule = json!({ "rule_set": [tag] });
             apply_action(&mut rule, set.action);
             Some(rule)
@@ -171,7 +178,7 @@ fn apply_action(rule: &mut Value, action: Action) {
     }
 }
 
-fn rule_set_tag(kind: RuleSetKind, country: &str) -> Option<String> {
+pub(crate) fn rule_set_tag(kind: RuleSetKind, country: &str) -> Option<String> {
     let country = country.trim().to_lowercase();
     let valid = !country.is_empty() && country.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
     valid.then(|| match kind {
@@ -180,44 +187,83 @@ fn rule_set_tag(kind: RuleSetKind, country: &str) -> Option<String> {
     })
 }
 
-fn rule_set_definitions(routing: &RoutingSettings) -> Vec<Value> {
-    if routing.mode != RouteMode::Rule {
-        return Vec::new();
-    }
-    routing
-        .rule_sets
-        .iter()
-        .filter(|s| s.enabled)
-        .filter_map(|set| {
-            let tag = rule_set_tag(set.kind, &set.country)?;
-            let base = if set.kind == RuleSetKind::Geoip { GEOIP_URL } else { GEOSITE_URL };
-            let name = tag.split_once('-').map(|(_, rest)| rest).unwrap_or_default();
-            Some(json!({
-                "type": "remote", "tag": tag, "format": "binary",
-                "url": format!("{base}{name}.srs"), "download_detour": "direct",
-            }))
+/// The enabled lists whose file is on disk, as `(tag, file)`, each once.
+fn available_rule_sets(routing: &RoutingSettings, dir: &Path) -> Vec<(String, PathBuf)> {
+    crate::rulesets::wanted(routing)
+        .into_iter()
+        .map(|item| {
+            let path = item.path(dir);
+            (item.tag, path)
         })
+        .filter(|(_, path)| path.is_file())
         .collect()
+}
+
+fn rule_set_definitions(available: &[(String, PathBuf)]) -> Vec<Value> {
+    available
+        .iter()
+        .map(|(tag, path)| json!({ "type": "local", "tag": tag, "format": "binary", "path": path }))
+        .collect()
+}
+
+fn doh(server: &str) -> Value {
+    json!({ "type": "https", "tag": "remote", "server": server, "detour": "proxy" })
+}
+
+/// The DNS server for what a person typed in Settings: a bare host (read as DNS over HTTPS) or a
+/// link such as `https://dns.nextdns.io/abc123`, `tls://dns.google`, `quic://dns.adguard-dns.com`,
+/// `udp://8.8.8.8` or `tcp://8.8.8.8`, with an optional port. A DoH path is kept, because personal
+/// endpoints (NextDNS, AdGuard) carry the account in it and without it the wrong resolver answers.
+pub fn custom_dns_server(text: &str) -> Option<Value> {
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let url = Url::parse(&if text.contains("://") { text.to_string() } else { format!("https://{text}") }).ok()?;
+    let kind = match url.scheme() {
+        "https" => "https",
+        "tls" => "tls",
+        "quic" => "quic",
+        "udp" => "udp",
+        "tcp" => "tcp",
+        _ => return None,
+    };
+    let host = url.host_str()?.trim_matches(['[', ']']);
+    if host.is_empty() {
+        return None;
+    }
+    let mut server = doh(host);
+    server["type"] = json!(kind);
+    if let Some(port) = url.port() {
+        server["server_port"] = json!(port);
+    }
+    if kind == "https" && url.path() != "/" {
+        server["path"] = json!(url.path());
+    }
+    Some(server)
+}
+
+/// Refuses a custom DNS entry that would silently turn into "use the system resolver".
+pub fn validate_dns(settings: &DnsSettings) -> Result<()> {
+    if settings.provider == DnsProvider::Custom && custom_dns_server(&settings.custom).is_none() {
+        return Err(AppError::Invalid(
+            "that DNS server is not valid. Use a host such as dns.example.com, or a link such as https://dns.example.com/your-id or tls://dns.example.com".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn dns(settings: &DnsSettings) -> Value {
     let remote = match settings.provider {
-        DnsProvider::Cloudflare => Some("1.1.1.1".to_string()),
-        DnsProvider::Google => Some("8.8.8.8".to_string()),
-        DnsProvider::Quad9 => Some("9.9.9.9".to_string()),
-        DnsProvider::Custom => {
-            let host = settings.custom.trim().trim_start_matches("https://");
-            let host = host.split('/').next().unwrap_or_default();
-            (!host.is_empty()).then(|| host.to_string())
-        }
+        DnsProvider::Cloudflare => Some(doh("1.1.1.1")),
+        DnsProvider::Google => Some(doh("8.8.8.8")),
+        DnsProvider::Quad9 => Some(doh("9.9.9.9")),
+        DnsProvider::Custom => custom_dns_server(&settings.custom),
         DnsProvider::System => None,
     };
     match remote {
         Some(server) => json!({
-            "servers": [
-                { "type": "https", "tag": "remote", "server": server, "detour": "proxy" },
-                { "type": "local", "tag": "local" },
-            ],
+            "servers": [server, { "type": "local", "tag": "local" }],
             "final": "remote",
         }),
         None => json!({ "servers": [{ "type": "local", "tag": "local" }], "final": "local" }),

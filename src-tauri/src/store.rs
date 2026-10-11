@@ -1,7 +1,9 @@
 use std::fs;
+use std::io;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::config::Mode;
 use crate::app_config::{core_spec, default_core, CoreSpec};
@@ -45,6 +47,35 @@ struct Data {
     reliability: ReliabilitySettings,
     auto: AutoSettings,
     subscriptions: Vec<Subscription>,
+    /// Servers this version cannot read, such as a protocol added by a newer version. They are kept
+    /// exactly as they were and offered to the parser again on every start.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    unreadable_profiles: Vec<Value>,
+}
+
+/// Parses the data file. A server that does not parse is set aside instead of making the whole
+/// file unreadable, which would otherwise move every server, subscription and setting away.
+fn parse_data(bytes: &[u8]) -> serde_json::Result<Data> {
+    let mut value: Value = serde_json::from_slice(bytes)?;
+    sift_profiles(&mut value);
+    serde_json::from_value(value)
+}
+
+/// Sorts `profiles` and `unreadableProfiles` together into the servers this version can read and
+/// the ones it cannot, so a server kept earlier comes back as soon as it becomes readable.
+fn sift_profiles(value: &mut Value) {
+    let Some(object) = value.as_object_mut() else { return };
+    let mut all: Vec<Value> = Vec::new();
+    for key in ["profiles", "unreadableProfiles"] {
+        if let Some(Value::Array(list)) = object.remove(key) {
+            all.extend(list);
+        }
+    }
+    let (readable, unreadable): (Vec<Value>, Vec<Value>) = all.into_iter().partition(|p| serde_json::from_value::<Profile>(p.clone()).is_ok());
+    object.insert("profiles".into(), Value::Array(readable));
+    if !unreadable.is_empty() {
+        object.insert("unreadableProfiles".into(), Value::Array(unreadable));
+    }
 }
 
 pub struct Store {
@@ -52,19 +83,33 @@ pub struct Store {
     data: Data,
     /// Where an unreadable data file was moved so it can be recovered, if that happened at load.
     recovered: Option<PathBuf>,
+    /// The saved file exists but could neither be read nor moved aside. Saving would destroy it,
+    /// so changes stay in memory and every save reports why.
+    locked: bool,
 }
 
 impl Store {
     pub fn load(path: PathBuf) -> Self {
+        let mut unreadable = false;
         let (data, recovered) = match fs::read(&path) {
-            Ok(bytes) => match serde_json::from_slice::<Data>(&bytes) {
+            Ok(bytes) => match parse_data(&bytes) {
                 Ok(data) => (data, None),
                 // Never start over silently: keep the unreadable file next to the new one.
-                Err(_) => (Data::default(), quarantine(&path)),
+                Err(_) => {
+                    unreadable = true;
+                    (Data::default(), quarantine(&path))
+                }
             },
-            Err(_) => (Data::default(), None),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => (Data::default(), None),
+            // The file is there but cannot be read (permissions, a failing disk). Treating that as
+            // "no data yet" would let the next save replace the user's servers with an empty list.
+            Err(_) => {
+                unreadable = true;
+                (Data::default(), quarantine(&path))
+            }
         };
-        let mut store = Self { path, data, recovered };
+        let locked = unreadable && recovered.is_none();
+        let mut store = Self { path, data, recovered, locked };
         store.migrate();
         store
     }
@@ -76,7 +121,16 @@ impl Store {
 
     /// Upgrades older files in place, keeping a copy of the file as it was.
     fn migrate(&mut self) {
-        if self.data.schema_version >= SCHEMA_VERSION {
+        if self.data.schema_version > SCHEMA_VERSION {
+            // Written by a newer version of the app. This one drops the fields it does not know
+            // when it saves, so keep the file as it was first (once).
+            let backup = self.path.with_file_name(format!("data.v{}.json", self.data.schema_version));
+            if self.path.is_file() && !backup.exists() {
+                let _ = fs::copy(&self.path, backup);
+            }
+            return;
+        }
+        if self.data.schema_version == SCHEMA_VERSION {
             return;
         }
         if self.path.is_file() {
@@ -99,6 +153,11 @@ impl Store {
 
     pub fn profiles(&self) -> &[Profile] {
         &self.data.profiles
+    }
+
+    /// How many saved servers this version cannot read. They are kept in the file untouched.
+    pub fn unreadable_count(&self) -> usize {
+        self.data.unreadable_profiles.len()
     }
 
     pub fn active_id(&self) -> Option<&str> {
@@ -355,6 +414,11 @@ impl Store {
     }
 
     fn save(&self) -> Result<()> {
+        if self.locked {
+            return Err(AppError::Invalid(
+                "the saved servers file could not be read, so changes are not being saved. Check its permissions and restart the app".into(),
+            ));
+        }
         fsutil::write_private_atomic(&self.path, &serde_json::to_vec_pretty(&self.data)?)?;
         Ok(())
     }

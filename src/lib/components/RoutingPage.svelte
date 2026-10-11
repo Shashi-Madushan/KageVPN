@@ -39,7 +39,7 @@
 		{ value: 'cloudflare', label: 'Cloudflare (1.1.1.1)' },
 		{ value: 'google', label: 'Google (8.8.8.8)' },
 		{ value: 'quad9', label: 'Quad9 (9.9.9.9)' },
-		{ value: 'custom', label: 'Custom DoH server' },
+		{ value: 'custom', label: 'Custom DNS server' },
 		{ value: 'system', label: 'System resolver' }
 	];
 
@@ -141,7 +141,7 @@
 					<Select bind:value={draft.dns.provider} label="Resolver" options={providers} />
 				</div>
 				{#if draft.dns.provider === 'custom'}
-					<div class="item"><input class="input grow" bind:value={draft.dns.custom} placeholder="dns.example.com" aria-label="Custom DoH server" spellcheck="false" /></div>
+					<div class="item"><input class="input grow" bind:value={draft.dns.custom} placeholder="dns.example.com or https://dns.example.com/your-id" aria-label="Custom DNS server" spellcheck="false" /></div>
 				{/if}
 			</div>
 		</div>
