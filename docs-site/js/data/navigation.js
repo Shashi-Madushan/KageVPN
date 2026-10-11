@@ -64,7 +64,7 @@ window.DOCS_NAVIGATION = [
         slug: "user-guide/diagnostics-speedtest",
         title: "Leak Tests & Speedtest",
         badge: "Audit",
-        description: "DNS, IPv6, WebRTC leak diagnostics and realtime throughput speedtests."
+        description: "Compare the tunnel with your normal route, see the DNS resolver, and measure speed."
       },
       {
         slug: "user-guide/data-usage",

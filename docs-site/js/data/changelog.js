@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-11", label: "11 Oct 2026" },
     { id: "oct-8", label: "8 Oct 2026" },
     { id: "oct-7", label: "7 Oct 2026" },
     { id: "oct-5", label: "5 Oct 2026" },
@@ -19,6 +20,23 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-11">11 October 2026</h2>
+      <ul>
+        <li><strong>Fixed:</strong> Country lists (such as <em>CN</em> or ad lists) are now downloaded by the app, with a backup address, and kept in the data folder. Before, a network that blocks GitHub stopped the connection from starting at all once a list was turned on. A list that cannot be downloaded is now left out, with a notification, and the connection still starts. Lists refresh weekly.</li>
+        <li><strong>Fixed:</strong> In Full System (TUN) mode IPv6 traffic could skip the VPN on networks that have IPv6. The tunnel now carries IPv6 as well.</li>
+        <li><strong>Fixed:</strong> The app could close itself when it met a server link or a long crash log containing non-English characters. It no longer does.</li>
+        <li><strong>Fixed:</strong> If saved data could not be read (for example because of file permissions), the app could replace your servers with an empty list. It now keeps the file and tells you. A single server this version does not understand, such as one added by a newer version, no longer hides all your other servers; it is kept and comes back when it is readable.</li>
+        <li><strong>Fixed:</strong> Reconnecting no longer gives up for good after about a minute. If the network is still down it waits and tries again when the network changes or the Mac wakes. A reconnect also stops when you connect or disconnect yourself, and does not keep asking for your password after you cancel it.</li>
+        <li><strong>Fixed:</strong> A single blocked website could make a working VPN look dead (and, with <em>Restart a dead tunnel</em> on, restart it). Three different sites are now tried before the tunnel is called down.</li>
+        <li><strong>Fixed:</strong> Custom DNS servers keep their address details. A personal link such as <code>https://dns.nextdns.io/your-id</code> used to lose its path and ask the wrong resolver; <code>tls://</code>, <code>quic://</code>, <code>udp://</code> and <code>tcp://</code> work too. An invalid entry is refused instead of silently switching to the system resolver.</li>
+        <li><strong>Fixed:</strong> Settings that failed to save used to look as if they had saved. The screen now only changes when the change was kept.</li>
+        <li><strong>Fixed:</strong> Downloads of the engine and of country lists no longer hang when the connection drops, and cancelling works at any time. The sing-box log no longer grows without limit during a long connection.</li>
+        <li><strong>Fixed:</strong> A subscription link whose server names contain spaces now keeps the whole name, and a first link preceded by an invisible byte-order mark is no longer dropped. Servers using a protocol Kage cannot run yet (such as TUIC) are now reported with the reason instead of vanishing.</li>
+        <li><strong>Improved:</strong> The subscription expiry reminder appears once for each expiry date, three days before and again when it ends, instead of on every refresh. If the subscription provider cannot be reached directly, Kage tries through the VPN when one is running.</li>
+        <li><strong>Improved:</strong> The menu bar speed readout keeps its unit above 100 MB/s. After an app update, the VPN service script is refreshed with a single password prompt if it is out of date.</li>
+        <li><strong>Corrected:</strong> The documentation described WebRTC and IPv6 tests and STUN blocking that the app does not have. It now describes only what the Diagnostics page really does.</li>
+      </ul>
+
       <h2 id="oct-8">8 October 2026</h2>
       <ul>
         <li><strong>Fixed:</strong> The app no longer says "You're protected" while the internet is down. It now checks that traffic really flows through the tunnel before showing green.</li>

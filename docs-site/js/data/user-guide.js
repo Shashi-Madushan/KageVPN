@@ -347,7 +347,7 @@ window.DOCS_PAGES["user-guide/diagnostics-speedtest"] = {
   category: "User Guide",
   title: "Leak Diagnostics & Speed Testing",
   featureBadge: "Audit Tools",
-  lead: "Verify the integrity of your encrypted tunnel with automated DNS leak, IPv6 leak, and WebRTC exposure tests, accompanied by wire-speed throughput checks.",
+  lead: "See what the internet sees through the tunnel and through your Mac's normal route, which DNS resolver answers, and how fast the tunnel is.",
   heroImage: {
     src: "assets/images/diagnostics.png",
     alt: "Diagnostics Screen Showing Leak Test Results",
@@ -356,31 +356,32 @@ window.DOCS_PAGES["user-guide/diagnostics-speedtest"] = {
   toc: [
     { id: "leak-tests", label: "Automated Privacy Audits" },
     { id: "dns-leak-prevention", label: "DNS Leak Testing" },
-    { id: "ipv6-webrtc-shield", label: "IPv6 & WebRTC Shield" },
+    { id: "ipv6-webrtc-shield", label: "IPv6 and WebRTC" },
     { id: "speed-benchmarks", label: "Speed & Throughput Benchmarks" }
   ],
   contentHtml: `
     <div class="docs-prose">
       <h2 id="leak-tests">Automated Privacy Audits</h2>
       <p>
-        The Diagnostics tab provides an instant one-click security audit to ensure your identity remains protected while connected:
+        The Diagnostics tab runs a one-click check that shows three things side by side while you are connected:
       </p>
+      <ul>
+        <li><strong>Tunnel:</strong> the IP address, place and network the internet sees for traffic sent through the VPN.</li>
+        <li><strong>System route:</strong> the same, for a request made the way any other app on your Mac makes it. In Full System (TUN) mode both should match; if they differ, the page says <em>Possible leak</em>.</li>
+        <li><strong>DNS resolver:</strong> the address and place of the DNS resolver that answered.</li>
+      </ul>
 
       <h2 id="dns-leak-prevention">DNS Leak Testing</h2>
       <p>
-        When you click <strong>Run Audit</strong>, Kage requests unique random cryptographic domain identifiers (e.g. <code>audit-4a9f.check.apzur.io</code>). It verifies which recursive resolver contacts the authoritative nameserver:
+        Kage asks a public service (<code>edns.ip-api.com</code>) which DNS resolver reached it and shows the answer. The page does not mark it as passed or failed, so compare it with what you expect: with a DNS server chosen in Routing it should be that provider or the VPN server's network, and not your ISP.
       </p>
-      <ul>
-        <li><strong style="color: #10b981;">Passed:</strong> Resolver matches the remote server IP or configured DoH server.</li>
-        <li><strong style="color: #ef4444;">Failed:</strong> Resolver belongs to your local ISP (e.g. Comcast, Vodafone), indicating a DNS leak.</li>
-      </ul>
 
-      <h2 id="ipv6-webrtc-shield">IPv6 & WebRTC Shield</h2>
+      <h2 id="ipv6-webrtc-shield">IPv6 and WebRTC</h2>
       <p>
-        If your residential ISP issues an IPv6 block but your proxy server only routes IPv4, browsers can inadvertently leak your residential IPv6 address via dual-stack lookups or WebRTC STUN handshakes.
+        In Full System (TUN) mode the tunnel carries both IPv4 and IPv6, so traffic to IPv6 addresses goes through the VPN too instead of leaving through your Mac's normal connection. If your VPN server has no IPv6, apps fall back to IPv4 by themselves.
       </p>
       <p>
-        Kage automatically disables unrouted IPv6 in TUN mode and drops rogue STUN queries to prevent browser-level deanonymization.
+        Kage does not test for WebRTC leaks. Because the tunnel carries all traffic, the public address a browser's WebRTC reports is the tunnel's, but to be sure, open a WebRTC test page in your browser while connected.
       </p>
 
       <h2 id="speed-benchmarks">Speed & Throughput Benchmarks</h2>
