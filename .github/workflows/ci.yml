@@ -1,0 +1,72 @@
+# Runs the checks on every push to dev or main and on every pull request, so a change that breaks
+# the tests, the type check or the build is caught before it is merged. Nothing here publishes or
+# signs anything; releases are cut locally with `npm run release` (see docs/RELEASING.md).
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      # Several tests check generated configurations with the real engine, and skip themselves
+      # when it is missing. Installing it makes them run, and means a new sing-box release that
+      # rejects one of our settings fails here instead of for users.
+      - name: Install sing-box
+        run: brew install sing-box
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check the interface
+        run: npm run check
+
+      - name: Test the release scripts
+        run: npm run test:scripts
+
+      # The Rust build embeds the built interface, so it has to exist first.
+      - name: Build the interface
+        run: npm run build
+
+      - name: Lint the backend
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Test the backend
+        run: cargo test --manifest-path src-tauri/Cargo.toml
