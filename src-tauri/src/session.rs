@@ -1,5 +1,5 @@
 use std::sync::atomic::Ordering;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -16,6 +16,10 @@ use crate::{applog, clash, core, crashlog, net, notify, reliability, runner, tra
 
 const READY_ATTEMPTS: u32 = 60;
 const STOP_ATTEMPTS: u32 = 40;
+/// A port still busy within this long of the app stopping sing-box is most likely that same
+/// process finishing up, so the next connect waits for it instead of failing.
+const PORT_WAIT_WINDOW: Duration = Duration::from_secs(60);
+const PORT_RELEASE_WAIT: Duration = Duration::from_secs(10);
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 const DROP_GRACE: Duration = Duration::from_millis(1500);
 const MAX_RESOLVED_IPS: usize = 64;
@@ -81,11 +85,25 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
             traffic::spawn(app.clone(), pid, secret);
             spawn_connection_poll(app.clone(), pid);
             health::spawn_monitor(app.clone(), pid);
+            // Cancelled in the last moments, after the final checkpoint: take it down the usual way.
+            if state.cancel_connect.swap(false, Ordering::SeqCst) {
+                let _ = disconnect(app).await;
+                return Err(AppError::Cancelled);
+            }
             Ok(())
+        }
+        Err(error) if error.is_cancelled() => {
+            applog::info("connect: cancelled by the user");
+            *state.clash_secret.lock().unwrap() = None;
+            note_stop(&state);
+            let _ = runner::request_stop(&state.paths);
+            update(app, |s| *s = Status::disconnected(mode));
+            Err(error)
         }
         Err(error) => {
             applog::warn(format!("connect: failed: {error}"));
             *state.clash_secret.lock().unwrap() = None;
+            note_stop(&state);
             let _ = runner::request_stop(&state.paths);
             update(app, |s| *s = Status { error: Some(error.to_string()), failure: Some(error.info()), ..Status::disconnected(mode) });
             Err(error)
@@ -93,14 +111,53 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
     }
 }
 
+/// What a request to disconnect should do right now.
+#[derive(Debug, PartialEq, Eq)]
+enum Plan {
+    /// The connection is still starting: tell it to stop at its next step.
+    Cancel,
+    /// Stop the running connection.
+    Stop(u32),
+    Nothing,
+}
+
+fn disconnect_plan(state: State, pid: Option<u32>) -> Plan {
+    match (state, pid) {
+        (State::Connecting, _) => Plan::Cancel,
+        (_, Some(pid)) => Plan::Stop(pid),
+        (_, None) => Plan::Nothing,
+    }
+}
+
+/// Notes that sing-box was just asked to stop, so the next connect can wait for its port.
+fn note_stop(state: &AppState) {
+    *state.stop_requested_at.lock().unwrap() = Some(Instant::now());
+}
+
+/// Ends the connection if the user cancelled it; called between the steps of starting one.
+fn check_cancelled(app: &AppHandle) -> Result<()> {
+    if app.state::<AppState>().cancel_connect.load(Ordering::SeqCst) {
+        return Err(AppError::Cancelled);
+    }
+    Ok(())
+}
+
 pub async fn disconnect(app: &AppHandle) -> Result<()> {
     let state = app.state::<AppState>();
-    let Some(pid) = *state.pid.lock().unwrap() else {
-        return Ok(());
+    let connection = state.status.lock().unwrap().state;
+    let pid = match disconnect_plan(connection, *state.pid.lock().unwrap()) {
+        Plan::Nothing => return Ok(()),
+        Plan::Cancel => {
+            applog::info("disconnect: cancelling a connection that is still starting");
+            state.cancel_connect.store(true, Ordering::SeqCst);
+            return Ok(());
+        }
+        Plan::Stop(pid) => pid,
     };
 
     applog::info(format!("disconnect: stopping supervisor pid {pid}"));
     state.stopping.store(true, Ordering::SeqCst);
+    note_stop(&state);
     runner::request_stop(&state.paths)?;
     for _ in 0..STOP_ATTEMPTS {
         if !runner::is_alive(pid) {
@@ -137,6 +194,7 @@ fn begin(app: &AppHandle, mode: Mode) -> Result<()> {
         return Err(AppError::Busy);
     }
     state.stopping.store(false, Ordering::SeqCst);
+    state.cancel_connect.store(false, Ordering::SeqCst);
     *status = Status { state: State::Connecting, ..Status::disconnected(mode) };
     let _ = app.emit("status", status.clone());
     Ok(())
@@ -156,11 +214,16 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         (spec, settings)
     };
     let (binary, _) = core::resolve(paths, spec, &core_settings)?;
+    check_cancelled(app)?;
     if net::proxy_port_open().await {
-        return Err(AppError::Launch(format!(
-            "port {} is already in use, is another sing-box running?",
-            config::MIXED_PORT
-        )));
+        // A sing-box this app stopped a moment ago can take a few seconds to let go of its port.
+        let just_stopped = state.stop_requested_at.lock().unwrap().is_some_and(|at| at.elapsed() < PORT_WAIT_WINDOW);
+        if !(just_stopped && net::wait_until_closed(config::MIXED_PORT, PORT_RELEASE_WAIT).await) {
+            return Err(AppError::Launch(format!(
+                "port {} is already in use, is another sing-box running?",
+                config::MIXED_PORT
+            )));
+        }
     }
     if !state.store.lock().unwrap().auto().enabled {
         let active = state.store.lock().unwrap().active_profile().cloned();
@@ -168,6 +231,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
             health::preflight(&profile).await?;
         }
     }
+    check_cancelled(app)?;
     state.logs.clear();
     paths.reset_runtime_files()?;
 
@@ -184,6 +248,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         )
     };
     prepare_rule_sets(app, &routing).await;
+    check_cancelled(app)?;
 
     let candidates: Vec<Profile> = match (&auto_group, auto) {
         (Some(group), true) => profiles.iter().filter(|p| p.group.as_deref() == Some(group.as_str())).cloned().collect(),
@@ -209,6 +274,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     } else {
         None
     };
+    check_cancelled(app)?;
     let pid = runner::start(paths, &binary, mode, kill_switch_ips).await?;
     wait_until_ready(app, pid).await?;
 
@@ -217,6 +283,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
             let _ = clash::select_profile(app, id).await;
         }
     }
+    check_cancelled(app)?;
     Ok(pid)
 }
 
@@ -265,6 +332,7 @@ async fn resolve_servers(profiles: &[Profile]) -> String {
 async fn wait_until_ready(app: &AppHandle, pid: u32) -> Result<()> {
     let state = app.state::<AppState>();
     for _ in 0..READY_ATTEMPTS {
+        check_cancelled(app)?;
         if !runner::is_alive(pid) {
             let reason = state.logs.last_error().unwrap_or_else(|| "sing-box exited unexpectedly".into());
             return Err(AppError::Launch(reason));
@@ -356,3 +424,7 @@ pub(crate) fn update(app: &AppHandle, change: impl FnOnce(&mut Status)) {
 fn now_secs() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
+
+#[cfg(test)]
+#[path = "tests/session.rs"]
+mod tests;

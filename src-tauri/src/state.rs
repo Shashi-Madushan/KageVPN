@@ -18,6 +18,11 @@ pub struct AppState {
     pub traffic: Mutex<TrafficState>,
     pub downloads: Downloads,
     pub stopping: AtomicBool,
+    /// Set when the user disconnects while the connection is still starting; `launch` stops at its
+    /// next checkpoint.
+    pub cancel_connect: AtomicBool,
+    /// When the app last asked sing-box to stop, so the next connect can wait for the port to free.
+    pub stop_requested_at: Mutex<Option<std::time::Instant>>,
     pub reconnecting: AtomicBool,
     /// The reconnect loop gave up while the network was down; it starts again when the network returns.
     pub reconnect_waiting: AtomicBool,
@@ -42,6 +47,8 @@ impl AppState {
             traffic: Mutex::new(TrafficState::default()),
             downloads: Downloads::default(),
             stopping: AtomicBool::new(false),
+            cancel_connect: AtomicBool::new(false),
+            stop_requested_at: Mutex::new(None),
             reconnecting: AtomicBool::new(false),
             reconnect_waiting: AtomicBool::new(false),
             manual_actions: AtomicU64::new(0),

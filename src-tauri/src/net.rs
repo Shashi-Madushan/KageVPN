@@ -23,7 +23,25 @@ pub async fn tcp_latency(host: &str, port: u16) -> Result<u64> {
 }
 
 pub async fn proxy_port_open() -> bool {
-    TcpStream::connect(("127.0.0.1", MIXED_PORT)).await.is_ok()
+    port_open(MIXED_PORT).await
+}
+
+async fn port_open(port: u16) -> bool {
+    TcpStream::connect(("127.0.0.1", port)).await.is_ok()
+}
+
+/// Waits until nothing listens on `port` any more, for at most `timeout`. Returns whether it is free.
+pub async fn wait_until_closed(port: u16, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if !port_open(port).await {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
 }
 
 /// How long a tiny page takes through the tunnel. A healthy tunnel costs one request; the other

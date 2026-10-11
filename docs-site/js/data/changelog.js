@@ -34,6 +34,9 @@ window.DOCS_PAGES["changelog/changelog"] = {
         <li><strong>Fixed:</strong> A subscription link whose server names contain spaces now keeps the whole name, and a first link preceded by an invisible byte-order mark is no longer dropped. Servers using a protocol Kage cannot run yet (such as TUIC) are now reported with the reason instead of vanishing.</li>
         <li><strong>Improved:</strong> The subscription expiry reminder appears once for each expiry date, three days before and again when it ends, instead of on every refresh. If the subscription provider cannot be reached directly, Kage tries through the VPN when one is running.</li>
         <li><strong>Improved:</strong> The menu bar speed readout keeps its unit above 100 MB/s. After an app update, the VPN service script is refreshed with a single password prompt if it is out of date.</li>
+        <li><strong>New:</strong> You can cancel a connection that is still starting: click the mascot (or the menu bar item, now labelled <strong>Cancel</strong>) while it says Connecting.</li>
+        <li><strong>Fixed:</strong> Connecting right after disconnecting no longer fails with "port already in use" while the previous engine is still shutting down; the app waits a few seconds for it.</li>
+        <li><strong>Fixed:</strong> Refreshing a subscription no longer undoes a change you made while it was downloading, and no longer brings back servers of a subscription you removed in the meantime. A subscription that keeps failing is retried less and less often instead of every half hour. Placeholder rows that providers add (such as "Remaining traffic", pointing at 127.0.0.1) are no longer imported as servers.</li>
         <li><strong>Corrected:</strong> The documentation described WebRTC and IPv6 tests and STUN blocking that the app does not have. It now describes only what the Diagnostics page really does.</li>
       </ul>
 

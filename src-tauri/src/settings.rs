@@ -182,6 +182,9 @@ pub struct Subscription {
     /// so each notice appears once per date instead of on every refresh.
     pub notified_expire: u64,
     pub notified_stage: u8,
+    /// When the last refresh was tried (successful or not), and how many in a row failed.
+    pub last_attempt: u64,
+    pub failures: u32,
 }
 
 impl Default for Subscription {
@@ -196,6 +199,8 @@ impl Default for Subscription {
             user_info: None,
             notified_expire: 0,
             notified_stage: 0,
+            last_attempt: 0,
+            failures: 0,
         }
     }
 }

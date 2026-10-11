@@ -216,7 +216,11 @@ pub fn clear_logs(state: State<AppState>) {
 #[tauri::command]
 pub async fn connect(app: AppHandle) -> Result<()> {
     reliability::user_took_over(&app);
-    session::connect(&app).await
+    match session::connect(&app).await {
+        // The user pressed disconnect while it was starting; that is what they asked for.
+        Err(error) if error.is_cancelled() => Ok(()),
+        other => other,
+    }
 }
 
 #[tauri::command]

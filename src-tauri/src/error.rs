@@ -10,6 +10,9 @@ pub enum AppError {
     SingBoxMissing,
     #[error("already connecting or connected")]
     Busy,
+    /// The user asked to disconnect while the connection was still starting.
+    #[error("cancelled")]
+    Cancelled,
     #[error("config check failed: {0}")]
     ConfigCheck(String),
     #[error("administrator permission was denied")]
@@ -47,11 +50,17 @@ pub struct ErrorInfo {
 }
 
 impl AppError {
+    /// A cancelled connection is something the user did, not a failure to report.
+    pub fn is_cancelled(&self) -> bool {
+        matches!(self, AppError::Cancelled)
+    }
+
     pub fn info(&self) -> ErrorInfo {
         let detail = self.to_string();
         let (code, title, action) = match self {
             AppError::SingBoxMissing => ("engineMissing", "The VPN engine is not installed", Some("installEngine")),
             AppError::Busy => ("busy", "Already connecting", None),
+            AppError::Cancelled => ("cancelled", "Cancelled", None),
             AppError::ConfigCheck(_) => ("configInvalid", "The configuration was rejected", Some("diagnostics")),
             AppError::PermissionDenied => ("permissionDenied", "Administrator permission was denied", Some("retry")),
             AppError::ServerUnreachable(_) => ("serverUnreachable", "The server cannot be reached", Some("retry")),
@@ -75,5 +84,7 @@ mod tests {
         let busy = AppError::Launch("port 2080 is already in use, is another sing-box running?".into()).info();
         assert_eq!(busy.code, "portInUse");
         assert_eq!(AppError::ServerUnreachable("x".into()).info().code, "serverUnreachable");
+        assert_eq!(AppError::Cancelled.info().code, "cancelled");
+        assert!(AppError::Cancelled.is_cancelled() && !AppError::Busy.is_cancelled());
     }
 }

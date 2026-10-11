@@ -57,3 +57,28 @@ fn a_site_answering_first_is_not_followed_by_more_requests() {
     assert!(run(first_answer(&client, &[&first, &second])).is_ok());
     assert_eq!((first_hits.load(Ordering::SeqCst), second_hits.load(Ordering::SeqCst)), (1, 0));
 }
+
+#[test]
+fn a_port_that_frees_up_soon_is_waited_for() {
+    // A sing-box that was just stopped can hold its port for a few seconds.
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let started = std::time::Instant::now();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(500));
+        drop(listener);
+    });
+    assert!(run(wait_until_closed(port, Duration::from_secs(5))));
+    assert!(started.elapsed() >= Duration::from_millis(400), "it did wait for the listener to go away");
+    assert!(started.elapsed() < Duration::from_secs(4));
+}
+
+#[test]
+fn a_port_that_stays_busy_is_reported_busy_after_the_wait() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    assert!(!run(wait_until_closed(port, Duration::from_millis(600))));
+    assert!(!run(wait_until_closed(port, Duration::ZERO)), "still busy");
+    drop(listener);
+    assert!(run(wait_until_closed(port, Duration::from_millis(0))), "free once the listener is gone");
+}

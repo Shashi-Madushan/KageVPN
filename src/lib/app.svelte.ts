@@ -21,6 +21,8 @@ import {
 } from './api';
 
 const MAX_LOG_LINES = 2000;
+/** A second press this soon after Connect is a double-click, not a request to cancel. */
+const CANCEL_GUARD_MS = 1200;
 const HISTORY_LENGTH = 60;
 
 export type Latency = { ms: number } | { failed: true } | { pending: true };
@@ -52,6 +54,7 @@ class AppStore {
 	/** What `check` measured, so a result is not shown after the connection state changed. */
 	checkVia = $state<'tunnel' | 'server'>('server');
 	pendingImport = $state<string | null>(null);
+	private connectingSince = 0;
 	/** True once the first snapshot from the backend has been applied. */
 	loaded = $state(false);
 	/** Name, version and feature switches; the source of truth is `app_config.rs`. */
@@ -110,6 +113,7 @@ class AppStore {
 	private applyStatus(next: Status) {
 		const previous = this.status.state;
 		this.status = next;
+		if (previous !== 'connecting' && next.state === 'connecting') this.connectingSince = Date.now();
 		if (previous !== 'connecting' && next.state === 'connecting') this.logs = [];
 		if (previous !== 'connected' && next.state === 'connected') this.verify();
 		if (next.state !== 'connected') {
@@ -155,7 +159,11 @@ class AppStore {
 	}
 
 	async toggle() {
-		if (this.busy) return;
+		if (this.busy) {
+			// Still connecting: pressing again cancels, unless it is the tail of a double-click.
+			if (Date.now() - this.connectingSince > CANCEL_GUARD_MS) await this.run(api.disconnect);
+			return;
+		}
 		if (!this.connected) {
 			// Without an engine connecting can only fail, so offer the download instead.
 			const { core } = await import('./core.svelte');

@@ -28,7 +28,12 @@ pub fn on_unexpected_exit(app: &AppHandle) {
 pub fn worth_retrying(error: &AppError) -> bool {
     !matches!(
         error,
-        AppError::PermissionDenied | AppError::SingBoxMissing | AppError::ConfigCheck(_) | AppError::Invalid(_) | AppError::ProfileNotFound
+        AppError::PermissionDenied
+            | AppError::SingBoxMissing
+            | AppError::ConfigCheck(_)
+            | AppError::Invalid(_)
+            | AppError::ProfileNotFound
+            | AppError::Cancelled
     )
 }
 
@@ -89,6 +94,11 @@ pub fn spawn_reconnect(app: AppHandle) {
                 // Busy means a connection is already starting or up, which is what we wanted.
                 Ok(()) | Err(AppError::Busy) => {
                     outcome = Outcome::Reconnected;
+                    break;
+                }
+                // The user cancelled it by hand, so there is nothing left for this loop to do.
+                Err(AppError::Cancelled) => {
+                    outcome = Outcome::UserTookOver;
                     break;
                 }
                 Err(error) if !worth_retrying(&error) => {

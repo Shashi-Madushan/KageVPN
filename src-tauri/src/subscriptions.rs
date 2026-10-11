@@ -9,15 +9,21 @@ use tokio::time::sleep;
 use crate::error::{AppError, Result};
 use crate::notify;
 use crate::profile::{contains_link, parse_many, Profile};
-use crate::settings::UserInfo;
+use crate::settings::{Subscription, UserInfo};
 use crate::state::AppState;
+use crate::store::Store;
 
 const MAX_BODY_BYTES: usize = 5 * 1024 * 1024;
 const SCHEDULER_TICK: Duration = Duration::from_secs(30 * 60);
 /// A subscription ending within this long counts as "expires soon".
 const SOON_SECS: u64 = 3 * 24 * 3600;
+/// After a failed refresh the first retry comes this long after; each further failure doubles it.
+const RETRY_BASE_SECS: u64 = 30 * 60;
 
-#[derive(Serialize)]
+/// What a download produced: the servers, the provider's usage figures, and why links were skipped.
+type Fetched = (Vec<Profile>, Option<UserInfo>, Vec<String>);
+
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RefreshSummary {
     pub added: usize,
@@ -81,7 +87,7 @@ async fn request(url: &str, through_tunnel: bool) -> std::result::Result<reqwest
     client.build()?.get(url.trim()).send().await
 }
 
-async fn fetch(url: &str) -> Result<(Vec<Profile>, Option<UserInfo>, Vec<String>)> {
+async fn fetch(url: &str) -> Result<Fetched> {
     validate_url(url)?;
     // Providers are often blocked on the very networks where people need a VPN. If the direct
     // request cannot connect and a tunnel is up, ask through it (Proxy Only mode would otherwise
@@ -109,12 +115,47 @@ async fn fetch(url: &str) -> Result<(Vec<Profile>, Option<UserInfo>, Vec<String>
         return Err(AppError::Invalid("the subscription response is too large".into()));
     }
     let text = decode_body(&String::from_utf8_lossy(&body));
-    let (profiles, errors) = parse_many(&text);
+    let (profiles, mut errors) = parse_many(&text);
+    let (profiles, placeholders) = drop_placeholders(profiles);
+    errors.extend(placeholders);
     if profiles.is_empty() {
         let why = errors.first().map(|reason| format!(" ({reason})")).unwrap_or_default();
         return Err(AppError::Invalid(format!("no supported server links were found in this subscription{why}")));
     }
     Ok((profiles, user_info, errors))
+}
+
+/// Providers pad their lists with entries that are not servers ("Remaining traffic: 80 GB") and
+/// point them at 127.0.0.1 or 0.0.0.0. Importing them only adds dead rows. Returns the real servers
+/// and one reason for each entry dropped.
+pub fn drop_placeholders(profiles: Vec<Profile>) -> (Vec<Profile>, Vec<String>) {
+    let (mut real, mut reasons) = (Vec::new(), Vec::new());
+    for profile in profiles {
+        if is_placeholder(&profile.server) {
+            reasons.push(format!("not a server ({}): {}", profile.server, profile.name));
+        } else {
+            real.push(profile);
+        }
+    }
+    (real, reasons)
+}
+
+fn is_placeholder(server: &str) -> bool {
+    let host = server.trim().trim_matches(['[', ']']);
+    host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback() || ip.is_unspecified())
+}
+
+/// When a subscription is next due. A healthy one waits its interval. One that just failed is tried
+/// again sooner, with the wait doubling for each failure in a row (30 minutes, 1 hour, 2 hours, ...)
+/// up to its normal interval, so a dead link is neither left alone for half a day after a hiccup
+/// nor hit every half hour for ever.
+pub fn next_due(subscription: &Subscription) -> u64 {
+    let interval = u64::from(subscription.interval_hours.max(1)) * 3600;
+    if subscription.failures == 0 {
+        return subscription.last_updated + interval;
+    }
+    let wait = (RETRY_BASE_SECS << subscription.failures.saturating_sub(1).min(6)).min(interval);
+    subscription.last_attempt.max(subscription.last_updated) + wait
 }
 
 /// Subscriptions are either a plain list of links or the same list base64-encoded.
@@ -148,50 +189,70 @@ fn parse_user_info(header: &str) -> UserInfo {
 
 pub async fn refresh(app: &AppHandle, id: &str) -> Result<RefreshSummary> {
     let state = app.state::<AppState>();
-    let subscription = state
+    let url = state
         .store
         .lock()
         .unwrap()
         .subscriptions()
         .iter()
         .find(|s| s.id == id)
-        .cloned()
+        .map(|s| s.url.clone())
         .ok_or_else(|| AppError::Invalid("subscription not found".into()))?;
 
-    let outcome = fetch(&subscription.url).await;
-    let mut store = state.store.lock().unwrap();
-    let mut updated = subscription.clone();
+    // No lock is held while the download runs; the result is applied to the entry as it is now.
+    let outcome = fetch(&url).await;
+    let (result, notice) = record_refresh(&mut state.store.lock().unwrap(), id, outcome, now_secs());
+    if let Some((name, expire, notice)) = notice {
+        let body = match notice {
+            Expiry::Expired => format!("{name} has expired."),
+            Expiry::Soon => format!("{name} expires in {}.", days_left(expire, now_secs())),
+        };
+        notify::send(app, "Subscription", &body);
+    }
+    result
+}
+
+/// An expiry notice to show: the subscription's name, its expiry date and which notice is due.
+type ExpiryNotice = (String, u64, Expiry);
+
+/// Applies a download's outcome to the stored subscription. The entry is read again here rather than
+/// reused from before the download, so a change made meanwhile is kept, and a subscription removed
+/// meanwhile does not get its servers back as orphans nobody can delete.
+fn record_refresh(store: &mut Store, id: &str, outcome: Result<Fetched>, now: u64) -> (Result<RefreshSummary>, Option<ExpiryNotice>) {
+    let Some(mut current) = store.subscriptions().iter().find(|s| s.id == id).cloned() else {
+        return (Err(AppError::Invalid("the subscription was removed while it was being refreshed".into())), None);
+    };
+    current.last_attempt = now;
 
     match outcome {
         Ok((profiles, user_info, skipped)) => {
             let total = profiles.len();
-            let (added, removed) = store.sync_subscription(id, profiles)?;
-            updated.last_updated = now_secs();
-            updated.last_error = None;
-            updated.user_info = user_info;
-            let notice = updated
+            let (added, removed) = match store.sync_subscription(id, profiles) {
+                Ok(counts) => counts,
+                Err(error) => return (Err(error), None),
+            };
+            current.last_updated = now;
+            current.last_error = None;
+            current.failures = 0;
+            current.user_info = user_info;
+            let notice = current
                 .user_info
                 .as_ref()
-                .and_then(|u| due_expiry_notice(u.expire, now_secs(), (updated.notified_expire, updated.notified_stage)).map(|n| (u.expire, n)));
-            if let Some((expire, notice)) = notice {
-                updated.notified_expire = expire;
-                updated.notified_stage = if notice == Expiry::Expired { 2 } else { 1 };
+                .and_then(|u| due_expiry_notice(u.expire, now, (current.notified_expire, current.notified_stage)).map(|n| (current.name.clone(), u.expire, n)));
+            if let Some((_, expire, notice)) = &notice {
+                current.notified_expire = *expire;
+                current.notified_stage = if *notice == Expiry::Expired { 2 } else { 1 };
             }
-            store.update_subscription(updated.clone())?;
-            drop(store);
-            if let Some((expire, notice)) = notice {
-                let body = match notice {
-                    Expiry::Expired => format!("{} has expired.", updated.name),
-                    Expiry::Soon => format!("{} expires in {}.", updated.name, days_left(expire, now_secs())),
-                };
-                notify::send(app, "Subscription", &body);
+            if let Err(error) = store.update_subscription(current) {
+                return (Err(error), None);
             }
-            Ok(RefreshSummary { added, removed, total, skipped: skipped.len(), skipped_reason: skipped.into_iter().next() })
+            (Ok(RefreshSummary { added, removed, total, skipped: skipped.len(), skipped_reason: skipped.into_iter().next() }), notice)
         }
         Err(error) => {
-            updated.last_error = Some(error.to_string());
-            let _ = store.update_subscription(updated);
-            Err(error)
+            current.last_error = Some(error.to_string());
+            current.failures = current.failures.saturating_add(1);
+            let _ = store.update_subscription(current);
+            (Err(error), None)
         }
     }
 }
@@ -212,7 +273,7 @@ pub fn spawn_scheduler(app: AppHandle) {
                 store
                     .subscriptions()
                     .iter()
-                    .filter(|s| now_secs().saturating_sub(s.last_updated) >= u64::from(s.interval_hours.max(1)) * 3600)
+                    .filter(|s| now_secs() >= next_due(s))
                     .map(|s| s.id.clone())
                     .collect()
             };

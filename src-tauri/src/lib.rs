@@ -212,7 +212,9 @@ fn auto_connect(app: &tauri::AppHandle) {
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             if let Err(error) = session::connect(&app).await {
-                notify::send(&app, "Connection failed", &error.to_string());
+                if !error.is_cancelled() {
+                    notify::send(&app, "Connection failed", &error.to_string());
+                }
             }
         });
     }
@@ -237,7 +239,9 @@ fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
             tauri::async_runtime::spawn(async move {
                 reliability::user_took_over(&app);
                 if let Err(error) = session::connect(&app).await {
-                    notify::send(&app, "Connection failed", &error.to_string());
+                    if !error.is_cancelled() {
+                        notify::send(&app, "Connection failed", &error.to_string());
+                    }
                 }
             });
         }

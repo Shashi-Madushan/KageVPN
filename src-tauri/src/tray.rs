@@ -115,11 +115,11 @@ fn apply_status(app: &AppHandle, toggle: &MenuItem<tauri::Wry>, status_line: &Me
     let _ = status_line.set_text(status_text(status));
     let label = match state {
         State::Disconnected => "Connect",
-        State::Connecting => "Connecting…",
+        State::Connecting => "Cancel",
         State::Connected => "Disconnect",
     };
     let _ = toggle.set_text(label);
-    let _ = toggle.set_enabled(state != State::Connecting);
+    let _ = toggle.set_enabled(true);
 
     refresh(app, state, None);
 }
@@ -323,12 +323,15 @@ pub fn toggle_connection(app: &AppHandle) {
         let state = app.state::<AppState>().status.lock().unwrap().state;
         let result = match state {
             State::Disconnected => session::connect(&app).await,
-            State::Connected => session::disconnect(&app).await,
-            State::Connecting => Ok(()),
+            // While it is still starting, disconnecting means "cancel".
+            State::Connected | State::Connecting => session::disconnect(&app).await,
         };
-        if let Err(error) = result {
-            notify::send(&app, "Connection failed", &error.to_string());
-            show_main_window(&app);
+        match result {
+            Err(error) if !error.is_cancelled() => {
+                notify::send(&app, "Connection failed", &error.to_string());
+                show_main_window(&app);
+            }
+            _ => {}
         }
     });
 }

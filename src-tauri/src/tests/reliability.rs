@@ -9,6 +9,7 @@ fn errors_that_will_not_fix_themselves_are_not_retried() {
         AppError::ConfigCheck("bad".into()),
         AppError::Invalid("add a profile first".into()),
         AppError::ProfileNotFound,
+        AppError::Cancelled,
     ] {
         assert!(!worth_retrying(&error), "{error}");
     }
