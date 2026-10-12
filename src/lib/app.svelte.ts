@@ -12,11 +12,14 @@ import {
 	type Mode,
 	type Profile,
 	type ReliabilitySettings,
+	type RouteAction,
 	type RoutingSettings,
+	type Rule,
 	type Sample,
 	type Settings,
 	type Status,
 	type Subscription,
+	type SubscriptionOptions,
 	type Traffic
 } from './api';
 
@@ -283,10 +286,28 @@ class AppStore {
 		this.mode = mode;
 	}
 
-	async setAuto(auto: AutoSettings) {
-		if (!(await this.attempt(() => api.setAuto(auto)))) return;
+	async setAuto(auto: AutoSettings, quiet = false) {
+		if (!(await this.attempt(() => api.setAuto(auto)))) return false;
 		this.auto = auto;
-		if (this.connected) this.notify('Reconnect to apply the auto setting.', 'info');
+		if (this.connected && !quiet) this.notify('Reconnect to apply the auto setting.', 'info');
+		return true;
+	}
+
+	/**
+	 * Picks a server, or `auto` for the fastest, from the menu bar. While connected a server change
+	 * happens in place; switching to or from Auto needs a new tunnel, so it reconnects.
+	 */
+	async chooseServer(choice: string) {
+		const wantAuto = choice === 'auto';
+		if (wantAuto === this.auto.enabled) {
+			if (!wantAuto) await this.select(choice);
+			return;
+		}
+		const reconnect = this.connected;
+		if (reconnect && !(await this.attempt(api.disconnect))) return;
+		if (!(await this.setAuto({ ...this.auto, enabled: wantAuto }, true))) return;
+		if (!wantAuto) await this.select(choice);
+		if (reconnect) await this.run(api.connect);
 	}
 
 	async updateSettings(patch: Partial<Settings>) {
@@ -339,9 +360,9 @@ class AppStore {
 		}
 	}
 
-	async addSubscription(name: string, url: string): Promise<string | null> {
+	async addSubscription(name: string, url: string, options: SubscriptionOptions): Promise<string | null> {
 		try {
-			const summary = await api.addSubscription(name, url);
+			const summary = await api.addSubscription(name, url, options);
 			await this.reloadSnapshot();
 			const skipped = summary.skipped ? `, ${summary.skipped} skipped${skippedReason(summary.skippedReason)}` : '';
 			this.notify(`Added ${summary.total} profiles${skipped}.`, 'info');
@@ -357,6 +378,71 @@ class AppStore {
 		if (summary) {
 			const skipped = summary.skipped ? `, ${summary.skipped} skipped${skippedReason(summary.skippedReason)}` : '';
 			this.notify(`Updated: ${summary.added} new, ${summary.removed} removed${skipped}.`, 'info');
+		}
+	}
+
+	/** Saves a subscription's name, link and options, then refreshes it so the change shows. */
+	async editSubscription(id: string, name: string, url: string, options: SubscriptionOptions): Promise<string | null> {
+		try {
+			await api.editSubscription(id, name, url, options);
+		} catch (e) {
+			return String(e);
+		}
+		await this.reloadSnapshot();
+		await this.refreshSubscription(id);
+		return null;
+	}
+
+	/** Removes several servers at once and forgets their test results. */
+	async removeProfiles(ids: string[]) {
+		const removed = await this.run(() => api.deleteProfiles(ids));
+		for (const id of ids) delete this.latency[id];
+		await this.reloadSnapshot();
+		if (removed) this.notify(`Removed ${removed} server${removed === 1 ? '' : 's'}.`, 'info');
+	}
+
+	/**
+	 * Adds a rule for one app at the top of the list, so it wins over broader rules. Global and
+	 * Direct become Rules mode with the same default, which routes everything else as before.
+	 */
+	async routeApp(rule: Pick<Rule, 'kind' | 'value'>, action: RouteAction) {
+		if (!this.routing) return false;
+		const next: RoutingSettings = structuredClone($state.snapshot(this.routing));
+		if (next.mode !== 'rule') {
+			next.finalAction = next.mode === 'direct' ? 'direct' : 'proxy';
+			next.mode = 'rule';
+		}
+		next.rules = next.rules.filter((r) => !(r.kind === rule.kind && r.value === rule.value));
+		next.rules.unshift({ id: crypto.randomUUID(), enabled: true, kind: rule.kind, value: rule.value, action });
+		if (!(await this.attempt(() => api.setRouting(next)))) return false;
+		this.routing = next;
+		return true;
+	}
+
+	/** Writes a backup file to Downloads and says where it went. */
+	async exportBackup() {
+		const path = await this.run(api.exportBackup);
+		if (path) this.notify(`Backup saved to ${path}. It contains your server passwords, so keep it private.`, 'info');
+	}
+
+	async restoreBackup(text: string): Promise<string | null> {
+		try {
+			const summary = await api.restoreBackup(text);
+			const snap = await api.snapshot();
+			this.profiles = snap.profiles;
+			this.activeId = snap.activeId;
+			this.mode = snap.mode;
+			this.settings = snap.settings;
+			this.auto = snap.auto;
+			this.subscriptions = snap.subscriptions;
+			this.routing = snap.routing;
+			this.reliability = snap.reliability;
+			this.latency = {};
+			const subs = summary.subscriptions ? ` and ${summary.subscriptions} subscription${summary.subscriptions === 1 ? '' : 's'}` : '';
+			this.notify(`Restored ${summary.servers} server${summary.servers === 1 ? '' : 's'}${subs}.`, 'info');
+			return null;
+		} catch (e) {
+			return String(e);
 		}
 	}
 

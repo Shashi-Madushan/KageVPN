@@ -90,11 +90,33 @@ export interface Subscription {
 	lastUpdated: number;
 	lastError: string | null;
 	userInfo: UserInfo | null;
+	/** Client name sent instead of the app's own; `null` uses the default. */
+	userAgent: string | null;
+	/** Send this Mac's device ID, for providers that limit devices. */
+	sendDeviceId: boolean;
+}
+
+/** How a subscription asks for its list. */
+export interface SubscriptionOptions {
+	userAgent: string | null;
+	sendDeviceId: boolean;
+}
+
+export interface InstalledApp {
+	name: string;
+	/** The bundle, such as `/Applications/Slack.app`; app rules store this. */
+	path: string;
+	bundleId: string | null;
+}
+
+export interface RestoreSummary {
+	servers: number;
+	subscriptions: number;
 }
 
 export type RouteMode = 'global' | 'rule' | 'direct';
 export type RouteAction = 'proxy' | 'direct' | 'block';
-export type RuleKind = 'domain' | 'domainSuffix' | 'domainKeyword' | 'ipCidr' | 'processName';
+export type RuleKind = 'domain' | 'domainSuffix' | 'domainKeyword' | 'ipCidr' | 'processName' | 'app';
 export type RuleSetKind = 'geoip' | 'geosite';
 export type DnsProvider = 'cloudflare' | 'google' | 'quad9' | 'custom' | 'system';
 
@@ -207,6 +229,8 @@ export interface LiveConnection {
 	destinationIp: string;
 	destinationPort: string;
 	process: string;
+	/** The app bundle the process belongs to, when it is inside one. */
+	appPath: string | null;
 	network: string;
 	up: number;
 	down: number;
@@ -283,7 +307,14 @@ export const api = {
 	rootServiceInstalled: () => invoke<boolean>('root_service_installed'),
 	installRootService: () => invoke<void>('install_root_service'),
 	uninstallRootService: () => invoke<void>('uninstall_root_service'),
-	addSubscription: (name: string, url: string) => invoke<RefreshSummary>('add_subscription', { name, url }),
+	addSubscription: (name: string, url: string, options: SubscriptionOptions) =>
+		invoke<RefreshSummary>('add_subscription', { name, url, ...options }),
+	editSubscription: (id: string, name: string, url: string, options: SubscriptionOptions) =>
+		invoke<void>('edit_subscription', { id, name, url, ...options }),
+	installedApps: () => invoke<InstalledApp[]>('installed_apps'),
+	deleteProfiles: (ids: string[]) => invoke<number>('delete_profiles', { ids }),
+	exportBackup: () => invoke<string>('export_backup'),
+	restoreBackup: (text: string) => invoke<RestoreSummary>('restore_backup', { text }),
 	refreshSubscription: (id: string) => invoke<RefreshSummary>('refresh_subscription', { id }),
 	removeSubscription: (id: string) => invoke<void>('remove_subscription', { id }),
 	runDiagnostics: () => invoke<Diagnostics>('run_diagnostics'),

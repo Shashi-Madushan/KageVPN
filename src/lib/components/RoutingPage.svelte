@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Select from './Select.svelte';
+	import AppPicker, { appLabel } from './AppPicker.svelte';
 	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import Segmented from './Segmented.svelte';
@@ -28,7 +29,8 @@
 		{ value: 'domainSuffix', label: 'Domain suffix' },
 		{ value: 'domainKeyword', label: 'Domain keyword' },
 		{ value: 'ipCidr', label: 'IP range (CIDR)' },
-		{ value: 'processName', label: 'App (process name)' }
+		{ value: 'app', label: 'App' },
+		{ value: 'processName', label: 'Process name' }
 	];
 	const actions: { value: RouteAction; label: string }[] = [
 		{ value: 'proxy', label: 'VPN' },
@@ -161,7 +163,11 @@
 						<div class="item rule" class:off={!rule.enabled}>
 							<input type="checkbox" bind:checked={rule.enabled} aria-label="Enable rule" />
 							<span class="type">{kindLabel(rule.kind)}</span>
-							<span class="grow mono val" title={rule.value}>{rule.value}</span>
+							{#if rule.kind === 'app'}
+								<span class="grow val" title={rule.value}>{appLabel(rule.value)}</span>
+							{:else}
+								<span class="grow mono val" title={rule.value}>{rule.value}</span>
+							{/if}
 							<Select bind:value={rule.action} label="Action" options={actions} />
 							<span class="tools">
 								<button class="icon-btn" onclick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
@@ -173,12 +179,19 @@
 						<div class="item empty"><span class="grow">No rules. Add one below or use a preset above.</span></div>
 					{/each}
 					<form class="item add" onsubmit={(e) => (e.preventDefault(), addRule())}>
-						<Select bind:value={kind} label="Rule type" options={kinds} />
-						<input class="input grow" bind:value placeholder={kind === 'ipCidr' ? '10.0.0.0/8' : kind === 'processName' ? 'Slack' : 'example.com'} aria-label="Rule value" spellcheck="false" />
+						<Select bind:value={kind} label="Rule type" options={kinds} onchange={() => (value = '')} />
+						{#if kind === 'app'}
+							<AppPicker bind:value />
+						{:else}
+							<input class="input grow" bind:value placeholder={kind === 'ipCidr' ? '10.0.0.0/8' : kind === 'processName' ? 'curl' : 'example.com'} aria-label="Rule value" spellcheck="false" />
+						{/if}
 						<Select bind:value={action} label="Action" options={actions} />
 						<button class="btn" disabled={!value.trim()}>Add</button>
 					</form>
 				</div>
+				{#if kind === 'app' || draft.rules.some((r) => r.kind === 'app')}
+					<p class="foot">An app rule covers everything inside the app, including its helper processes. Safari and apps built on its engine send their traffic from a shared system process, so they cannot be routed by app; use a domain rule for them.</p>
+				{/if}
 			</div>
 
 			<div class="section">
@@ -207,7 +220,7 @@
 						<button class="btn" disabled={!country.trim()}>Add</button>
 					</form>
 				</div>
-				<p class="foot">Downloaded by sing-box when it connects; needs access to GitHub.</p>
+				<p class="foot">Downloaded by the app from GitHub, or a mirror when GitHub is blocked, and refreshed weekly.</p>
 			</div>
 
 			<div class="section">

@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import type { UpdatePolicy } from '$lib/api';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import Select from './Select.svelte';
 	import UsageSettingsSection from './UsageSettingsSection.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
@@ -10,6 +11,29 @@
 	import { onboarding } from '$lib/onboarding.svelte';
 
 	let restoring = $state(false);
+	let backupInput: HTMLInputElement;
+	let backupText = $state<string | null>(null);
+	let backupError = $state<string | null>(null);
+	let backupBusy = $state(false);
+
+	async function pickBackup(file: File | undefined) {
+		backupError = null;
+		if (!file) return;
+		try {
+			backupText = await file.text();
+		} catch (e) {
+			backupError = `Could not read the file: ${e}`;
+		}
+		backupInput.value = '';
+	}
+
+	async function confirmRestore() {
+		if (backupText === null) return;
+		backupBusy = true;
+		backupError = await app.restoreBackup(backupText);
+		backupBusy = false;
+		backupText = null;
+	}
 	let rootService = $state(false);
 	let rootBusy = $state(false);
 	api.rootServiceInstalled().then((installed) => (rootService = installed), () => {});
@@ -97,6 +121,32 @@
 
 	<UsageSettingsSection />
 
+	<span class="caption">Backup</span>
+	<div class="settings card backup">
+		<div class="restore">
+			<span><strong>Back up your setup</strong><small>Servers, subscriptions, routing and settings, in one file in Downloads. It holds your server passwords, so keep it private.</small></span>
+			<button class="btn" onclick={() => app.exportBackup()}>Export</button>
+		</div>
+		<div class="restore">
+			<span>
+				<strong>Restore from a backup</strong>
+				<small>{app.locked ? 'Disconnect first.' : 'Replaces your servers, subscriptions and settings. What you have now is kept as data.before-restore.json.'}</small>
+				{#if backupError}<small class="fail" role="alert">{backupError}</small>{/if}
+			</span>
+			<input type="file" accept=".json,application/json" hidden bind:this={backupInput} onchange={(e) => pickBackup(e.currentTarget.files?.[0])} />
+			<button class="btn" disabled={app.locked || backupBusy} onclick={() => backupInput.click()}>{backupBusy ? 'Restoring…' : 'Choose file…'}</button>
+		</div>
+	</div>
+
+	<ConfirmDialog
+		open={backupText !== null}
+		title="Restore this backup?"
+		message="Your servers, subscriptions, routing and settings will be replaced with the ones in the backup. Installed engines and usage history stay as they are."
+		confirmLabel="Restore"
+		onconfirm={confirmRestore}
+		onclose={() => (backupText = null)}
+	/>
+
 	<span class="caption">App updates</span>
 	<div class="settings card">
 		<div class="restore">
@@ -173,6 +223,12 @@
 		border-radius: 6px;
 		background: color-mix(in srgb, var(--warn) 22%, transparent);
 		color: var(--warn);
+	}
+	.fail {
+		color: var(--danger);
+	}
+	.backup .restore + .restore {
+		border-top: 1px solid var(--hairline);
 	}
 	.restore {
 		display: flex;

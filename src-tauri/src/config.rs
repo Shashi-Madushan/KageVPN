@@ -158,16 +158,35 @@ fn rule_json(rule: &Rule) -> Option<Value> {
     if !rule.enabled || value.is_empty() {
         return None;
     }
-    let key = match rule.kind {
-        RuleKind::Domain => "domain",
-        RuleKind::DomainSuffix => "domain_suffix",
-        RuleKind::DomainKeyword => "domain_keyword",
-        RuleKind::IpCidr => "ip_cidr",
-        RuleKind::ProcessName => "process_name",
+    let mut json = match rule.kind {
+        RuleKind::Domain => json!({ "domain": [value] }),
+        RuleKind::DomainSuffix => json!({ "domain_suffix": [value] }),
+        RuleKind::DomainKeyword => json!({ "domain_keyword": [value] }),
+        RuleKind::IpCidr => json!({ "ip_cidr": [value] }),
+        RuleKind::ProcessName => json!({ "process_name": [value] }),
+        RuleKind::App => json!({ "process_path_regex": [app_path_pattern(value)] }),
     };
-    let mut json = json!({ key: [value] });
     apply_action(&mut json, rule.action);
     Some(json)
+}
+
+/// A pattern for every process inside an app bundle. Browsers and chat apps send most of their
+/// traffic from helper processes deeper in the bundle, so matching the main executable's name
+/// alone would leave that traffic on the default route.
+pub(crate) fn app_path_pattern(bundle: &str) -> String {
+    format!("^{}/", quote_meta(bundle.trim_end_matches('/')))
+}
+
+/// Escapes text for sing-box's regular expressions (Go's RE2 syntax), like Go's `regexp.QuoteMeta`.
+fn quote_meta(text: &str) -> String {
+    let mut quoted = String::with_capacity(text.len());
+    for c in text.chars() {
+        if r"\.+*?()|[]{}^$".contains(c) {
+            quoted.push('\\');
+        }
+        quoted.push(c);
+    }
+    quoted
 }
 
 fn apply_action(rule: &mut Value, action: Action) {

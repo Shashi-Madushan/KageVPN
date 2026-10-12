@@ -1,11 +1,14 @@
 mod app_config;
 mod applog;
 mod app_update;
+mod apps;
+mod backup;
 mod clash;
 mod commands;
 mod config;
 mod core;
 mod crashlog;
+mod device;
 mod diagnostics;
 mod downloads;
 mod error;
@@ -136,7 +139,12 @@ pub fn run() {
             commands::install_root_service,
             commands::uninstall_root_service,
             commands::add_subscription,
+            commands::edit_subscription,
             commands::refresh_subscription,
+            commands::installed_apps,
+            commands::delete_profiles,
+            backup::export_backup,
+            backup::restore_backup,
             commands::remove_subscription,
             commands::run_diagnostics,
             commands::run_speed_test,

@@ -211,3 +211,32 @@ fn real_compiled_lists_pass_singbox_check() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn an_app_rule_matches_every_process_inside_the_bundle() {
+    assert_eq!(app_path_pattern("/Applications/Slack.app"), r"^/Applications/Slack\.app/");
+    // Characters that mean something in a pattern are taken literally.
+    assert_eq!(app_path_pattern("/Applications/C++ (Beta) [x].app/"), r"^/Applications/C\+\+ \(Beta\) \[x\]\.app/");
+    assert_eq!(quote_meta(r"a\b$^{}|?*"), r"a\\b\$\^\{\}\|\?\*");
+}
+
+#[test]
+fn app_rules_pass_singbox_check() {
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let profiles = vec![profile()];
+    let mut routing = RoutingSettings { mode: RouteMode::Rule, ..RoutingSettings::default() };
+    for (kind, value, action) in [
+        (RuleKind::App, "/Applications/zoom.us.app", Action::Direct),
+        (RuleKind::App, "/Applications/Google Chrome.app", Action::Proxy),
+        (RuleKind::ProcessName, "curl", Action::Block),
+    ] {
+        routing.rules.push(Rule { id: value.into(), enabled: true, kind, value: value.into(), action });
+    }
+    let cfg = build(&input(&profiles, &routing, Mode::Proxy)).unwrap();
+    let rules = cfg["route"]["rules"].as_array().unwrap();
+    assert!(rules.iter().any(|r| r["process_path_regex"] == serde_json::json!([r"^/Applications/zoom\.us\.app/"]) && r["outbound"] == "direct"));
+    let path = std::env::temp_dir().join(format!("kage-vpn-test-app-rules-{}.json", std::process::id()));
+    std::fs::write(&path, serde_json::to_vec(&cfg).unwrap()).unwrap();
+    crate::singbox::check(&binary, &path).unwrap();
+    let _ = std::fs::remove_file(path);
+}

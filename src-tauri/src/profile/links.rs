@@ -1,7 +1,7 @@
 //! Turns pasted text, subscriptions and the share button into profiles and back, by
 //! looking up the protocol that owns a link's scheme in the registry.
 
-use super::{common::invalid, def, Profile, ProtocolId, REGISTRY};
+use super::{common::invalid, def, formats, Profile, ProtocolId, REGISTRY};
 use crate::error::Result;
 
 /// The protocol whose scheme starts this token. Schemes are case-insensitive.
@@ -60,9 +60,19 @@ fn split_links(text: &str) -> Vec<String> {
     links
 }
 
-/// Parses every supported link in a block of text, returning profiles and the reasons any link was
-/// skipped (one entry per skipped link).
+/// Parses every supported link in a block of text, or every server in a sing-box or Clash
+/// configuration file, returning profiles and the reasons any entry was skipped (one per entry).
 pub fn parse_many(text: &str) -> (Vec<Profile>, Vec<String>) {
+    if let Some(found) = formats::extract(text) {
+        let (mut profiles, mut errors) = (Vec::new(), Vec::new());
+        for entry in found {
+            match entry.map(|(name, link)| parse_link(&link).map_err(|error| format!("{name}: {error}"))) {
+                Ok(Ok(profile)) => profiles.push(profile),
+                Ok(Err(reason)) | Err(reason) => errors.push(reason),
+            }
+        }
+        return (profiles, errors);
+    }
     let mut profiles = Vec::new();
     let mut errors = Vec::new();
     for link in split_links(text) {

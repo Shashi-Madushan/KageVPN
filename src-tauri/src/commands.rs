@@ -134,6 +134,12 @@ pub fn duplicate_profile(state: State<AppState>, id: String) -> Result<Profile> 
     Ok(copy)
 }
 
+/// Removes several servers with one save, such as every server a test found unreachable.
+#[tauri::command]
+pub fn delete_profiles(state: State<AppState>, ids: Vec<String>) -> Result<usize> {
+    state.store.lock().unwrap().remove_many(&ids)
+}
+
 #[tauri::command]
 pub fn delete_profile(state: State<AppState>, id: String) -> Result<()> {
     state.store.lock().unwrap().remove(&id)
@@ -252,6 +258,10 @@ pub async fn test_all(app: AppHandle) -> Result<Vec<NodeLatency>> {
         .map(|p| (p.id.clone(), p.server.clone(), p.port))
         .collect();
     let connected = state.status.lock().unwrap().state == ConnState::Connected;
+    // While connected, servers in the running config are measured through the tunnel. The others
+    // (added since connecting, or past the config's limit) are measured directly; asking the engine
+    // about a server it does not have would report them all as dead.
+    let in_tunnel = if connected { clash::known_tags(&app).await.unwrap_or_default() } else { Default::default() };
 
     let mut results = Vec::new();
     for batch in targets.chunks(BATCH) {
@@ -260,8 +270,9 @@ pub async fn test_all(app: AppHandle) -> Result<Vec<NodeLatency>> {
             .cloned()
             .map(|(id, server, port)| {
                 let app = app.clone();
+                let through_tunnel = in_tunnel.contains(&crate::config::node_tag(&id));
                 tauri::async_runtime::spawn(async move {
-                    let ms = if connected {
+                    let ms = if through_tunnel {
                         clash::node_delay(&app, &id).await.ok()
                     } else {
                         net::tcp_latency(&server, port).await.ok()
@@ -373,13 +384,21 @@ pub async fn restore_network() -> Result<()> {
 }
 
 #[tauri::command]
-pub async fn add_subscription(app: AppHandle, name: String, url: String) -> Result<RefreshSummary> {
+pub async fn add_subscription(
+    app: AppHandle,
+    name: String,
+    url: String,
+    user_agent: Option<String>,
+    send_device_id: Option<bool>,
+) -> Result<RefreshSummary> {
     subscriptions::validate_url(&url)?;
     let name = name.trim();
     let subscription = Subscription {
         id: uuid::Uuid::new_v4().to_string(),
         name: if name.is_empty() { "Subscription".into() } else { name.to_string() },
         url: url.trim().to_string(),
+        user_agent: subscriptions::clean_user_agent(user_agent.as_deref())?,
+        send_device_id: send_device_id.unwrap_or(false),
         ..Subscription::default()
     };
     let id = subscription.id.clone();
@@ -392,6 +411,45 @@ pub async fn add_subscription(app: AppHandle, name: String, url: String) -> Resu
             Err(error)
         }
     }
+}
+
+/// Changes a subscription's name, link or request options. The caller refreshes it afterwards.
+#[tauri::command]
+pub fn edit_subscription(
+    state: State<AppState>,
+    id: String,
+    name: String,
+    url: String,
+    user_agent: Option<String>,
+    send_device_id: bool,
+) -> Result<()> {
+    subscriptions::validate_url(&url)?;
+    let user_agent = subscriptions::clean_user_agent(user_agent.as_deref())?;
+    let mut store = state.store.lock().unwrap();
+    let mut subscription = store
+        .subscriptions()
+        .iter()
+        .find(|s| s.id == id)
+        .cloned()
+        .ok_or_else(|| AppError::Invalid("subscription not found".into()))?;
+    let name = name.trim();
+    if !name.is_empty() {
+        subscription.name = name.to_string();
+    }
+    if subscription.url != url.trim() {
+        subscription.url = url.trim().to_string();
+        // A new link is a fresh start: no back-off from the old one's failures.
+        subscription.failures = 0;
+        subscription.last_error = None;
+    }
+    subscription.user_agent = user_agent;
+    subscription.send_device_id = send_device_id;
+    store.update_subscription(subscription)
+}
+
+#[tauri::command]
+pub async fn installed_apps() -> Result<Vec<crate::apps::InstalledApp>> {
+    crate::apps::list().await
 }
 
 #[tauri::command]

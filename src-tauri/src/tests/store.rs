@@ -274,3 +274,19 @@ fn a_file_that_is_not_a_data_file_at_all_is_still_set_aside() {
     assert!(store.take_recovery().is_some());
     let _ = fs::remove_dir_all(path.parent().unwrap());
 }
+
+#[test]
+fn removing_several_servers_keeps_a_valid_selection() {
+    let dir = std::env::temp_dir().join(format!("kage-store-remove-many-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut store = Store::load(dir.join("data.json"));
+    store.add_many(crate::profile::parse_many("trojan://a@a.example.com:443#A\ntrojan://b@b.example.com:443#B\ntrojan://c@c.example.com:443#C").0).unwrap();
+    let ids: Vec<String> = store.profiles().iter().map(|p| p.id.clone()).collect();
+    store.select(&ids[0]).unwrap();
+
+    assert_eq!(store.remove_many(&[ids[0].clone(), ids[1].clone(), "unknown".into()]).unwrap(), 2);
+    assert_eq!(store.profiles().len(), 1);
+    assert_eq!(store.active_id(), Some(ids[2].as_str()), "the selection moves to a server that still exists");
+    assert_eq!(store.remove_many(&[]).unwrap(), 0);
+    let _ = std::fs::remove_dir_all(dir);
+}

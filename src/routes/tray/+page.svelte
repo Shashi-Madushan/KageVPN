@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
-	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, profileFlag } from '$lib/format';
+	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, planSummary, profileFlag } from '$lib/format';
 	import Icon from '$lib/components/Icon.svelte';
 	import MascotButton from '$lib/components/MascotButton.svelte';
 	import { usage } from '$lib/usage.svelte';
@@ -65,6 +65,12 @@
 						: 'Press the button to connect'
 	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
+	/** What the active server's provider reports: data left and days left, when it reports either. */
+	const plan = $derived.by(() => {
+		const subId = app.auto.enabled ? null : app.activeProfile?.subscriptionId;
+		const info = app.subscriptions.find((s) => s.id === subId)?.userInfo;
+		return info ? planSummary(info, now) : null;
+	});
 	const activeName = $derived(
 		app.auto.enabled ? 'Auto (fastest)' : (app.activeProfile?.name.replace(/^\p{RI}{2}\s*/u, '') ?? null)
 	);
@@ -95,12 +101,21 @@
 		</section>
 
 		{#if app.profiles.length}
+			{#snippet serverPicker()}
+				<Select grow value={serverValue} options={serverOptions} label="Server" placeholder="No servers" onchange={(choice) => app.chooseServer(choice)} />
+			{/snippet}
+			{#if app.connected || !app.locked}
+				<!-- While connected the server changes in place; only the mode needs a disconnect. -->
+				<div class="pick" title={app.connected ? 'Switch server without disconnecting' : undefined}>{@render serverPicker()}</div>
+			{/if}
 			{#if app.locked}
-				<div class="strip" aria-label="Connection details">
-					<span class="cell grow" title={activeName ?? ''}>
-						<span class="flag">{app.activeProfile ? profileFlag(app.activeProfile.name, app.activeProfile.server) : '↯'}</span>
-						<span class="two"><small>Server</small><strong>{activeName ?? '—'}</strong></span>
-					</span>
+				<div class="strip" class:compact={app.connected} aria-label="Connection details">
+					{#if !app.connected}
+						<span class="cell grow" title={activeName ?? ''}>
+							<span class="flag">{app.activeProfile ? profileFlag(app.activeProfile.name, app.activeProfile.server) : '↯'}</span>
+							<span class="two"><small>Server</small><strong>{activeName ?? '—'}</strong></span>
+						</span>
+					{/if}
 					<span class="cell"><strong class="tabular">{elapsed ?? '—'}</strong></span>
 					<span class="cell ip">
 						{#if app.exitIp}
@@ -113,24 +128,9 @@
 						{/if}
 					</span>
 				</div>
-			{:else}
-				<div class="pick">
-					<Select
-						grow
-						value={serverValue}
-						options={serverOptions}
-						label="Server"
-						placeholder="No servers"
-						onchange={(id) => {
-							if (id === 'auto') return app.setAuto({ ...app.auto, enabled: true });
-							if (app.auto.enabled) app.setAuto({ ...app.auto, enabled: false });
-							app.select(id);
-						}}
-					/>
-				</div>
 			{/if}
 
-			<section class="card usage" aria-label="Data usage">
+			<section class="card usage" class:with-plan={plan} aria-label="Data usage">
 				<span class="label">Data usage</span>
 				<div class="rates">
 					<span class="down tabular">↓ {formatRate(app.traffic.down)}</span>
@@ -139,14 +139,17 @@
 						Today: {#if usage.todayLoading}<Skeleton width="36px" height="11px" />{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}
 					</span>
 				</div>
+				{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
 				<div class="graph">
 					<Sparkline samples={app.history} height={72} fill />
 					{#if !app.connected}<span class="graph-empty">Connect to see live traffic</span>{/if}
 				</div>
 			</section>
 
-			<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
-			{#if app.locked}<p class="lock">Disconnect to change server or mode</p>{/if}
+			<div title={app.connected ? 'Disconnect to change mode' : undefined}>
+				<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
+			</div>
+			{#if app.busy}<p class="lock">Disconnect to change server or mode</p>{/if}
 		{:else}
 			<button class="btn primary add" onclick={() => api.openMainWindow()}>Add a server…</button>
 		{/if}
@@ -351,7 +354,9 @@
 		color: var(--danger);
 	}
 	.usage {
-		flex: 1 0 auto;
+		/* Takes the space left over, and gives it back when the rows above need it. */
+		flex: 1 1 auto;
+		min-height: 0;
 		display: grid;
 		grid-template-rows: auto auto minmax(56px, 1fr);
 		gap: 8px;
@@ -384,10 +389,34 @@
 		font-size: 11px;
 		font-weight: 600;
 	}
+	.usage.with-plan {
+		grid-template-rows: auto auto auto minmax(48px, 1fr);
+	}
+	.plan {
+		width: 100%;
+		margin-top: -4px;
+		font-size: 11px;
+		text-align: center;
+		color: var(--fg-muted);
+	}
+	.plan.low {
+		color: var(--warn);
+		font-weight: 600;
+	}
+	.strip.compact {
+		grid-template-columns: auto minmax(0, 1fr);
+	}
 	.graph {
 		position: relative;
 		width: 100%;
 		min-height: 0;
+	}
+	/* Sized by the row, not by the chart's own aspect ratio. */
+	.graph :global(svg) {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
 	}
 	.graph-empty {
 		position: absolute;

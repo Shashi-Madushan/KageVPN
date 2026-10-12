@@ -1,4 +1,4 @@
-import type { ImportSummary } from './api';
+import type { ImportSummary, UserInfo } from './api';
 import type { Latency } from './app.svelte';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -117,3 +117,23 @@ export function importMessage(summary: ImportSummary): string {
 
 /** Drops a leading emoji flag from a name, since the flag is shown separately. */
 export const stripFlag = (name: string) => name.replace(/^\p{RI}{2}\s*/u, '');
+
+/**
+ * A provider's plan in a few words, such as "Plan: 12.4 GB left · 9 days left", from the figures
+ * its subscription reports. `total` 0 means unlimited data. `low` is set near the end of either.
+ */
+export function planSummary(info: UserInfo, nowSeconds: number): { text: string; low: boolean } | null {
+	const parts: string[] = [];
+	let low = false;
+	if (info.total > 0) {
+		const left = Math.max(0, info.total - info.upload - info.download);
+		parts.push(left > 0 ? `${formatBytes(left)} left` : 'no data left');
+		low = left <= info.total * 0.1;
+	}
+	if (info.expire > 0) {
+		const days = Math.ceil((info.expire - nowSeconds) / 86400);
+		parts.push(days <= 0 ? 'expired' : days === 1 ? '1 day left' : `${days} days left`);
+		low ||= days <= 3;
+	}
+	return parts.length ? { text: `Plan: ${parts.join(' · ')}`, low } : null;
+}

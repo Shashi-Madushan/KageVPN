@@ -27,6 +27,9 @@ pub enum RuleKind {
     DomainKeyword,
     IpCidr,
     ProcessName,
+    /// An installed app, stored as its bundle path (`/Applications/Slack.app`). Matches every
+    /// process inside the bundle, so helpers such as "Slack Helper (Renderer)" follow the app.
+    App,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -185,6 +188,15 @@ pub struct Subscription {
     /// When the last refresh was tried (successful or not), and how many in a row failed.
     pub last_attempt: u64,
     pub failures: u32,
+    /// Sent instead of the app's own user agent. Providers choose the list format, or whether to
+    /// answer at all, by the client name.
+    pub user_agent: Option<String>,
+    /// Send this Mac's device ID with each refresh, for providers that limit how many devices can
+    /// use one subscription. Off unless the user turns it on.
+    pub send_device_id: bool,
+    /// The data warning last shown for the provider's allowance (1 at 90 percent, 2 used up), so
+    /// each is shown once; it drops back to 0 when a new period starts.
+    pub notified_quota: u8,
 }
 
 impl Default for Subscription {
@@ -201,6 +213,9 @@ impl Default for Subscription {
             notified_stage: 0,
             last_attempt: 0,
             failures: 0,
+            user_agent: None,
+            send_device_id: false,
+            notified_quota: 0,
         }
     }
 }

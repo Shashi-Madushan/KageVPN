@@ -15,6 +15,9 @@ use crate::profile::Profile;
 use crate::settings::{AutoSettings, ReliabilitySettings, RoutingSettings, Subscription, UsageSettings};
 
 const SCHEMA_VERSION: u32 = 4;
+/// Fields that describe this Mac rather than the user's setup, so a backup leaves them out and a
+/// restore keeps this Mac's own: installed engines and the subscription device ID.
+const MACHINE_FIELDS: &[&str] = &["cores", "core", "deviceId"];
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -51,6 +54,9 @@ struct Data {
     /// exactly as they were and offered to the parser again on every start.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     unreadable_profiles: Vec<Value>,
+    /// A random identifier for this installation, made the first time a subscription asks for it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    device_id: Option<String>,
 }
 
 /// Parses the data file. A server that does not parse is set aside instead of making the whole
@@ -229,6 +235,61 @@ impl Store {
         &self.data.subscriptions
     }
 
+    /// The user's setup as the data file writes it, without the fields that belong to this Mac.
+    pub fn backup_value(&self) -> Result<Value> {
+        let mut value = serde_json::to_value(&self.data)?;
+        if let Some(object) = value.as_object_mut() {
+            for key in MACHINE_FIELDS {
+                object.remove(*key);
+            }
+        }
+        Ok(value)
+    }
+
+    /// Replaces the servers, subscriptions and settings with a backup's, keeping this Mac's engines
+    /// and device ID. The file as it was is kept next to it first. Returns how many servers and
+    /// subscriptions the backup held.
+    pub fn restore(&mut self, mut backup: Value) -> Result<(usize, usize)> {
+        let object = backup.as_object_mut().ok_or_else(|| AppError::Invalid("this file is not a backup".into()))?;
+        let version = object.get("schemaVersion").and_then(Value::as_u64).unwrap_or(0);
+        // Anything without a version (an unrelated JSON file) would otherwise read as "no servers,
+        // default settings" and wipe the user's setup.
+        if version == 0 {
+            return Err(AppError::Invalid("this file is not a backup".into()));
+        }
+        if version > u64::from(SCHEMA_VERSION) {
+            return Err(AppError::Invalid("this backup was made by a newer version of the app. Update the app, then restore it".into()));
+        }
+        for key in MACHINE_FIELDS {
+            object.remove(*key);
+        }
+        sift_profiles(&mut backup);
+        let mut incoming: Data = serde_json::from_value(backup).map_err(|e| AppError::Invalid(format!("this backup cannot be read: {e}")))?;
+        if self.path.is_file() {
+            fs::copy(&self.path, self.path.with_file_name("data.before-restore.json"))?;
+        }
+        incoming.cores = std::mem::take(&mut self.data.cores);
+        incoming.device_id = self.data.device_id.take();
+        self.data = incoming;
+        let counts = (self.data.profiles.len(), self.data.subscriptions.len());
+        self.fix_active();
+        // A backup from an older version is upgraded the same way an old data file is.
+        self.migrate();
+        self.save()?;
+        Ok(counts)
+    }
+
+    /// This installation's device ID for subscriptions, made and saved on first use.
+    pub fn device_id(&mut self) -> Result<String> {
+        if let Some(id) = self.data.device_id.as_ref().filter(|id| crate::device::is_valid_id(id)) {
+            return Ok(id.clone());
+        }
+        let id = crate::device::new_id();
+        self.data.device_id = Some(id.clone());
+        self.save()?;
+        Ok(id)
+    }
+
     pub fn set_settings(&mut self, settings: Settings) -> Result<()> {
         self.data.settings = settings;
         self.save()
@@ -315,6 +376,18 @@ impl Store {
         self.data.profiles.retain(|p| p.id != id);
         self.fix_active();
         self.save()
+    }
+
+    /// Removes the servers with these ids and returns how many there were.
+    pub fn remove_many(&mut self, ids: &[String]) -> Result<usize> {
+        let before = self.data.profiles.len();
+        self.data.profiles.retain(|p| !ids.contains(&p.id));
+        let removed = before - self.data.profiles.len();
+        if removed > 0 {
+            self.fix_active();
+            self.save()?;
+        }
+        Ok(removed)
     }
 
     pub fn select(&mut self, id: &str) -> Result<()> {

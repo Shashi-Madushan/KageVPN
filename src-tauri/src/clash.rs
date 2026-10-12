@@ -58,6 +58,8 @@ pub struct Connection {
     pub destination_ip: String,
     pub destination_port: String,
     pub process: String,
+    /// The app bundle the process belongs to, when it is inside one, for routing rules by app.
+    pub app_path: Option<String>,
     pub network: String,
     pub up: u64,
     pub down: u64,
@@ -101,6 +103,19 @@ pub async fn select_profile(app: &AppHandle, profile_id: &str) -> Result<()> {
     Err(last)
 }
 
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct ProxiesResponse {
+    proxies: std::collections::HashMap<String, serde_json::Value>,
+}
+
+/// The outbound tags the running engine knows. Servers added after connecting, or beyond the
+/// number a config holds, are not among them and have to be measured some other way.
+pub async fn known_tags(app: &AppHandle) -> Result<std::collections::HashSet<String>> {
+    let response = request(app, reqwest::Method::GET, "/proxies")?.send().await?.error_for_status()?;
+    Ok(response.json::<ProxiesResponse>().await?.proxies.into_keys().collect())
+}
+
 pub async fn node_delay(app: &AppHandle, profile_id: &str) -> Result<u64> {
     delay_by_tag(app, &node_tag(profile_id)).await
 }
@@ -136,6 +151,7 @@ fn simplify(raw: RawConnection) -> Connection {
         destination_ip: raw.metadata.destination_ip,
         destination_port: raw.metadata.destination_port,
         process,
+        app_path: crate::apps::bundle_of(&raw.metadata.process_path).map(str::to_string),
         network: raw.metadata.network,
         up: raw.upload,
         down: raw.download,
