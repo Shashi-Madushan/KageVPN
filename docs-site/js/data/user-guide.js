@@ -139,7 +139,7 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
           <span class="step-badge-tag">Drag & Drop</span>
         </div>
         <div class="step-body">
-          <p>Drag any <code>.txt</code> or <code>.json</code> file containing multiple links onto the application window to batch-import dozens of servers in seconds.</p>
+          <p>Drag any <code>.txt</code> file of links onto the <strong>Add server</strong> box to import many servers at once. Clash and Clash Meta configuration files (<code>.yaml</code>, the <code>proxies</code> list) and sing-box configuration files (<code>.json</code>, the <code>outbounds</code> list) work too: every server Kage can run is added, and the ones it cannot (such as TUIC, WireGuard or servers chained through another server) are listed with the reason.</p>
         </div>
       </div>
     </div>
@@ -147,12 +147,14 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
     <div class="docs-prose">
       <h2 id="subscriptions">Managing Subscriptions</h2>
       <p>
-        If your provider supplies a subscription URL, click <strong>Add Subscription</strong>. Kage fetches the remote endpoint, decodes Base64 encoded payload manifests, extracts individual nodes, and tags them with the provider group name.
+        If your provider supplies a subscription URL, click <strong>Add subscription</strong>. Kage reads plain or Base64 lists of share links, Clash YAML and sing-box JSON. Servers keep the names, groups and favorites you gave them across refreshes, and servers the provider dropped are removed.
       </p>
       <ul>
-        <li><strong>Auto Update Schedule:</strong> Configure intervals (Every 6 hours, 12 hours, or Daily).</li>
-        <li><strong>Manual Refresh:</strong> Click the refresh icon beside the subscription group to pull updated node addresses.</li>
-        <li><strong>Stale Pruning:</strong> Automatically archives decommissioned nodes without losing custom user tags.</li>
+        <li><strong>Refresh:</strong> subscriptions refresh every 12 hours on their own; <strong>Refresh</strong> does it now. A subscription that keeps failing is retried less and less often.</li>
+        <li><strong>Your plan:</strong> when the provider reports it, the subscription shows how much data is used and when it ends, and the menu bar popover shows what is left for the server you use. You get one notification at 90% of the data, one when it runs out, and one three days before the end date.</li>
+        <li><strong>Edit:</strong> change the name or the link (for example after your provider gives you a new one), and the options below. Saving refreshes the subscription.</li>
+        <li><strong>Ask as:</strong> some providers send a different list, or none, depending on the app asking. If a subscription comes back empty, try <em>v2rayN</em>, <em>sing-box</em> or <em>Clash Meta</em>, or type the client name your provider expects.</li>
+        <li><strong>Send device ID:</strong> some providers limit how many devices may use one subscription and refuse apps that do not identify the device. Turn this on for them. Kage sends a random ID made for this Mac (not a hardware serial), the macOS version and the Mac model, and only to that subscription's address. If the provider says its device limit is reached, remove a device you no longer use in the provider's panel.</li>
       </ul>
 
       <h2 id="latency-testing">Latency & Ping Testing</h2>
@@ -164,6 +166,9 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
         <li><strong style="color: #f59e0b;">100ms - 250ms (Yellow):</strong> Standard international routes for video and streaming.</li>
         <li><strong style="color: #ef4444;">Timeout / Error (Red):</strong> Unreachable node or blocked port.</li>
       </ul>
+      <p>
+        After a test, <strong>Remove unreachable</strong> deletes every server that did not answer, after asking. The server you are connected through is never included. Servers that came from a subscription return at its next refresh if the provider still lists them. A network that blocks your servers makes them all look dead, so run the test on your usual network first.
+      </p>
 
       <h2 id="server-tagging">Favorites & Node Renaming</h2>
       <p>
@@ -239,7 +244,12 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
         <li><strong>Domain Suffix:</strong> Match <code>.company.internal</code> &rarr; <code>direct</code>.</li>
         <li><strong>Domain Keyword:</strong> Match any domain containing <code>netflix</code> &rarr; <code>proxy</code>.</li>
         <li><strong>IP CIDR:</strong> Route specific subnet <code>1.2.3.0/24</code> &rarr; <code>direct</code>.</li>
+        <li><strong>App:</strong> pick an installed app, such as Zoom &rarr; <code>direct</code> or a game launcher &rarr; <code>proxy</code>. The rule covers every process inside the app, including the helper processes most browsers and chat apps send their traffic from. Safari and apps built on its engine send traffic from a shared system process, so they cannot be routed by app; use domain rules for them.</li>
+        <li><strong>Process name:</strong> an executable outside an app, such as <code>curl</code> or <code>ssh</code>.</li>
       </ul>
+      <p>
+        You can also add an app rule from <strong>Connections &rarr; Apps</strong>: click an app and choose <strong>Through VPN</strong>, <strong>Direct</strong> or <strong>Block</strong>. If routing was in Global or Direct mode, it switches to Rules mode with the same default for everything else, so only that app changes. The VPN reconnects to apply it.
+      </p>
 
       <h2 id="dns-resolution-rules">Route Precedence</h2>
       <p>

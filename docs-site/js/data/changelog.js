@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-12", label: "12 Oct 2026" },
     { id: "oct-11", label: "11 Oct 2026" },
     { id: "oct-8", label: "8 Oct 2026" },
     { id: "oct-7", label: "7 Oct 2026" },
@@ -20,6 +21,19 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-12">12 October 2026</h2>
+      <ul>
+        <li><strong>New:</strong> Split tunneling by app. Add an <strong>App</strong> rule on the Routing page by picking from your installed apps, or click an app on <strong>Connections &rarr; Apps</strong> and choose Through VPN, Direct or Block. The rule covers the app's helper processes too, which typing a process name did not.</li>
+        <li><strong>New:</strong> Clash and sing-box configuration files can be imported, from the Add server box or as a subscription. Servers Kage cannot run are listed with the reason.</li>
+        <li><strong>New:</strong> Subscription options: choose which client the app asks as, for providers that send a different list (or none) depending on the app, and send a device ID for providers that limit how many devices may use a subscription. Subscriptions can now be edited, including their link.</li>
+        <li><strong>New:</strong> Clear messages when a provider refuses a subscription: device limit reached, device ID needed, link expired or not found. Error messages no longer include the subscription link, which carries your account token.</li>
+        <li><strong>New:</strong> One notification when 90% of your provider's data is used and one when it runs out. The menu bar popover shows the data and days left for the server you use. Plans with unlimited data now show their end date.</li>
+        <li><strong>New:</strong> Switch servers from the menu bar popover without disconnecting.</li>
+        <li><strong>New:</strong> <strong>Remove unreachable</strong> on the Servers page deletes every server the last test could not reach, after asking.</li>
+        <li><strong>New:</strong> Back up your servers, subscriptions, routing and settings to one file, and restore it on this or another Mac (Settings &rarr; Backup).</li>
+        <li><strong>Fixed:</strong> While connected, <strong>Test all</strong> reported servers added after connecting (or beyond the first 150) as timed out. They are now measured directly.</li>
+      </ul>
+
       <h2 id="oct-11">11 October 2026</h2>
       <ul>
         <li><strong>Fixed:</strong> Country lists (such as <em>CN</em> or ad lists) are now downloaded by the app, with a backup address, and kept in the data folder. Before, a network that blocks GitHub stopped the connection from starting at all once a list was turned on. A list that cannot be downloaded is now left out, with a notification, and the connection still starts. Lists refresh weekly.</li>
