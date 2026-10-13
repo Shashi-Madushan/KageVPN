@@ -1,11 +1,11 @@
-use std::sync::OnceLock;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use reqwest::{Client, Proxy};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
-use crate::config::MIXED_PORT;
+use crate::config::{mixed_port, DEFAULT_CLASH_PORT, DEFAULT_MIXED_PORT};
 use crate::error::{AppError, Result};
 
 const TCP_TIMEOUT: Duration = Duration::from_secs(5);
@@ -23,11 +23,59 @@ pub async fn tcp_latency(host: &str, port: u16) -> Result<u64> {
 }
 
 pub async fn proxy_port_open() -> bool {
-    port_open(MIXED_PORT).await
+    port_open(mixed_port()).await
 }
 
 async fn port_open(port: u16) -> bool {
     TcpStream::connect(("127.0.0.1", port)).await.is_ok()
+}
+
+/// How many ports after the preferred one are tried before asking the system for any free port.
+const PORT_SEARCH_SPAN: u16 = 50;
+
+/// Whether this program could listen on `port` of the loopback address now. A listener on another
+/// address (such as every address) can still let a bind succeed on macOS, so an answering
+/// connection counts as taken too.
+async fn port_free(port: u16) -> bool {
+    !port_open(port).await && std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
+}
+
+/// `preferred` when it is free, else the next free port after it (skipping `avoid`), else any port
+/// the system hands out.
+pub async fn free_port(preferred: u16, avoid: &[u16]) -> Option<u16> {
+    for port in preferred..=preferred.saturating_add(PORT_SEARCH_SPAN) {
+        if !avoid.contains(&port) && port_free(port).await {
+            return Some(port);
+        }
+    }
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).ok()?;
+    listener.local_addr().ok().map(|address| address.port()).filter(|port| !avoid.contains(port))
+}
+
+/// The two ports sing-box will listen on: the local proxy and the controller.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Ports {
+    pub mixed: u16,
+    pub clash: u16,
+}
+
+impl Ports {
+    pub fn is_default(self) -> bool {
+        self.mixed == DEFAULT_MIXED_PORT && self.clash == DEFAULT_CLASH_PORT
+    }
+}
+
+/// Picks the ports for a new connection. `mixed_taken_by_us` is true when the busy proxy port is
+/// most likely a sing-box this app stopped a moment ago: it is waited for, because moving to
+/// another port would leave that process running.
+pub async fn choose_ports(mixed_taken_by_us: bool) -> Result<Ports> {
+    if mixed_taken_by_us && port_open(DEFAULT_MIXED_PORT).await && !wait_until_closed(DEFAULT_MIXED_PORT, Duration::from_secs(10)).await {
+        return Err(AppError::Launch(format!("port {DEFAULT_MIXED_PORT} is already in use, is another sing-box running?")));
+    }
+    let none_free = || AppError::Launch("no free local port was found for the proxy".into());
+    let mixed = free_port(DEFAULT_MIXED_PORT, &[]).await.ok_or_else(none_free)?;
+    let clash = free_port(DEFAULT_CLASH_PORT, &[mixed]).await.ok_or_else(none_free)?;
+    Ok(Ports { mixed, clash })
 }
 
 /// Waits until nothing listens on `port` any more, for at most `timeout`. Returns whether it is free.
@@ -71,14 +119,20 @@ pub async fn exit_ip() -> Result<String> {
 
 /// One client for every probe: building a client loads TLS roots, which is wasteful to repeat
 /// every few seconds. Idle connections are not kept, so a restarted tunnel never meets a stale one.
+/// It is built again when the proxy port changes.
 fn proxied_client() -> Result<Client> {
-    static CLIENT: OnceLock<Client> = OnceLock::new();
-    if let Some(client) = CLIENT.get() {
-        return Ok(client.clone());
+    static CLIENT: Mutex<Option<(u16, Client)>> = Mutex::new(None);
+    let port = mixed_port();
+    let mut cached = CLIENT.lock().unwrap();
+    if let Some((built_for, client)) = cached.as_ref() {
+        if *built_for == port {
+            return Ok(client.clone());
+        }
     }
-    let proxy = Proxy::all(format!("socks5h://127.0.0.1:{MIXED_PORT}"))?;
+    let proxy = Proxy::all(format!("socks5h://127.0.0.1:{port}"))?;
     let client = Client::builder().proxy(proxy).timeout(HTTP_TIMEOUT).pool_max_idle_per_host(0).build()?;
-    Ok(CLIENT.get_or_init(|| client).clone())
+    *cached = Some((port, client.clone()));
+    Ok(client)
 }
 
 fn elapsed_ms(started: Instant) -> u64 {

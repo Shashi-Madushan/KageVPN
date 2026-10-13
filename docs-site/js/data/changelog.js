@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-13", label: "13 Oct 2026" },
     { id: "oct-12", label: "12 Oct 2026" },
     { id: "oct-11", label: "11 Oct 2026" },
     { id: "oct-8", label: "8 Oct 2026" },
@@ -21,6 +22,12 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-13">13 October 2026</h2>
+      <ul>
+        <li><strong>New:</strong> <strong>Settings &rarr; Logs</strong>: choose how much the engine writes down. <em>Errors only</em> keeps no list of the sites you visit (apart from ones that failed to load); <em>Normal</em> and <em>Detailed</em> list every connection. The default is Normal, where it used to be Detailed. A second switch empties the log files whenever the VPN turns off.</li>
+        <li><strong>Fixed:</strong> Another program (or a second copy of the app) using port 2080 or 19090 no longer stops you from connecting. Kage moves to the next free port, tells you, and in Proxy Only mode shows the address to use on the Home page.</li>
+      </ul>
+
       <h2 id="oct-12">12 October 2026</h2>
       <ul>
         <li><strong>New:</strong> Split tunneling by app. Add an <strong>App</strong> rule on the Routing page by picking from your installed apps, or click an app on <strong>Connections &rarr; Apps</strong> and choose Through VPN, Direct or Block. The rule covers the app's helper processes too, which typing a process name did not.</li>

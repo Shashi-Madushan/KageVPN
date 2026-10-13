@@ -78,7 +78,7 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
         If you are on a restricted machine without administrator privileges or only need a browser to browse through an encrypted server:
       </p>
       <ul>
-        <li>Kage launches sing-box with a mixed SOCKS5/HTTP inbound listener on <code>127.0.0.1:2080</code>.</li>
+        <li>Kage launches sing-box with a mixed SOCKS5/HTTP inbound listener on <code>127.0.0.1:2080</code>. If another program already uses that port, Kage picks the next free one and shows the address on the Home page.</li>
         <li>It utilizes macOS <code>networksetup</code> to toggle the HTTP and SOCKS proxy state on the active network adapter (e.g. Wi-Fi).</li>
         <li>When disconnected, Kage automatically turns off proxy settings in System Settings.</li>
       </ul>

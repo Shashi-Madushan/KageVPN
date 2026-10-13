@@ -73,6 +73,9 @@ impl DownloadProvider for CoreProvider {
                         mode: Mode::Proxy,
                         routing: &routing,
                         log_path: &state.paths.log_file(),
+                        log_level: crate::settings::LogLevel::default(),
+                        mixed_port: config::DEFAULT_MIXED_PORT,
+                        clash_port: config::DEFAULT_CLASH_PORT,
                         rule_sets_dir: &state.paths.rule_sets_dir(),
                         secret: "check",
                     })

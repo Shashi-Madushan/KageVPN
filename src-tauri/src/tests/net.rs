@@ -82,3 +82,34 @@ fn a_port_that_stays_busy_is_reported_busy_after_the_wait() {
     drop(listener);
     assert!(run(wait_until_closed(port, Duration::from_millis(0))), "free once the listener is gone");
 }
+
+#[test]
+fn a_free_preferred_port_is_used_and_a_busy_one_is_skipped() {
+    // A port found by asking the system, then released: free unless something grabs it meanwhile.
+    let preferred = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    assert_eq!(run(free_port(preferred, &[])), Some(preferred));
+
+    let holder = TcpListener::bind(("127.0.0.1", preferred)).unwrap();
+    let next = run(free_port(preferred, &[])).expect("another port is found");
+    assert_ne!(next, preferred, "the busy port is not offered");
+    drop(holder);
+    assert_eq!(run(free_port(preferred, &[])), Some(preferred), "free again once released");
+}
+
+#[test]
+fn a_port_to_avoid_is_never_returned() {
+    let preferred = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let chosen = run(free_port(preferred, &[preferred])).unwrap();
+    assert_ne!(chosen, preferred);
+}
+
+#[test]
+fn the_proxied_client_follows_the_port() {
+    // Switching the port must not leave probes aimed at the old one.
+    crate::config::set_ports(DEFAULT_MIXED_PORT, DEFAULT_CLASH_PORT);
+    assert!(proxied_client().is_ok());
+    crate::config::set_ports(2191, 19291);
+    assert!(proxied_client().is_ok());
+    assert_eq!((crate::config::mixed_port(), crate::config::clash_port()), (2191, 19291));
+    crate::config::set_ports(DEFAULT_MIXED_PORT, DEFAULT_CLASH_PORT);
+}

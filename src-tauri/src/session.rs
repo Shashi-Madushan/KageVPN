@@ -19,7 +19,6 @@ const STOP_ATTEMPTS: u32 = 40;
 /// A port still busy within this long of the app stopping sing-box is most likely that same
 /// process finishing up, so the next connect waits for it instead of failing.
 const PORT_WAIT_WINDOW: Duration = Duration::from_secs(60);
-const PORT_RELEASE_WAIT: Duration = Duration::from_secs(10);
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 const DROP_GRACE: Duration = Duration::from_millis(1500);
 const MAX_RESOLVED_IPS: usize = 64;
@@ -49,11 +48,14 @@ pub struct Status {
     /// Why the last attempt to connect failed, described for people.
     #[serde(default)]
     pub failure: Option<ErrorInfo>,
+    /// The port of the local proxy while connected; people point apps at it in Proxy Only mode.
+    #[serde(default)]
+    pub proxy_port: Option<u16>,
 }
 
 impl Status {
     pub fn disconnected(mode: Mode) -> Self {
-        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None }
+        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None, proxy_port: None }
     }
 }
 
@@ -79,6 +81,7 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
                 s.state = State::Connected;
                 s.since = Some(now_secs());
                 s.health = Health::Verifying;
+                s.proxy_port = Some(config::mixed_port());
             });
             applog::info(format!("connect: up, supervisor pid {pid}"));
             watch(app.clone(), pid);
@@ -215,16 +218,15 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     };
     let (binary, _) = core::resolve(paths, spec, &core_settings)?;
     check_cancelled(app)?;
-    if net::proxy_port_open().await {
-        // A sing-box this app stopped a moment ago can take a few seconds to let go of its port.
-        let just_stopped = state.stop_requested_at.lock().unwrap().is_some_and(|at| at.elapsed() < PORT_WAIT_WINDOW);
-        if !(just_stopped && net::wait_until_closed(config::MIXED_PORT, PORT_RELEASE_WAIT).await) {
-            return Err(AppError::Launch(format!(
-                "port {} is already in use, is another sing-box running?",
-                config::MIXED_PORT
-            )));
-        }
+    // A sing-box this app stopped a moment ago can take a few seconds to let go of its port, so
+    // that one is waited for. Any other program holding a port is moved around.
+    let just_stopped = state.stop_requested_at.lock().unwrap().is_some_and(|at| at.elapsed() < PORT_WAIT_WINDOW);
+    let ports = net::choose_ports(just_stopped).await?;
+    if !ports.is_default() {
+        applog::warn(format!("default ports are busy: using proxy port {} and controller port {}", ports.mixed, ports.clash));
+        notify::send(app, "Using another local port", &format!("Port {} was busy, so the local proxy listens on {}.", config::DEFAULT_MIXED_PORT, ports.mixed));
     }
+    config::set_ports(ports.mixed, ports.clash);
     if !state.store.lock().unwrap().auto().enabled {
         let active = state.store.lock().unwrap().active_profile().cloned();
         if let Some(profile) = active {
@@ -235,7 +237,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     state.logs.clear();
     paths.reset_runtime_files()?;
 
-    let (profiles, active_id, auto_group, auto, routing, reliability) = {
+    let (profiles, active_id, auto_group, auto, routing, reliability, log_level) = {
         let store = state.store.lock().unwrap();
         let auto = store.auto();
         (
@@ -245,6 +247,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
             auto.enabled,
             store.routing(),
             store.reliability(),
+            store.settings().log_level,
         )
     };
     prepare_rule_sets(app, &routing).await;
@@ -263,6 +266,9 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         mode,
         routing: &routing,
         log_path: &paths.log_file(),
+        log_level,
+        mixed_port: ports.mixed,
+        clash_port: ports.clash,
         rule_sets_dir: &paths.rule_sets_dir(),
         secret,
     })?;
@@ -396,6 +402,11 @@ fn finish(app: &AppHandle, pid: u32) {
     let mode = state.store.lock().unwrap().mode();
     update(app, |s| *s = Status { error, failure, ..Status::disconnected(mode) });
     traffic::reset(app);
+    if state.store.lock().unwrap().settings().clear_logs {
+        state.logs.clear();
+        crate::logs::erase_files(&state.paths.log_file());
+        applog::info("clear logs on disconnect: sing-box log files emptied");
+    }
 
     if !stopped_by_user {
         notify::send(app, "VPN stopped unexpectedly", &reason);

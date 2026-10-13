@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use tokio::time::sleep;
 
-use crate::config::{node_tag, CLASH_PORT};
+use crate::config::{clash_port, node_tag};
 use crate::error::{AppError, Result};
 use crate::state::AppState;
 
@@ -81,7 +81,7 @@ fn request(app: &AppHandle, method: reqwest::Method, path: &str) -> Result<Reque
         .clone()
         .ok_or_else(|| AppError::Invalid("not connected".into()))?;
     Ok(client()?
-        .request(method, format!("http://127.0.0.1:{CLASH_PORT}{path}"))
+        .request(method, format!("http://127.0.0.1:{}{path}", clash_port()))
         .bearer_auth(secret))
 }
 

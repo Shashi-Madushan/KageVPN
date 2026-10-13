@@ -80,3 +80,20 @@ fn the_tailer_starts_again_from_the_top_after_the_log_is_trimmed() {
     assert!(lines[0].text.contains("fresh"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn erasing_the_logs_empties_the_log_and_removes_the_previous_one() {
+    let dir = std::env::temp_dir().join(format!("kage-logerase-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let log = dir.join("sing-box.log");
+    std::fs::write(&log, "INFO inbound connection to example.com:443\n").unwrap();
+    std::fs::write(dir.join("sing-box.log.prev"), "older\n").unwrap();
+
+    erase_files(&log);
+    assert_eq!(std::fs::metadata(&log).unwrap().len(), 0, "the live log stays, empty");
+    assert!(!dir.join("sing-box.log.prev").exists());
+
+    erase_files(&dir.join("missing.log"));
+    assert!(!dir.join("missing.log").exists(), "a missing log is not created");
+    let _ = std::fs::remove_dir_all(&dir);
+}

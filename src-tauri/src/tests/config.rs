@@ -19,6 +19,9 @@ fn input<'a>(profiles: &'a [Profile], routing: &'a RoutingSettings, mode: Mode) 
         mode,
         routing,
         log_path: Path::new("/tmp/log"),
+        log_level: LogLevel::default(),
+        mixed_port: DEFAULT_MIXED_PORT,
+        clash_port: DEFAULT_CLASH_PORT,
         rule_sets_dir: Path::new("/tmp/kage-vpn-no-rule-sets"),
         secret: "secret",
     }
@@ -239,4 +242,47 @@ fn app_rules_pass_singbox_check() {
     std::fs::write(&path, serde_json::to_vec(&cfg).unwrap()).unwrap();
     crate::singbox::check(&binary, &path).unwrap();
     let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn the_log_level_and_ports_come_from_the_input() {
+    let profiles = vec![profile()];
+    let routing = RoutingSettings::default();
+    let mut config_input = input(&profiles, &routing, Mode::Tun);
+    config_input.log_level = LogLevel::Errors;
+    config_input.mixed_port = 2185;
+    config_input.clash_port = 19191;
+    let cfg = build(&config_input).unwrap();
+    assert_eq!(cfg["log"]["level"], "warn");
+    assert_eq!(cfg["inbounds"][0]["listen_port"], 2185);
+    assert_eq!(cfg["experimental"]["clash_api"]["external_controller"], "127.0.0.1:19191");
+
+    for (level, name) in [(LogLevel::Errors, "warn"), (LogLevel::Normal, "info"), (LogLevel::Detailed, "debug")] {
+        config_input.log_level = level;
+        assert_eq!(build(&config_input).unwrap()["log"]["level"], name);
+    }
+}
+
+#[test]
+fn a_config_with_other_ports_and_a_quiet_log_passes_singbox_check() {
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let profiles = vec![profile()];
+    let routing = RoutingSettings::default();
+    let mut config_input = input(&profiles, &routing, Mode::Proxy);
+    config_input.log_level = LogLevel::Errors;
+    config_input.mixed_port = 2185;
+    config_input.clash_port = 19191;
+    let path = std::env::temp_dir().join("kage-vpn-test-ports.json");
+    std::fs::write(&path, serde_json::to_vec(&build(&config_input).unwrap()).unwrap()).unwrap();
+    crate::singbox::check(&binary, &path).unwrap();
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn the_default_log_level_is_normal_and_reads_from_old_settings() {
+    assert_eq!(LogLevel::default(), LogLevel::Normal);
+    let old: crate::store::Settings = serde_json::from_str(r#"{"showSpeed":false,"autoConnect":true}"#).unwrap();
+    assert_eq!((old.log_level, old.clear_logs), (LogLevel::Normal, false));
+    let new: crate::store::Settings = serde_json::from_str(r#"{"logLevel":"errors","clearLogs":true}"#).unwrap();
+    assert_eq!((new.log_level, new.clear_logs), (LogLevel::Errors, true));
 }

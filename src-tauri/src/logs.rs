@@ -132,6 +132,13 @@ pub fn trim_if_large(path: &std::path::Path, cap: u64) -> bool {
     std::fs::OpenOptions::new().write(true).open(path).and_then(|file| file.set_len(0)).is_ok()
 }
 
+/// Empties the log and the copy of the previous run. The file is truncated rather than removed so
+/// that the tailer, and a root-owned sing-box that may still hold it open, carry on working.
+pub fn erase_files(path: &std::path::Path) {
+    let _ = std::fs::remove_file(path.with_extension("log.prev"));
+    let _ = std::fs::OpenOptions::new().write(true).open(path).and_then(|file| file.set_len(0));
+}
+
 pub fn spawn_tailer(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut offset = 0u64;

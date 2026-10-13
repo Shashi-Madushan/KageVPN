@@ -37,11 +37,11 @@ class AppStore {
 	profiles = $state<Profile[]>([]);
 	activeId = $state<string | null>(null);
 	mode = $state<Mode>('tun');
-	status = $state<Status>({ state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null });
+	status = $state<Status>({ state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null });
 	logs = $state<LogLine[]>([]);
 	traffic = $state<Traffic>(NO_TRAFFIC);
 	history = $state<Sample[]>([]);
-	settings = $state<Settings>({ showSpeed: true, autoConnect: false });
+	settings = $state<Settings>({ showSpeed: true, autoConnect: false, logLevel: 'normal', clearLogs: false });
 	launchAtLogin = $state(false);
 	auto = $state<AutoSettings>({ enabled: false, group: null });
 	subscriptions = $state<Subscription[]>([]);

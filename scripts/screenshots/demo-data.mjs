@@ -47,8 +47,8 @@ function install(opts) {
 	}));
 
 	const status = opts.connected
-		? { state: 'connected', mode: 'tun', since: now - 5400, error: null, health: 'healthy', reason: null, latencyMs: 38, failure: null }
-		: { state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null };
+		? { state: 'connected', mode: 'tun', since: now - 5400, error: null, health: 'healthy', reason: null, latencyMs: 38, failure: null, proxyPort: null }
+		: { state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null };
 	const logLine = (level, text) => ({ level, text, hint: null });
 	const logs = opts.connected
 		? [
@@ -71,7 +71,7 @@ function install(opts) {
 		profiles, activeId: profiles.length ? 'p1' : null, mode: 'tun', status, logs,
 		traffic: opts.connected ? { up: 96000, down: 1750000, totalUp: 74 * MB, totalDown: 612 * MB } : { up: 0, down: 0, totalUp: 0, totalDown: 0 },
 		history: opts.connected ? history : [],
-		settings: { showSpeed: true, autoConnect: false }, launchAtLogin: true, auto: { enabled: false, group: null },
+		settings: { showSpeed: true, autoConnect: false, logLevel: 'normal', clearLogs: false }, launchAtLogin: true, auto: { enabled: false, group: null },
 		subscriptions: [{ id: 's1', name: 'Example provider', url: 'https://example.com/sub', intervalHours: 24, lastUpdated: now - 7200, lastError: null, userInfo: { upload: 8e9, download: 41e9, total: 200e9, expire: now + 86400 * 18 }, userAgent: null, sendDeviceId: false }],
 		routing: {
 			mode: 'rule', bypassLan: true, finalAction: 'proxy',

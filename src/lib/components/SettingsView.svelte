@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
-	import type { UpdatePolicy } from '$lib/api';
+	import type { LogLevel, UpdatePolicy } from '$lib/api';
 	import ConfirmDialog from './ConfirmDialog.svelte';
 	import Select from './Select.svelte';
 	import UsageSettingsSection from './UsageSettingsSection.svelte';
@@ -58,6 +58,16 @@
 		);
 		restoring = false;
 	}
+	const logLevels = [
+		{ value: 'errors' as const, label: 'Errors only' },
+		{ value: 'normal' as const, label: 'Normal' },
+		{ value: 'detailed' as const, label: 'Detailed' }
+	];
+	const logLevelNote: Record<LogLevel, string> = {
+		errors: 'Only problems are written. The sites you visit are not listed, except ones that failed to load.',
+		normal: 'Problems and every connection, including the sites you visit.',
+		detailed: 'Everything, including the sites you visit. Use it to track down a problem, then switch back.'
+	};
 	const policies = [
 		{ value: 'ask' as const, label: 'Ask me' },
 		{ value: 'auto' as const, label: 'Install automatically' },
@@ -117,6 +127,18 @@
 				<button class="btn" disabled={restoring} onclick={restore}>{restoring ? 'Working…' : 'Restore internet access'}</button>
 			</div>
 		{/if}
+	</div>
+
+	<span class="caption">Logs</span>
+	<div class="settings card">
+		<div class="restore">
+			<span><strong>Log detail</strong><small>{logLevelNote[app.settings.logLevel]} Applies the next time you connect.</small></span>
+			<Select options={logLevels} value={app.settings.logLevel} label="Log detail" onchange={(level: LogLevel) => app.updateSettings({ logLevel: level })} />
+		</div>
+		<label>
+			<span><strong>Clear logs when disconnected</strong><small>Empty the engine's log files each time the VPN turns off, so no list of visited sites stays on this Mac.</small></span>
+			<input type="checkbox" checked={app.settings.clearLogs} onchange={(e) => app.updateSettings({ clearLogs: e.currentTarget.checked })} />
+		</label>
 	</div>
 
 	<UsageSettingsSection />

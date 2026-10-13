@@ -12,7 +12,7 @@ use crate::core::{CoreSet, CoreSettings};
 use crate::error::{AppError, Result};
 use crate::fsutil;
 use crate::profile::Profile;
-use crate::settings::{AutoSettings, ReliabilitySettings, RoutingSettings, Subscription, UsageSettings};
+use crate::settings::{AutoSettings, LogLevel, ReliabilitySettings, RoutingSettings, Subscription, UsageSettings};
 
 const SCHEMA_VERSION: u32 = 4;
 /// Fields that describe this Mac rather than the user's setup, so a backup leaves them out and a
@@ -24,11 +24,14 @@ const MACHINE_FIELDS: &[&str] = &["cores", "core", "deviceId"];
 pub struct Settings {
     pub show_speed: bool,
     pub auto_connect: bool,
+    pub log_level: LogLevel,
+    /// Empty sing-box's log files whenever the VPN is turned off.
+    pub clear_logs: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { show_speed: true, auto_connect: false }
+        Self { show_speed: true, auto_connect: false, log_level: LogLevel::default(), clear_logs: false }
     }
 }
 

@@ -102,6 +102,28 @@ impl Default for RoutingSettings {
     }
 }
 
+/// How much sing-box writes to its log. Anything above `Errors` lists the sites that were visited
+/// (checked against sing-box 1.14: `info` and `debug` log every connection's destination; `warn`
+/// only the ones that failed).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Errors,
+    #[default]
+    Normal,
+    Detailed,
+}
+
+impl LogLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            LogLevel::Errors => "warn",
+            LogLevel::Normal => "info",
+            LogLevel::Detailed => "debug",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum QuotaAction {

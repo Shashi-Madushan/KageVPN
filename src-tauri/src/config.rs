@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU16, Ordering};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -6,15 +7,33 @@ use url::Url;
 
 use crate::error::{AppError, Result};
 use crate::profile::Profile;
-use crate::settings::{Action, DnsProvider, DnsSettings, RouteMode, RoutingSettings, Rule, RuleKind, RuleSetKind};
+use crate::settings::{Action, DnsProvider, DnsSettings, LogLevel, RouteMode, RoutingSettings, Rule, RuleKind, RuleSetKind};
 
-pub const MIXED_PORT: u16 = 2080;
-pub const CLASH_PORT: u16 = 19090;
+/// The ports the app asks for first. When another program holds one, connecting picks a free one
+/// instead (see `net::choose_ports`) and `set_ports` records the choice for everything that talks
+/// to sing-box afterwards.
+pub const DEFAULT_MIXED_PORT: u16 = 2080;
+pub const DEFAULT_CLASH_PORT: u16 = 19090;
+static MIXED_PORT: AtomicU16 = AtomicU16::new(DEFAULT_MIXED_PORT);
+static CLASH_PORT: AtomicU16 = AtomicU16::new(DEFAULT_CLASH_PORT);
+
+/// The local proxy port of the current (or last) connection.
+pub fn mixed_port() -> u16 {
+    MIXED_PORT.load(Ordering::SeqCst)
+}
+
+/// The sing-box controller port of the current (or last) connection.
+pub fn clash_port() -> u16 {
+    CLASH_PORT.load(Ordering::SeqCst)
+}
+
+pub fn set_ports(mixed: u16, clash: u16) {
+    MIXED_PORT.store(mixed, Ordering::SeqCst);
+    CLASH_PORT.store(clash, Ordering::SeqCst);
+}
 const TUN_ADDRESS_V4: &str = "172.19.0.1/30";
 const TUN_ADDRESS_V6: &str = "fdfe:dcba:9876::1/126";
 const MAX_NODES: usize = 150;
-/// Debug so that the reason for a silent sing-box exit (status 0, no error) reaches the log.
-const LOG_LEVEL: &str = "debug";
 use crate::app_config::urls::CONNECTION_PROBE as PROBE_URL;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,6 +60,9 @@ pub struct ConfigInput<'a> {
     pub mode: Mode,
     pub routing: &'a RoutingSettings,
     pub log_path: &'a Path,
+    pub log_level: LogLevel,
+    pub mixed_port: u16,
+    pub clash_port: u16,
     /// Where the country and category lists are kept (see `rulesets`).
     pub rule_sets_dir: &'a Path,
     pub secret: &'a str,
@@ -74,7 +96,7 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
     outbounds.push(json!({ "type": "direct", "tag": "direct" }));
 
     let mut inbounds = vec![json!({
-        "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": MIXED_PORT,
+        "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": input.mixed_port,
     })];
     if input.mode == Mode::Tun {
         // sing-box only routes an address family into the tunnel when the interface has an address
@@ -100,13 +122,13 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
 
     let experimental = json!({
         "clash_api": {
-            "external_controller": format!("127.0.0.1:{CLASH_PORT}"),
+            "external_controller": format!("127.0.0.1:{}", input.clash_port),
             "secret": input.secret,
         },
     });
 
     Ok(json!({
-        "log": { "level": LOG_LEVEL, "timestamp": true, "output": input.log_path },
+        "log": { "level": input.log_level.as_str(), "timestamp": true, "output": input.log_path },
         "dns": dns(&input.routing.dns),
         "experimental": experimental,
         "inbounds": inbounds,

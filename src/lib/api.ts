@@ -34,6 +34,8 @@ export interface Status {
 	latencyMs: number | null;
 	/** Why the last attempt to connect failed. */
 	failure: ErrorInfo | null;
+	/** The local proxy's port while connected; it is not always 2080 when that port was busy. */
+	proxyPort: number | null;
 }
 
 export interface ErrorInfo {
@@ -65,9 +67,15 @@ export interface Traffic {
 	totalDown: number;
 }
 
+export type LogLevel = 'errors' | 'normal' | 'detailed';
+
 export interface Settings {
 	showSpeed: boolean;
 	autoConnect: boolean;
+	/** How much the VPN engine writes to its log. Takes effect on the next connection. */
+	logLevel: LogLevel;
+	/** Empty the engine's log files whenever the VPN is turned off. */
+	clearLogs: boolean;
 }
 
 export interface AutoSettings {

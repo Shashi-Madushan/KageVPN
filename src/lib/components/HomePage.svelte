@@ -148,6 +148,9 @@
 					{#if elapsed}<span class="elapsed tabular">{elapsed}</span>{/if}
 				</div>
 				<div class="chips">
+					{#if app.connected && app.status.mode === 'proxy' && app.status.proxyPort}
+						<span class="chip mono" title="Point apps at this address (SOCKS5 or HTTP)">127.0.0.1:{app.status.proxyPort}</span>
+					{/if}
 					{#if app.reliability.killSwitch}
 						<span class="chip" title="Kill switch is armed"><Icon name="shield" size={12} /> Kill switch</span>
 					{/if}
