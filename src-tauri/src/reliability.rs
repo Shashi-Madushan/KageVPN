@@ -119,8 +119,8 @@ pub fn spawn_reconnect(app: AppHandle) {
             Outcome::Failed(error) => notify::send(&app, "Could not reconnect", &format!("{error}. Open the app to connect manually.")),
             Outcome::GaveUp => {
                 state.reconnect_waiting.store(true, Ordering::SeqCst);
-                applog::info("reconnect gave up; it will start again when the network changes");
-                notify::send(&app, "Could not reconnect", "It will try again when your network changes, or open the app to connect now.");
+                applog::info("reconnect gave up; it will start again when the network changes or the server answers");
+                notify::send(&app, "Could not reconnect", "It will try again when your internet is back, or open the app to connect now.");
             }
         }
     });

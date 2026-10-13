@@ -18,6 +18,10 @@ const WAKE_SETTLE: Duration = Duration::from_secs(4);
 const NETWORK_SETTLE: Duration = Duration::from_secs(2);
 const PROBE_ATTEMPTS: u32 = 2;
 const PROBE_PAUSE: Duration = Duration::from_secs(2);
+/// While a reconnect that gave up is waiting, how often to check whether the server is reachable
+/// again. The internet can come back without any interface change (a router or ISP outage), so
+/// waiting for a network change alone could wait forever.
+const WAITING_POLL: Duration = Duration::from_secs(15);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Change {
@@ -101,6 +105,7 @@ pub fn spawn(app: AppHandle) {
         let mut wall = SystemTime::now();
         let mut mono = Instant::now();
         let mut known = current_fingerprint();
+        let mut last_poll = Instant::now();
         loop {
             sleep(TICK).await;
             let (wall_now, mono_now) = (SystemTime::now(), Instant::now());
@@ -120,9 +125,25 @@ pub fn spawn(app: AppHandle) {
                 known = current_fingerprint();
                 wall = SystemTime::now();
                 mono = Instant::now();
+            } else if last_poll.elapsed() >= WAITING_POLL {
+                last_poll = Instant::now();
+                resume_if_reachable(&app).await;
             }
         }
     });
+}
+
+/// Starts a reconnect that gave up again once the server answers, even if the network looks the same.
+async fn resume_if_reachable(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    if !state.reconnect_waiting.load(std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    let Some(profile) = state.store.lock().unwrap().active_profile().cloned() else { return };
+    if crate::health::preflight(&profile).await.is_ok() && reliability::take_resume(app) {
+        applog::info("network watch: the server is reachable again, reconnecting");
+        reliability::spawn_reconnect(app.clone());
+    }
 }
 
 async fn handle(app: &AppHandle, change: Change) {
