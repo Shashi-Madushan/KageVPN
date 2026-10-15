@@ -1,5 +1,7 @@
 # Kill switch redesign (audit item O2)
 
+> **Done** in four steps (below). Remaining: a run against the real firewall on a spare Mac.
+
 Status: steps 1 to 4 (G1 to G5, the `ready` signal and the Home state) are implemented and tested against a stub `pfctl` (see `runner/helper.sh`, `session::holds_block`, `tests/runner.rs`); the rest is design only. Nothing has been run against the real firewall. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
 
 ## What happens today

@@ -106,10 +106,12 @@ Then open the app normally. You only need to do this once per downloaded version
 ### Protection and reliability
 
 - **Verified connections.** The app says "You're protected" only after a real request has gone through the tunnel, keeps checking in the background, and tells you why when traffic stops (server not answering, server rejected the connection, or no traffic). Failed connects explain what went wrong, with a fix button.
-- **Auto-reconnect** when the tunnel drops, and an optional **restart a dead tunnel** setting.
+- **Auto-reconnect** when the tunnel drops, and a **restart a dead tunnel** setting (on by default for new installs).
 - **Crash log.** If sing-box or the tunnel stops on its own you get a notification with the reason, and an entry in a crash log you can open inside the app.
-- **Kill switch** (experimental, TUN mode) that blocks traffic if the tunnel stops unexpectedly.
-- **Routing rules** with Global, Rules and Direct modes. Match by domain, domain suffix, keyword, IP range, process name, or an **app picked from your installed apps** (split tunneling: the rule covers the app's helper processes too), send traffic through the VPN, direct, or block it, add country lists, bypass your local network, and choose your DNS resolver. A built-in tester shows which rule a domain would hit.
+- **Kill switch** (experimental, TUN mode, off by default). It blocks traffic if the tunnel stops, and keeps blocking through restarts and failed reconnects until the new tunnel is verified. Home says when it is blocking and has an **Unblock internet** button. It allows IPv6 neighbour discovery and your server's addresses (looked up again every few minutes), and lets DNS through for up to 20 seconds while a reconnect starts. It has been tested against a stub firewall only, not yet on the real one.
+- **Local proxy password** (optional). Protect the proxy on `127.0.0.1` with a login so other users on your Mac cannot use your tunnel.
+- **Routing rules** with Global, Rules and Direct modes. Match by domain, domain suffix, keyword, IP range, process name, or an **app picked from your installed apps** (split tunneling: the rule covers the app's helper processes too), send traffic through the VPN, direct, or block it, bypass your local network, and choose your DNS resolver. A built-in tester shows which rule a domain would hit.
+- **Ready-made lists** picked by name (countries, ad networks, Google, Netflix, Telegram and dozens more) instead of codes, kept up to date for you. Choose where they come from (SagerNet, MetaCubeX, v2rayN, Loyalsoldier, runetfreedom, or your own address), and download, update or delete them from the app. Downloads go through the VPN first when connected, so a network that blocks GitHub does not matter.
 - **Live connections** with an **Apps** view (which app is sending and receiving data right now, with live speeds, and a one-click choice to always send it through the VPN, directly or not at all) and a table of every open connection, its app, destination, route and traffic, with the option to close any of them.
 
 ### Insight
@@ -144,7 +146,7 @@ All screenshots use made-up demo data: example hosts and documentation-range IP 
 |---|---|
 | <img src="docs/images/servers.png" alt="Servers" width="430"><br>**Servers**: grouped, searchable, with live latency | <img src="docs/images/home-dark.png" alt="Home in dark mode" width="430"><br>**Dark mode**: system, light or dark |
 | <img src="docs/images/usage.png" alt="Data usage" width="430"><br>**Data usage**: totals, trend and per-app breakdown | <img src="docs/images/diagnostics.png" alt="Diagnostics and speed test" width="430"><br>**Diagnostics**: leak check and speed test |
-| <img src="docs/images/routing.png" alt="Routing" width="430"><br>**Routing**: rules, country lists and DNS | <img src="docs/images/connections.png" alt="Live connections" width="430"><br>**Connections**: every open connection, live |
+| <img src="docs/images/routing.png" alt="Routing" width="430"><br>**Routing**: rules, ready-made lists and DNS | <img src="docs/images/connections.png" alt="Live connections" width="430"><br>**Connections**: every open connection, live |
 | <img src="docs/images/engine.png" alt="Engine manager" width="430"><br>**Engine**: versions, channels and update policy | <img src="docs/images/logs.png" alt="Logs" width="430"><br>**Logs**: filters, search and error hints |
 | <img src="docs/images/settings.png" alt="Settings" width="430"><br>**Settings**: reliability, updates and shortcuts | <img src="docs/images/welcome.png" alt="Welcome tour" width="430"><br>**Welcome tour**: first-run setup |
 

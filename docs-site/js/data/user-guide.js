@@ -190,8 +190,10 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
   },
   toc: [
     { id: "routing-philosophy", label: "Smart Routing Overview" },
-    { id: "built-in-rules", label: "Built-in Rule Categories" },
-    { id: "custom-rules", label: "Custom Domain & IP Rules" },
+    { id: "routing-modes", label: "Choosing a Mode" },
+    { id: "built-in-rules", label: "Ready-made Lists" },
+    { id: "list-sources", label: "List Sources & Downloads" },
+    { id: "custom-rules", label: "Your Own Rules" },
     { id: "dns-resolution-rules", label: "Route Precedence" }
   ],
   contentHtml: `
@@ -201,44 +203,40 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
         Running all network traffic through an encrypted proxy introduces unnecessary latency for domestic services (banking apps, local streaming, local LAN printers). Kage VPN solves this through sing-box's declarative route rule engine.
       </p>
 
-      <h2 id="built-in-rules">Built-in Rule Categories</h2>
-      <div class="docs-table-wrapper">
-        <table class="docs-table">
-          <thead>
-            <tr>
-              <th>Rule Target</th>
-              <th>Action</th>
-              <th>Behavior</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Private / LAN Addresses</strong></td>
-              <td><code>direct</code></td>
-              <td>Bypasses proxy for <code>10.0.0.0/8</code>, <code>192.168.0.0/16</code>, and <code>*.local</code> mDNS.</td>
-            </tr>
-            <tr>
-              <td><strong>Domestic GeoIP & GeoSite</strong></td>
-              <td><code>direct</code></td>
-              <td>Keeps local country web traffic on normal ISP route for lowest latency.</td>
-            </tr>
-            <tr>
-              <td><strong>Blocked GeoSite (GFW / Censorship)</strong></td>
-              <td><code>proxy</code></td>
-              <td>Routes Google, YouTube, GitHub, Twitter, and OpenAI through the encrypted tunnel.</td>
-            </tr>
-            <tr>
-              <td><strong>Ad & Tracker Blocking</strong></td>
-              <td><code>block</code></td>
-              <td>Silently drops telemetry and malicious tracker domains.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h2 id="custom-rules">Custom Domain & IP Rules</h2>
+      <h2 id="routing-modes">Choosing a Mode</h2>
       <p>
-        You can add specific override rules via the UI:
+        <strong>Routing</strong> opens with three cards: <strong>Everything through the VPN</strong> (the simplest choice), <strong>Choose by rules</strong>, and <strong>VPN idle</strong> (the VPN stays on but nothing uses it, which is handy for testing). In rules mode, an <strong>Everything else</strong> card decides what happens to traffic that no rule or list matches: <em>Use the VPN</em> or <em>Go direct</em>. Below it, three tabs hold <strong>Your rules</strong>, <strong>Ready-made lists</strong> and <strong>Try a website</strong>. <strong>Network</strong>, at the bottom, has the local-network and DNS settings that apply in every mode. Changes apply when you press <strong>Save changes</strong> and connect again.
+      </p>
+
+      <h2 id="built-in-rules">Ready-made Lists</h2>
+      <p>
+        Instead of typing addresses, switch on lists that are kept up to date for you. Open <strong>Ready-made lists</strong> and press <strong>Add a list</strong>:
+      </p>
+      <ul>
+        <li><strong>Countries:</strong> every network address registered in a country (for example Sri Lanka, China or Russia). <em>Go direct</em> is the usual choice for your own country.</li>
+        <li><strong>Websites &amp; services:</strong> advertising and trackers, local and private networks, Google, YouTube, Apple, Microsoft, GitHub, OpenAI, Anthropic, Netflix, Disney+, Spotify, Telegram, WhatsApp, Discord, X, Facebook, TikTok, Steam, PayPal, Amazon and more. Each one suggests a sensible action, such as <em>Block</em> for advertising.</li>
+        <li><strong>Other&hellip;</strong> accepts any list name the chosen source publishes.</li>
+      </ul>
+      <p>
+        Each list shows whether it is <strong>Ready</strong> or <strong>Not downloaded</strong>. A list that could not be downloaded is left out and the connection still starts, so a blocked download never stops you from connecting.
+      </p>
+
+      <h2 id="list-sources">List Sources & Downloads</h2>
+      <p>
+        Lists are downloaded by the app and refreshed weekly. Open <strong>Downloads and sources</strong> under the lists to manage them:
+      </p>
+      <ul>
+        <li><strong>Where lists come from:</strong> choose <em>SagerNet</em> (the default, the sing-box authors' own lists), <em>MetaCubeX</em>, <em>v2rayN</em>, <em>Loyalsoldier (IP lists)</em> or <em>runetfreedom (Russia)</em>. If one is slow or blocked where you are, pick another. Choosing a different source and saving downloads your lists again from it.</li>
+        <li><strong>Add your own source:</strong> give a name and an address that contains <code>{name}</code> where the list name goes, for example <code>https://example.com/geoip-{name}.srs</code>. Site lists are optional. The files must be sing-box rule lists (<code>.srs</code>); V2Ray <code>.dat</code> files cannot be used by sing-box.</li>
+        <li><strong>Downloaded lists:</strong> see each list's size and age, and download, update or delete one list or all of them. These buttons use your saved settings, so save first.</li>
+      </ul>
+      <p>
+        <strong>Blocked networks.</strong> Kage tries GitHub, then a jsDelivr copy of the same file. Once you are connected, downloads go through the VPN first, then directly, so a network that blocks GitHub no longer matters. A list that could not be fetched before connecting is fetched through the tunnel as soon as it is verified, and you get a notification to reconnect to apply it.
+      </p>
+
+      <h2 id="custom-rules">Your Own Rules</h2>
+      <p>
+        Open <strong>Your rules</strong> and use <strong>Add a rule</strong>: choose what to match, type the address, and choose <em>Use the VPN</em>, <em>Go direct</em> or <em>Block</em>. Rules are numbered and can be moved up or down. New users also see ready-made sets (streaming direct, AI through the VPN, block ads). <strong>Try a website</strong> tells you what your rules would do with an address. The options are:
       </p>
       <ul>
         <li><strong>Domain Suffix:</strong> Match <code>.company.internal</code> &rarr; <code>direct</code>.</li>
@@ -253,7 +251,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
 
       <h2 id="dns-resolution-rules">Route Precedence</h2>
       <p>
-        Rules are evaluated from top to bottom. The first rule that matches a socket connection takes precedence. Unmatched traffic falls through to the <strong>Default Outbound</strong> specified on your active connection profile.
+        Your rules are evaluated from top to bottom and the first one that matches decides. Ready-made lists come after your rules. Anything still unmatched follows <strong>Everything else</strong>.
       </p>
     </div>
   `
@@ -272,6 +270,8 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
   toc: [
     { id: "threat-model", label: "The Leak Threat Model" },
     { id: "pfctl-anchor-mechanism", label: "macOS pfctl Anchor Mechanism" },
+    { id: "reconnect-block", label: "While Reconnecting" },
+    { id: "unblock", label: "Unblock Internet" },
     { id: "watchdog-monitoring", label: "Process Watchdog Loop" },
     { id: "connection-health", label: "Connection Health Monitor" },
     { id: "crash-log", label: "When the VPN Stops Unexpectedly" },
@@ -290,19 +290,30 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
     <div class="docs-prose">
       <h2 id="pfctl-anchor-mechanism">macOS pfctl Anchor Mechanism</h2>
       <p>
-        Kage VPN does not rely on fragile userspace sleep loops. Instead, it utilizes macOS's built-in FreeBSD packet filter (<code>pfctl</code>) by registering a dedicated firewall anchor:
-      </p>
-      <code>com.apple/250.KageVPN</code>
-      <p>
-        When the Kill Switch is activated:
+        Kage VPN uses macOS's built-in packet filter (<code>pfctl</code>) through a dedicated anchor, <code>com.apple/250.KageVPN</code>. The kill switch is <strong>experimental</strong>, works in TUN mode only, and is off by default. The firewall rules are managed by the root helper that runs sing-box, so they stay in place even if the app itself crashes. While a block is up, the helper allows only:
       </p>
       <ul>
-        <li>All outbound IPv4 and IPv6 packets from physical interfaces (<code>en0</code>, <code>en1</code>) are blocked.</li>
-        <li>An explicit pass rule is preserved only for the IP and port of your active proxy server.</li>
-        <li>Traffic exiting the virtual <code>utun</code> adapter is permitted.</li>
+        <li>Loopback traffic and local-network ranges (<code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>, link-local and multicast).</li>
+        <li>IPv6 router and neighbour discovery and link-local traffic, so IPv6 networks keep working.</li>
+        <li>The addresses of your server. Kage looks the server name up again on every connect and every five minutes while connected, and remembers the last three answers, so a server whose name starts resolving elsewhere is already allowed.</li>
       </ul>
       <p>
-        If the sing-box process terminates unexpectedly, the packet filter rules remain locked in the kernel, ensuring <strong>zero packets</strong> leave your machine in plaintext.
+        Everything else is dropped. The block goes up when sing-box exits unexpectedly and when the tunnel is up but has stopped carrying traffic.
+      </p>
+
+      <h2 id="reconnect-block">While Reconnecting</h2>
+      <p>
+        The block is not released between reconnect attempts. A failed attempt, or a restart of a dead tunnel, keeps it up until the new tunnel has been verified (a real request went through it). A failed <em>first</em> connect, for example a wrong password or a bad server, does not block anything.
+      </p>
+      <ul>
+        <li><strong>DNS:</strong> for up to 20 seconds while a reconnect starts, DNS lookups (port 53) are allowed so sing-box can find your server's name. During those seconds any app's domain-name lookups can reach a resolver; traffic itself stays blocked.</li>
+        <li><strong>Safety valve:</strong> a block that the app never releases is dropped after 10 minutes.</li>
+        <li><strong>Offline:</strong> while blocked, Kage does not try to download lists or look up names. It checks your server using its remembered addresses and resumes the reconnect when the server answers.</li>
+      </ul>
+
+      <h2 id="unblock">Unblock Internet</h2>
+      <p>
+        While a block is up, Home shows <strong>Internet blocked by the kill switch</strong> with an <strong>Unblock internet</strong> button. It needs no password: it stops the reconnect in progress and lets traffic out. If the app crashed and your internet stays blocked, use <strong>Settings &rarr; Restore internet access</strong> (asks for your password) or the command under Emergency Network Recovery.
       </p>
 
       <h2 id="watchdog-monitoring">Process Watchdog Loop</h2>
