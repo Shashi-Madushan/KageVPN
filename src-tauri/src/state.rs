@@ -23,6 +23,8 @@ pub struct AppState {
     pub cancel_connect: AtomicBool,
     /// When the app last asked sing-box to stop, so the next connect can wait for the port to free.
     pub stop_requested_at: Mutex<Option<std::time::Instant>>,
+    /// Whether the kill switch is blocking traffic right now, as reported by the root helper.
+    pub blocked: AtomicBool,
     pub reconnecting: AtomicBool,
     /// The reconnect loop gave up while the network was down; it starts again when the network returns.
     pub reconnect_waiting: AtomicBool,
@@ -49,6 +51,7 @@ impl AppState {
             stopping: AtomicBool::new(false),
             cancel_connect: AtomicBool::new(false),
             stop_requested_at: Mutex::new(None),
+            blocked: AtomicBool::new(false),
             reconnecting: AtomicBool::new(false),
             reconnect_waiting: AtomicBool::new(false),
             manual_actions: AtomicU64::new(0),

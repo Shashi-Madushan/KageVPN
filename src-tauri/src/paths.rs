@@ -95,6 +95,11 @@ impl AppPaths {
         self.data_dir.join("block")
     }
 
+    /// Exists while the root helper holds a kill-switch block; read by the app to tell the user.
+    pub fn blocked_file(&self) -> PathBuf {
+        self.data_dir.join("blocked")
+    }
+
     pub fn helper_script(&self) -> PathBuf {
         self.data_dir.join("helper.sh")
     }

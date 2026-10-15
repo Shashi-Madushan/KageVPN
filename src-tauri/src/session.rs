@@ -50,11 +50,15 @@ pub struct Status {
     /// The port of the local proxy while connected; people point apps at it in Proxy Only mode.
     #[serde(default)]
     pub proxy_port: Option<u16>,
+    /// The kill switch is blocking traffic outside the tunnel (while reconnecting, or when the
+    /// tunnel is down). Set from the root helper's marker; see `reliability::spawn_block_watch`.
+    #[serde(default)]
+    pub blocked: bool,
 }
 
 impl Status {
     pub fn disconnected(mode: Mode) -> Self {
-        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None, proxy_port: None }
+        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None, proxy_port: None, blocked: false }
     }
 }
 
@@ -169,7 +173,7 @@ fn spawn_allow_list_refresh(app: AppHandle, pid: u32) {
             if *state.pid.lock().unwrap() != Some(pid) {
                 return;
             }
-            crate::allowlist::refresh(&state.paths, None).await;
+            crate::allowlist::refresh(&state.paths, None, !state.blocked.load(Ordering::SeqCst)).await;
         }
     });
 }
@@ -301,10 +305,13 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         notify::send(app, "Using another local port", &format!("Port {} was busy, so the local proxy listens on {}.", config::DEFAULT_MIXED_PORT, ports.mixed));
     }
     config::set_ports(ports.mixed, ports.clash);
+    // With the kill switch holding a block, DNS is blocked too: names cannot be looked up and the
+    // downloads would only time out, so those steps use what is already known and on disk.
+    let behind_block = state.blocked.load(Ordering::SeqCst);
     if !state.store.lock().unwrap().auto().enabled {
         let active = state.store.lock().unwrap().active_profile().cloned();
         if let Some(profile) = active {
-            health::preflight(&profile).await?;
+            health::preflight(&profile, behind_block).await?;
         }
     }
     check_cancelled(app)?;
@@ -326,7 +333,11 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     };
     let proxy_password = Some(reliability.proxy_password.clone()).filter(|p| reliability.proxy_auth && !p.is_empty());
     config::set_proxy_password(proxy_password.clone());
-    prepare_rule_sets(app, &routing).await;
+    if behind_block {
+        applog::info("connect: the kill switch is blocking, so rule lists are not downloaded now");
+    } else {
+        prepare_rule_sets(app, &routing).await;
+    }
     check_cancelled(app)?;
 
     let candidates: Vec<Profile> = match (&auto_group, auto) {
@@ -354,7 +365,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
 
     let kill_switch_ips = if reliability.kill_switch && mode == Mode::Tun {
         let targets = nodes.iter().map(|p| (p.server.clone(), p.port)).collect();
-        Some(crate::allowlist::refresh(paths, Some(targets)).await)
+        Some(crate::allowlist::refresh(paths, Some(targets), !behind_block).await)
     } else {
         None
     };
@@ -492,6 +503,7 @@ pub(crate) fn update(app: &AppHandle, change: impl FnOnce(&mut Status)) {
     let state = app.state::<AppState>();
     let mut status = state.status.lock().unwrap();
     change(&mut status);
+    status.blocked = state.blocked.load(Ordering::SeqCst);
     let _ = app.emit("status", status.clone());
 }
 

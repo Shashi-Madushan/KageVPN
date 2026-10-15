@@ -14,12 +14,16 @@
 # is alive but the tunnel is not carrying traffic, and <dir>/ready takes it down again. A block the
 # app never releases is dropped after KAGE_HOLD_MAX seconds (default 600) so a wedged app cannot
 # keep the Mac offline.
+# While a new run comes up behind a block, outgoing DNS (port 53) is let through for KAGE_DNS_WINDOW
+# seconds (default 20) so sing-box can resolve its server's name, then the rules are reloaded
+# without it. <dir>/blocked exists exactly while a block is up, so the app can tell the user.
 bin="$1"; config="$2"; dir="$3"; parent="$4"
-stop="$dir/stop"; down="$dir/down"; allowf="$dir/allow"; readyf="$dir/ready"; blockf="$dir/block"; holdmax="${KAGE_HOLD_MAX:-600}"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
+stop="$dir/stop"; down="$dir/down"; allowf="$dir/allow"; readyf="$dir/ready"; blockf="$dir/block"; holdmax="${KAGE_HOLD_MAX:-600}"; dnswindow="${KAGE_DNS_WINDOW:-20}"; blockedf="$dir/blocked"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
 anchor="com.apple/250.KageVPN"
 token=""
 child=""
 held_since=0
+dns_until=0
 
 # The server addresses the block lets through: the ones named for this run plus the app's
 # refreshed list in <dir>/allow (a name can resolve to other addresses later). Both files are
@@ -41,13 +45,19 @@ engage_block() {
     echo "pass out quick inet6 proto icmp6 all icmp6-type { routersol, routeradv, neighbrsol, neighbradv }"
     echo "pass out quick inet6 from fe80::/10 to fe80::/10"
     [ -n "$list" ] && echo "pass out quick to { $list }"
+    [ "$dns_until" -gt "$(date +%s)" ] && echo "pass out quick proto { udp tcp } to any port 53"
     echo "block drop out all"
   } | pfctl -a "$anchor" -f - 2>/dev/null
-  [ -z "$token" ] && token=$(pfctl -E 2>&1 | sed -n 's/.*Token : //p')
-  held_since=$(date +%s)
+  if [ -z "$token" ]; then
+    token=$(pfctl -E 2>&1 | sed -n 's/.*Token : //p')
+    held_since=$(date +%s)
+  fi
+  : > "$blockedf"
 }
 
 release_block() {
+  dns_until=0
+  rm -f "$blockedf"
   [ -z "$token" ] && return
   pfctl -a "$anchor" -F all 2>/dev/null
   pfctl -X "$token" 2>/dev/null
@@ -63,6 +73,10 @@ tick() {
   if [ -e "$readyf" ]; then
     rm -f "$readyf"
     release_block
+  fi
+  if [ "$dns_until" -ne 0 ] && [ "$(date +%s)" -ge "$dns_until" ]; then
+    dns_until=0
+    [ -n "$token" ] && engage_block
   fi
   if [ -n "$token" ] && [ $(( $(date +%s) - held_since )) -ge "$holdmax" ]; then
     echo "$(date '+%F %T') the app never released the kill-switch block: releasing it" >> "$errlog"
@@ -88,6 +102,8 @@ trap 'echo "$(date "+%F %T") helper received a signal" >> "$errlog"; [ -n "$chil
 # sing-box's own stderr (Go panics, fatal errors) and exit status, so a silent death leaves a trace.
 errlog="$dir/sing-box.stderr.log"
 
+rm -f "$blockedf"
+
 while alive "$parent" && [ ! -e "$quitf" ]; do
   if [ ! -e "$startf" ]; then
     sleep 0.5
@@ -103,7 +119,10 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
   rm -f "$startf" "$stop" "$down" "$readyf" "$blockf"
   # A block still up from the run before stays until the new run is verified (see "ready"), with
   # the address list refreshed. Without a kill switch for this run it goes now.
-  if [ "$ips" = "none" ]; then release_block; elif [ -n "$token" ]; then engage_block; fi
+  if [ "$ips" = "none" ]; then release_block; elif [ -n "$token" ]; then
+    dns_until=$(( $(date +%s) + dnswindow ))
+    engage_block
+  fi
 
   [ "$(wc -c < "$errlog" 2>/dev/null || echo 0)" -gt 1000000 ] && : > "$errlog"
   "$bin" run -c "$config" >>"$errlog" 2>&1 &

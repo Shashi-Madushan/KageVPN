@@ -140,7 +140,7 @@ async fn resume_if_reachable(app: &AppHandle) {
         return;
     }
     let Some(profile) = state.store.lock().unwrap().active_profile().cloned() else { return };
-    if crate::health::preflight(&profile).await.is_ok() && reliability::take_resume(app) {
+    if crate::health::preflight(&profile, state.blocked.load(std::sync::atomic::Ordering::SeqCst)).await.is_ok() && reliability::take_resume(app) {
         applog::info("network watch: the server is reachable again, reconnecting");
         reliability::spawn_reconnect(app.clone());
     }

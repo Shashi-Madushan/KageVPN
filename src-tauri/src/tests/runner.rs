@@ -515,4 +515,94 @@ mod helper {
         wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
         let _ = fs::remove_dir_all(dir);
     }
+
+    fn start_helper_with_env(dir: &Path, core: &Path, stub_bin: &Path, env: &[(&str, &str)]) -> Child {
+        let script = dir.join("helper.sh");
+        fs::write(&script, super::super::HELPER).unwrap();
+        let mut command = Command::new("/bin/sh");
+        command
+            .args([script.to_str().unwrap(), core.to_str().unwrap(), "unused.json", dir.to_str().unwrap(), &std::process::id().to_string()])
+            .env("PATH", format!("{}:/usr/bin:/bin:/usr/sbin:/sbin", stub_bin.display()))
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        for (key, value) in env {
+            command.env(key, value);
+        }
+        command.spawn().unwrap()
+    }
+
+    #[test]
+    fn the_blocked_marker_exists_exactly_while_a_block_is_up() {
+        let dir = scratch("kill-marker");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        assert!(!dir.join("blocked").exists());
+
+        fs::write(dir.join("block"), "").unwrap();
+        wait_for("the marker", || dir.join("blocked").exists());
+        assert!(blocked(&log));
+
+        fs::write(dir.join("ready"), "").unwrap();
+        wait_for("the marker to go", || !dir.join("blocked").exists());
+        assert!(!blocked(&log));
+
+        fs::write(dir.join("down"), "").unwrap();
+        wait_for("the marker again", || dir.join("blocked").exists());
+        fs::write(dir.join("stop"), "").unwrap();
+        wait_for("the marker to go with the release", || !dir.join("blocked").exists());
+
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn dns_is_let_through_only_briefly_while_a_new_run_comes_up_behind_a_block() {
+        let dir = scratch("kill-dns-window");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_env(&dir, &core, &bin, &[("KAGE_DNS_WINDOW", "2")]);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        let first = child_pid(&dir).unwrap();
+        fs::write(dir.join("down"), "").unwrap();
+        wait_for("the block", || blocked(&log));
+        assert_eq!(log_of(&log).matches("port 53").count(), 0, "a plain block lets no DNS through");
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("the next run", || child_pid(&dir).is_some_and(|p| p != first));
+        wait_for("the DNS window", || log_of(&log).matches("port 53").count() == 1);
+        wait_for("the window to close and the rules to reload", || rule_loads(&log) == 3);
+        assert_eq!(log_of(&log).matches("port 53").count(), 1, "the reloaded rules have no DNS pass");
+        assert!(blocked(&log), "the block itself stays");
+
+        fs::write(dir.join("stop"), "").unwrap();
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_connect_without_a_block_never_opens_dns() {
+        let dir = scratch("kill-no-dns");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        fs::write(dir.join("block"), "").unwrap();
+        wait_for("the block", || blocked(&log));
+        assert_eq!(log_of(&log).matches("port 53").count(), 0);
+
+        fs::write(dir.join("stop"), "").unwrap();
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
 }

@@ -1,5 +1,11 @@
 use super::*;
 
+/// The address history is process-wide, so the tests that refresh it run one at a time.
+fn serial() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: Mutex<()> = Mutex::new(());
+    LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 fn servers(names: &[&str]) -> Vec<String> {
     names.iter().map(|n| n.to_string()).collect()
 }
@@ -62,6 +68,7 @@ fn servers_no_longer_in_use_are_forgotten_and_the_list_is_capped() {
 
 #[test]
 fn refreshing_writes_the_list_the_helper_reads_and_keeps_old_answers_when_a_lookup_fails() {
+    let _serial = serial();
     let dir = std::env::temp_dir().join(format!("kage-allow-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
@@ -69,12 +76,32 @@ fn refreshing_writes_the_list_the_helper_reads_and_keeps_old_answers_when_a_look
     let run = |future| tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(future);
 
     // IP literals resolve without a network.
-    let first = run(refresh(&paths, Some(vec![("192.0.2.7".into(), 443), ("2001:db8::7".into(), 443)])));
+    let first = run(refresh(&paths, Some(vec![("192.0.2.7".into(), 443), ("2001:db8::7".into(), 443)]), true));
     assert_eq!(first, "192.0.2.7,2001:db8::7");
     assert_eq!(std::fs::read_to_string(paths.allow_file()).unwrap(), first);
 
     // A server that cannot be resolved keeps what was known, and a later refresh needs no targets.
-    let again = run(refresh(&paths, None));
+    let again = run(refresh(&paths, None, true));
     assert_eq!(again, first);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn behind_a_block_nothing_is_looked_up_and_what_is_known_is_kept() {
+    let _serial = serial();
+    let dir = std::env::temp_dir().join(format!("kage-allow-blocked-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let paths = crate::paths::AppPaths::new(dir.clone()).unwrap();
+    let run = |future| tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(future);
+
+    run(refresh(&paths, Some(vec![("192.0.2.77".into(), 443)]), true));
+    assert_eq!(known("192.0.2.77"), v(&["192.0.2.77"]));
+    // A name that would never resolve: with lookups off it neither hangs nor loses the old answer.
+    let started = std::time::Instant::now();
+    let list = run(refresh(&paths, Some(vec![("192.0.2.77".into(), 443), ("no-such-host.invalid".into(), 443)]), false));
+    assert!(started.elapsed() < Duration::from_secs(1));
+    assert_eq!(list, "192.0.2.77");
+    assert!(known("no-such-host.invalid").is_empty());
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -159,6 +159,41 @@ pub fn hotkey_label() -> &'static str {
     HOTKEY
 }
 
+/// Follows the root helper's `blocked` marker and publishes it in the status, so Home can say why
+/// the internet is blocked. Costs one `stat` a second, and only while the kill switch is on (or a
+/// marker is still showing).
+pub fn spawn_block_watch(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            sleep(Duration::from_secs(1)).await;
+            let state = app.state::<AppState>();
+            let shown = state.blocked.load(Ordering::SeqCst);
+            let kill_switch = state.store.lock().unwrap().reliability().kill_switch;
+            if !kill_switch && !shown {
+                continue;
+            }
+            let blocked = kill_switch && state.paths.blocked_file().exists();
+            if blocked != shown {
+                state.blocked.store(blocked, Ordering::SeqCst);
+                applog::info(format!("kill switch: traffic is {}", if blocked { "blocked" } else { "released" }));
+                session::update(&app, |_| {});
+            }
+        }
+    });
+}
+
+/// Ends a kill-switch block the user does not want any more, without a password: the root helper
+/// reads the stop file. Also stops a reconnect in progress, so nothing puts the block back.
+pub async fn unblock(app: &AppHandle) -> Result<()> {
+    user_took_over(app);
+    let state = app.state::<AppState>();
+    if state.status.lock().unwrap().state == Conn::Disconnected {
+        crate::runner::request_stop(&state.paths)
+    } else {
+        session::disconnect(app).await
+    }
+}
+
 /// Removes the kill switch firewall rules. Needs one administrator prompt.
 pub async fn restore_network() -> Result<()> {
     let flush = std::iter::once(PF_ANCHOR)

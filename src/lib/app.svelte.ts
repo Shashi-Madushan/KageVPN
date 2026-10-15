@@ -37,7 +37,7 @@ class AppStore {
 	profiles = $state<Profile[]>([]);
 	activeId = $state<string | null>(null);
 	mode = $state<Mode>('tun');
-	status = $state<Status>({ state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null });
+	status = $state<Status>({ state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null, blocked: false });
 	logs = $state<LogLine[]>([]);
 	traffic = $state<Traffic>(NO_TRAFFIC);
 	history = $state<Sample[]>([]);

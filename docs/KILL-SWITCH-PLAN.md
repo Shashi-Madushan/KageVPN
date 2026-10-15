@@ -1,6 +1,6 @@
 # Kill switch redesign (audit item O2)
 
-Status: steps 1 to 3 (G1, G2, G4, G5 and the `ready` signal) are implemented and tested against a stub `pfctl` (see `runner/helper.sh`, `session::holds_block`, `tests/runner.rs`); the rest is design only. Nothing has been run against the real firewall. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
+Status: steps 1 to 4 (G1 to G5, the `ready` signal and the Home state) are implemented and tested against a stub `pfctl` (see `runner/helper.sh`, `session::holds_block`, `tests/runner.rs`); the rest is design only. Nothing has been run against the real firewall. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
 
 ## What happens today
 
@@ -76,7 +76,14 @@ The key change: rules are released only on `ready` or an explicit `stop`, never 
 - **`block`.** When the monitor confirms the tunnel is down (two failed probes, the same moment the status turns to "Down") it writes `block`; the helper puts the block up although sing-box still runs. Probes go through the local proxy to the server, which the block allows, so recovery is noticed while blocked and `ready` lifts it. A fresh connection whose first verification fails does not write `block`.
 - **Safety valve.** A block held for `KAGE_HOLD_MAX` seconds (default 600) without `ready`, `stop` or a new run is dropped and logged. It does not apply while the helper waits for the next run after sing-box died; that wait ends only on a new run, `stop` or the app quitting.
 - **Consequences.** While a block is held during a reconnect, traffic from apps into the tunnel is dropped until the tunnel is verified (the probes use the local proxy, so verification itself works). The installed root service script changes, so the first TUN connect after updating asks for the password once (F14).
-- **Not done (step 4).** DNS lookups made before a run starts (rule-set downloads, server preflight) still run behind a held block; there is no "Blocked, reconnecting" state on Home yet.
+
+## Step 4 as built
+
+- **Reconnect behind a block needs DNS.** Step 3 made a held block survive into the next run, which would have stopped sing-box from resolving a server *name*. While a new run comes up behind a block the helper now also passes outgoing DNS (port 53, any resolver) for `KAGE_DNS_WINDOW` seconds (default 20), then reloads the rules without it. This is a deliberate, time-boxed hole: during those seconds any app's DNS queries (domain names, not traffic) can reach a resolver. A plain block, and a block raised by `block`, never lets DNS through. Pinning the server's remembered address in the config would avoid the hole but changes TLS and transport defaults per protocol, so it was not attempted.
+- **App-side lookups behind a block** are skipped instead of timing out: rule-list downloads, the server's DNS lookup and the address refresh. The preflight and the "server reachable again" check use the remembered addresses instead (`allowlist::known`), so a reconnect that gave up still resumes when the server answers.
+- **Home shows it.** The helper keeps `<data dir>/blocked` while a block is up; the app polls it once a second (only with the kill switch on), puts `blocked` in the status and shows "Internet blocked by the kill switch" with an **Unblock internet** button. The button needs no password: it stands any reconnect down and writes `stop`. "Restore internet access" in Settings (password, flushes the firewall anchor) is still there for a crashed helper.
+- **Test flake fixed on the way.** `net` tests handed a "closed" port to another test's web server, so a connection meant to be refused was counted as a hit; those tests now run one at a time.
+- **Still to do before relying on it:** run the whole thing once on a spare Mac with the real firewall (`pfctl -n -f` on the generated rules first), including the DNS window and the unblock button.
 
 ## Order of work
 

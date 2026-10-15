@@ -95,6 +95,7 @@ pub fn run() {
             subscriptions::spawn_scheduler(app.handle().clone());
             reliability::apply_hotkey(app.handle());
             network_watch::spawn(app.handle().clone());
+            reliability::spawn_block_watch(app.handle().clone());
             sampler::spawn(app.handle().clone());
             register_deep_links(app.handle());
 
@@ -136,6 +137,7 @@ pub fn run() {
             commands::set_routing,
             commands::set_reliability,
             commands::restore_network,
+            commands::unblock_internet,
             commands::root_service_installed,
             commands::install_root_service,
             commands::uninstall_root_service,

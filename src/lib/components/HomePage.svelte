@@ -44,10 +44,12 @@
 
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const statusText = $derived(
-		app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
+		app.status.blocked && app.reliability.killSwitch ? 'Blocked' : app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
 	);
 	const headline = $derived(
-		app.tunnelDown
+		app.status.blocked && app.reliability.killSwitch
+			? 'Internet blocked by the kill switch'
+			: app.tunnelDown
 			? 'Connected, but no internet'
 			: app.verifying
 				? 'Checking your connection…'

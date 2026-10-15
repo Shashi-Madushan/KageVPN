@@ -63,10 +63,17 @@ struct Current {
 
 static CURRENT: Mutex<Option<Current>> = Mutex::new(None);
 
+/// The addresses remembered for one server; empty when nothing is known.
+pub fn known(server: &str) -> Vec<String> {
+    let guard = CURRENT.lock().unwrap();
+    guard.as_ref().map(|c| c.history.addresses(&[server.to_string()])).unwrap_or_default()
+}
+
 /// Looks the servers up again, remembers the answers, writes `<data dir>/allow` and returns the
 /// addresses as a comma list. With `targets` the set of servers changes to those (a new connect);
-/// without, the servers of the current connection are refreshed.
-pub async fn refresh(paths: &AppPaths, targets: Option<Vec<(String, u16)>>) -> String {
+/// without, the servers of the current connection are refreshed. With `lookup` false (the kill
+/// switch is blocking, and DNS with it) nothing is looked up and what is known is returned.
+pub async fn refresh(paths: &AppPaths, targets: Option<Vec<(String, u16)>>, lookup: bool) -> String {
     let targets = {
         let mut guard = CURRENT.lock().unwrap();
         let current = guard.get_or_insert_with(Current::default);
@@ -78,7 +85,7 @@ pub async fn refresh(paths: &AppPaths, targets: Option<Vec<(String, u16)>>) -> S
     };
 
     let mut answers = Vec::new();
-    for (server, port) in &targets {
+    for (server, port) in targets.iter().filter(|_| lookup) {
         let found = match tokio::time::timeout(LOOKUP_TIMEOUT, tokio::net::lookup_host((server.as_str(), *port))).await {
             Ok(Ok(found)) => found.map(|a| a.ip().to_string()).collect(),
             _ => Vec::new(),

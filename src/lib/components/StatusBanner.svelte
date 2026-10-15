@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
 	import { crashLog } from '$lib/crashLog.svelte';
@@ -8,6 +9,17 @@
 
 	const failure = $derived(app.status.state === 'disconnected' ? app.status.failure : null);
 	const down = $derived(app.tunnelDown);
+	const blocked = $derived(app.status.blocked && app.reliability.killSwitch);
+	let unblocking = $state(false);
+
+	async function unblock() {
+		unblocking = true;
+		try {
+			await api.unblockInternet();
+		} finally {
+			unblocking = false;
+		}
+	}
 
 	function act(action: string | null) {
 		if (action === 'installEngine') core.promptInstall = true;
@@ -16,7 +28,21 @@
 	}
 </script>
 
-{#if failure}
+{#if blocked}
+	<div class="banner" role="alert">
+		<div class="text">
+			<strong>Internet is blocked by the kill switch</strong>
+			<small>
+				{app.status.state === 'connected'
+					? 'The tunnel stopped carrying traffic, so nothing else is allowed out. It lifts when the tunnel is back.'
+					: 'Reconnecting. Nothing is allowed out until the tunnel is back, so your real address stays hidden.'}
+			</small>
+		</div>
+		<div class="actions">
+			<button class="quiet" disabled={unblocking} onclick={unblock}>{unblocking ? 'Working…' : 'Unblock internet'}</button>
+		</div>
+	</div>
+{:else if failure}
 	<div class="banner" role="alert">
 		<div class="text">
 			<strong>{failure.title}</strong>

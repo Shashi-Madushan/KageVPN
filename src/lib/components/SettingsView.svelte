@@ -132,7 +132,7 @@
 		<label>
 			<span>
 				<strong>Kill switch <em>experimental</em></strong>
-				<small>TUN mode only. If sing-box stops unexpectedly, block internet traffic until you disconnect or reconnect. Reconnecting asks for your password again.</small>
+				<small>TUN mode only. If sing-box stops or the tunnel stops carrying traffic, block all other internet traffic until the tunnel is verified again. Failed reconnects keep the block; Home has an Unblock internet button. For up to 20 seconds while a reconnect starts, DNS lookups are allowed so the server name can be found.</small>
 			</span>
 			<input type="checkbox" checked={app.reliability.killSwitch} onchange={(e) => app.saveReliability({ killSwitch: e.currentTarget.checked })} />
 		</label>

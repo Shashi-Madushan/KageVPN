@@ -379,8 +379,17 @@ pub async fn uninstall_root_service() -> Result<()> {
 }
 
 #[tauri::command]
-pub async fn restore_network() -> Result<()> {
-    reliability::restore_network().await
+pub async fn restore_network(state: State<'_, AppState>) -> Result<()> {
+    reliability::restore_network().await?;
+    // The helper's marker would otherwise keep saying "blocked" until its next release.
+    let _ = std::fs::remove_file(state.paths.blocked_file());
+    Ok(())
+}
+
+/// Ends a kill-switch block without a password and stops any reconnect that would raise it again.
+#[tauri::command]
+pub async fn unblock_internet(app: AppHandle) -> Result<()> {
+    reliability::unblock(&app).await
 }
 
 #[tauri::command]

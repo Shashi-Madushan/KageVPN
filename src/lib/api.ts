@@ -36,6 +36,8 @@ export interface Status {
 	failure: ErrorInfo | null;
 	/** The local proxy's port while connected; it is not always 2080 when that port was busy. */
 	proxyPort: number | null;
+	/** The kill switch is blocking traffic outside the tunnel right now. */
+	blocked: boolean;
 }
 
 export interface ErrorInfo {
@@ -314,6 +316,7 @@ export const api = {
 	setRouting: (settings: RoutingSettings) => invoke<void>('set_routing', { settings }),
 	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
 	restoreNetwork: () => invoke<void>('restore_network'),
+	unblockInternet: () => invoke<void>('unblock_internet'),
 	rootServiceInstalled: () => invoke<boolean>('root_service_installed'),
 	installRootService: () => invoke<void>('install_root_service'),
 	uninstallRootService: () => invoke<void>('uninstall_root_service'),
