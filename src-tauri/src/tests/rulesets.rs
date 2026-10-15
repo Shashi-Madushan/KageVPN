@@ -134,7 +134,7 @@ fn the_selected_provider_is_found_among_built_in_and_custom_ones_with_a_fallback
 #[test]
 fn custom_providers_are_checked_when_saved() {
     let ok = RuleProvider { id: "a".into(), name: "A".into(), geoip: "https://example.com/geoip-{name}.srs".into(), ..RuleProvider::default() };
-    assert!(validate_providers(&[ok.clone()]).is_ok());
+    assert!(validate_providers(std::slice::from_ref(&ok)).is_ok());
     let bad = |change: fn(&mut RuleProvider)| {
         let mut provider = ok.clone();
         change(&mut provider);
@@ -274,7 +274,7 @@ fn through_the_tunnel_comes_first_and_direct_access_is_only_the_fallback() {
     };
     let tunnel = site("200 OK", SRS);
     let proxy = tunnel.trim_end_matches("/geoip-cn.srs").to_string();
-    run(download(&dir, &cn, &[direct.clone()], Some(&proxy))).unwrap();
+    run(download(&dir, &cn, std::slice::from_ref(&direct), Some(&proxy))).unwrap();
     assert_eq!(std::fs::read(cn.path(&dir)).unwrap(), SRS);
     assert_eq!(direct_hits.load(std::sync::atomic::Ordering::SeqCst), 0, "the tunnel answered, so the blocked network was never asked");
     let _ = std::fs::remove_dir_all(&dir);
