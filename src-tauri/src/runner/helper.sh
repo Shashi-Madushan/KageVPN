@@ -9,11 +9,17 @@
 # <dir>/stop ends the run and releases any kill-switch block. <dir>/down also ends the run but,
 # when the kill switch is on for it, keeps (or puts up) the block until the next run is asked for,
 # <dir>/stop appears, or the app is gone: a failed reconnect must not leave traffic exposed.
+# A block that is up when a new run starts stays up while sing-box comes up, until the app writes
+# <dir>/ready (the tunnel was verified) or <dir>/stop; <dir>/block puts the block up while sing-box
+# is alive but the tunnel is not carrying traffic, and <dir>/ready takes it down again. A block the
+# app never releases is dropped after KAGE_HOLD_MAX seconds (default 600) so a wedged app cannot
+# keep the Mac offline.
 bin="$1"; config="$2"; dir="$3"; parent="$4"
-stop="$dir/stop"; down="$dir/down"; allowf="$dir/allow"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
+stop="$dir/stop"; down="$dir/down"; allowf="$dir/allow"; readyf="$dir/ready"; blockf="$dir/block"; holdmax="${KAGE_HOLD_MAX:-600}"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
 anchor="com.apple/250.KageVPN"
 token=""
 child=""
+held_since=0
 
 # The server addresses the block lets through: the ones named for this run plus the app's
 # refreshed list in <dir>/allow (a name can resolve to other addresses later). Both files are
@@ -24,6 +30,8 @@ allowed_addresses() {
     | grep -E '^[0-9a-fA-F:.]*[.:][0-9a-fA-F:.]*$' | sort -u | tr '\n' ' ' | sed 's/ *$//'
 }
 
+# Loads the rule set (again, when the block is already up, so a refreshed address list applies)
+# and turns the firewall on once.
 engage_block() {
   list=$(allowed_addresses)
   {
@@ -35,7 +43,8 @@ engage_block() {
     [ -n "$list" ] && echo "pass out quick to { $list }"
     echo "block drop out all"
   } | pfctl -a "$anchor" -f - 2>/dev/null
-  token=$(pfctl -E 2>&1 | sed -n 's/.*Token : //p')
+  [ -z "$token" ] && token=$(pfctl -E 2>&1 | sed -n 's/.*Token : //p')
+  held_since=$(date +%s)
 }
 
 release_block() {
@@ -43,6 +52,22 @@ release_block() {
   pfctl -a "$anchor" -F all 2>/dev/null
   pfctl -X "$token" 2>/dev/null
   token=""
+}
+
+# Runs every half second while sing-box is running: the app's signals about the block.
+tick() {
+  if [ -e "$blockf" ]; then
+    rm -f "$blockf"
+    [ "$ips" != "none" ] && engage_block
+  fi
+  if [ -e "$readyf" ]; then
+    rm -f "$readyf"
+    release_block
+  fi
+  if [ -n "$token" ] && [ $(( $(date +%s) - held_since )) -ge "$holdmax" ]; then
+    echo "$(date '+%F %T') the app never released the kill-switch block: releasing it" >> "$errlog"
+    release_block
+  fi
 }
 
 # "-" stands for "no parent": the launchd root service, which has no app to watch of its own.
@@ -75,8 +100,10 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
   owner="$parent"
   [ "$parent" = "-" ] && owner=$(sed -n 2p "$startf")
   [ -z "$owner" ] && owner="-"
-  rm -f "$startf" "$stop" "$down"
-  release_block
+  rm -f "$startf" "$stop" "$down" "$readyf" "$blockf"
+  # A block still up from the run before stays until the new run is verified (see "ready"), with
+  # the address list refreshed. Without a kill switch for this run it goes now.
+  if [ "$ips" = "none" ]; then release_block; elif [ -n "$token" ]; then engage_block; fi
 
   [ "$(wc -c < "$errlog" 2>/dev/null || echo 0)" -gt 1000000 ] && : > "$errlog"
   "$bin" run -c "$config" >>"$errlog" 2>&1 &
@@ -84,6 +111,7 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
   echo "$child" > "$pidf.tmp" && mv "$pidf.tmp" "$pidf"
 
   while alive "$child" && [ ! -e "$stop" ] && [ ! -e "$down" ] && [ ! -e "$quitf" ] && alive "$owner"; do
+    tick
     sleep 0.5
   done
 
@@ -110,12 +138,16 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
     while [ ! -e "$stop" ] && [ ! -e "$startf" ] && [ ! -e "$quitf" ] && alive "$owner"; do
       sleep 0.5
     done
-    release_block
+    # A new run keeps the block until it is verified; anything else ends it.
+    [ -e "$startf" ] && [ ! -e "$stop" ] && [ ! -e "$quitf" ] || release_block
   fi
+
+  # Stopped, quit or abandoned: whatever block is still up goes with it.
+  if [ -e "$stop" ] || [ -e "$quitf" ] || ! alive "$owner"; then release_block; fi
 
   kill "$child" 2>/dev/null
   wait "$child" 2>/dev/null
-  rm -f "$pidf" "$stop" "$down"
+  rm -f "$pidf" "$stop" "$down" "$readyf" "$blockf"
   child=""
 done
 

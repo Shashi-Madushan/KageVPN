@@ -147,6 +147,18 @@ fn check_cancelled(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+/// Passes the tunnel's health on to the kill switch: a verified tunnel takes down a block that
+/// was held while it came up, a dead one puts the block up even though sing-box is still running.
+pub fn signal_tunnel(app: &AppHandle, healthy: bool) {
+    let state = app.state::<AppState>();
+    let kill_switch = state.store.lock().unwrap().reliability().kill_switch;
+    let mode = state.status.lock().unwrap().mode;
+    if !kill_switch || mode != Mode::Tun {
+        return;
+    }
+    let _ = if healthy { runner::signal_ready(&state.paths) } else { runner::signal_block(&state.paths) };
+}
+
 /// Keeps the kill switch's list of server addresses fresh while connected, so a server name that
 /// starts resolving elsewhere is already allowed when the block has to go up.
 fn spawn_allow_list_refresh(app: AppHandle, pid: u32) {

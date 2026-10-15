@@ -161,6 +161,18 @@ pub fn request_down(paths: &AppPaths) -> Result<()> {
     Ok(())
 }
 
+/// Tells the root helper the run is verified, so it takes down a kill-switch block it was holding.
+pub fn signal_ready(paths: &AppPaths) -> Result<()> {
+    std::fs::write(paths.ready_file(), b"")?;
+    Ok(())
+}
+
+/// Tells the root helper the tunnel is not carrying traffic, so it puts the kill-switch block up.
+pub fn signal_block(paths: &AppPaths) -> Result<()> {
+    std::fs::write(paths.block_file(), b"")?;
+    Ok(())
+}
+
 pub fn is_alive(pid: u32) -> bool {
     Command::new("ps")
         .args(["-o", "stat=", "-p", &pid.to_string()])

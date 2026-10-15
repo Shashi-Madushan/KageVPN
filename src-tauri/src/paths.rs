@@ -85,6 +85,16 @@ impl AppPaths {
         self.data_dir.join("allow")
     }
 
+    /// Written by the app once a run is verified: the root helper then takes the kill-switch block down.
+    pub fn ready_file(&self) -> PathBuf {
+        self.data_dir.join("ready")
+    }
+
+    /// Written by the app when the tunnel stops carrying traffic: the helper puts the block up.
+    pub fn block_file(&self) -> PathBuf {
+        self.data_dir.join("block")
+    }
+
     pub fn helper_script(&self) -> PathBuf {
         self.data_dir.join("helper.sh")
     }

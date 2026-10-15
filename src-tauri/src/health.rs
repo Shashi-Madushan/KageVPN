@@ -164,8 +164,12 @@ pub fn spawn_monitor(app: AppHandle, pid: u32) {
             }
             match net::proxy_delay().await {
                 Ok(latency_ms) => {
+                    let recovered = failures > 0;
                     failures = 0;
                     apply(&app, &Verdict::Healthy { latency_ms });
+                    if recovered {
+                        session::signal_tunnel(&app, true);
+                    }
                 }
                 Err(error) => {
                     failures += 1;
@@ -176,6 +180,9 @@ pub fn spawn_monitor(app: AppHandle, pid: u32) {
                             return;
                         }
                         apply(&app, &verdict);
+                        if matches!(verdict, Verdict::Down(_)) {
+                            session::signal_tunnel(&app, false);
+                        }
                     }
                     let restart = app.state::<AppState>().store.lock().unwrap().reliability().watchdog;
                     if restart && failures >= FAILURES_BEFORE_RESTART {
@@ -212,6 +219,9 @@ async fn verify_first(app: &AppHandle, pid: u32) -> bool {
         return false;
     }
     apply(app, &verdict);
+    if matches!(verdict, Verdict::Healthy { .. }) {
+        session::signal_tunnel(app, true);
+    }
     true
 }
 

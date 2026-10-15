@@ -1,6 +1,6 @@
 # Kill switch redesign (audit item O2)
 
-Status: steps 1 and 2 (G2, G4, G5) are implemented and tested against a stub `pfctl` (see `runner/helper.sh`, `session::holds_block`, `tests/runner.rs`); the rest is design only. Nothing has been run against the real firewall. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
+Status: steps 1 to 3 (G1, G2, G4, G5 and the `ready` signal) are implemented and tested against a stub `pfctl` (see `runner/helper.sh`, `session::holds_block`, `tests/runner.rs`); the rest is design only. Nothing has been run against the real firewall. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
 
 ## What happens today
 
@@ -68,6 +68,15 @@ The key change: rules are released only on `ready` or an explicit `stop`, never 
 - The helper reads that file when it puts the block up, together with the addresses named for the run. Only entries shaped like an IPv4 or IPv6 address are used: both files are user-writable, and one bad word would make `pfctl` reject the whole rule set and leave traffic unblocked.
 - The rule set now passes outgoing router/neighbour solicitation and advertisement and link-local to link-local traffic (G5).
 - Not verified: the `pf` syntax of the ICMPv6 rules has only been exercised against a stub. Check it once on a test machine with `pfctl -n -f` on the generated rules (parse only, loads nothing) before relying on it.
+
+## Step 3 as built
+
+- **Hold through start.** A block that is up when a new run is requested now stays up (its rules reloaded with the fresh address list) until the app writes `ready`, `stop` or quits. If the run is requested without kill-switch IPs (the setting was turned off), the block goes at once.
+- **`ready`.** The health monitor writes it when a fresh connection first verifies, and again when a tunnel recovers after failures. It is written only with the kill switch on in TUN mode.
+- **`block`.** When the monitor confirms the tunnel is down (two failed probes, the same moment the status turns to "Down") it writes `block`; the helper puts the block up although sing-box still runs. Probes go through the local proxy to the server, which the block allows, so recovery is noticed while blocked and `ready` lifts it. A fresh connection whose first verification fails does not write `block`.
+- **Safety valve.** A block held for `KAGE_HOLD_MAX` seconds (default 600) without `ready`, `stop` or a new run is dropped and logged. It does not apply while the helper waits for the next run after sing-box died; that wait ends only on a new run, `stop` or the app quitting.
+- **Consequences.** While a block is held during a reconnect, traffic from apps into the tunnel is dropped until the tunnel is verified (the probes use the local proxy, so verification itself works). The installed root service script changes, so the first TUN connect after updating asks for the password once (F14).
+- **Not done (step 4).** DNS lookups made before a run starts (rule-set downloads, server preflight) still run behind a held block; there is no "Blocked, reconnecting" state on Home yet.
 
 ## Order of work
 
