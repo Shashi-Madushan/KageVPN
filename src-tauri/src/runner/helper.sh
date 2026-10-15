@@ -10,17 +10,28 @@
 # when the kill switch is on for it, keeps (or puts up) the block until the next run is asked for,
 # <dir>/stop appears, or the app is gone: a failed reconnect must not leave traffic exposed.
 bin="$1"; config="$2"; dir="$3"; parent="$4"
-stop="$dir/stop"; down="$dir/down"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
+stop="$dir/stop"; down="$dir/down"; allowf="$dir/allow"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
 anchor="com.apple/250.KageVPN"
 token=""
 child=""
 
+# The server addresses the block lets through: the ones named for this run plus the app's
+# refreshed list in <dir>/allow (a name can resolve to other addresses later). Both files are
+# written by the user-level app, so only things shaped like an IPv4 or IPv6 address get through:
+# one bad word would make pfctl reject the whole rule set and leave traffic unblocked.
+allowed_addresses() {
+  { echo "$ips"; head -n 1 "$allowf" 2>/dev/null; } | tr ',' '\n' | tr -d ' ' \
+    | grep -E '^[0-9a-fA-F:.]*[.:][0-9a-fA-F:.]*$' | sort -u | tr '\n' ' ' | sed 's/ *$//'
+}
+
 engage_block() {
-  list=$(echo "$ips" | tr ',' ' ')
-  [ "$list" = "-" ] && list=""
+  list=$(allowed_addresses)
   {
     echo "pass quick on lo0 all"
     echo "pass out quick to { 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 224.0.0.0/4 255.255.255.255 }"
+    # IPv6 needs neighbour and router discovery and link-local traffic to reach its own router at all.
+    echo "pass out quick inet6 proto icmp6 all icmp6-type { routersol, routeradv, neighbrsol, neighbradv }"
+    echo "pass out quick inet6 from fe80::/10 to fe80::/10"
     [ -n "$list" ] && echo "pass out quick to { $list }"
     echo "block drop out all"
   } | pfctl -a "$anchor" -f - 2>/dev/null

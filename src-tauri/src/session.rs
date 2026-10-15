@@ -21,7 +21,6 @@ const STOP_ATTEMPTS: u32 = 40;
 const PORT_WAIT_WINDOW: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 const DROP_GRACE: Duration = Duration::from_millis(1500);
-const MAX_RESOLVED_IPS: usize = 64;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -88,6 +87,9 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
             traffic::spawn(app.clone(), pid, secret);
             spawn_connection_poll(app.clone(), pid);
             health::spawn_monitor(app.clone(), pid);
+            if mode == Mode::Tun && state.store.lock().unwrap().reliability().kill_switch {
+                spawn_allow_list_refresh(app.clone(), pid);
+            }
             // Cancelled in the last moments, after the final checkpoint: take it down the usual way.
             if state.cancel_connect.swap(false, Ordering::SeqCst) {
                 let _ = disconnect(app).await;
@@ -143,6 +145,21 @@ fn check_cancelled(app: &AppHandle) -> Result<()> {
         return Err(AppError::Cancelled);
     }
     Ok(())
+}
+
+/// Keeps the kill switch's list of server addresses fresh while connected, so a server name that
+/// starts resolving elsewhere is already allowed when the block has to go up.
+fn spawn_allow_list_refresh(app: AppHandle, pid: u32) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            sleep(crate::allowlist::REFRESH_EVERY).await;
+            let state = app.state::<AppState>();
+            if *state.pid.lock().unwrap() != Some(pid) {
+                return;
+            }
+            crate::allowlist::refresh(&state.paths, None).await;
+        }
+    });
 }
 
 /// Why a run is being ended, which decides whether the kill-switch block stays up.
@@ -324,7 +341,8 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     crate::singbox::check(&binary, &paths.config_file())?;
 
     let kill_switch_ips = if reliability.kill_switch && mode == Mode::Tun {
-        Some(resolve_servers(nodes).await)
+        let targets = nodes.iter().map(|p| (p.server.clone(), p.port)).collect();
+        Some(crate::allowlist::refresh(paths, Some(targets)).await)
     } else {
         None
     };
@@ -366,21 +384,6 @@ async fn prepare_rule_sets(app: &AppHandle, routing: &crate::settings::RoutingSe
             let _ = crate::rulesets::fetch_all(&dir, stale).await;
         });
     }
-}
-
-async fn resolve_servers(profiles: &[Profile]) -> String {
-    let mut ips: Vec<String> = Vec::new();
-    for profile in profiles {
-        if let Ok(addresses) = tokio::net::lookup_host((profile.server.as_str(), profile.port)).await {
-            ips.extend(addresses.map(|a| a.ip().to_string()));
-        }
-        if ips.len() >= MAX_RESOLVED_IPS {
-            break;
-        }
-    }
-    ips.sort();
-    ips.dedup();
-    ips.join(",")
 }
 
 async fn wait_until_ready(app: &AppHandle, pid: u32) -> Result<()> {

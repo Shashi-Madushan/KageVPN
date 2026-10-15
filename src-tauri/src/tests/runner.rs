@@ -345,4 +345,52 @@ mod helper {
         wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
         let _ = fs::remove_dir_all(dir);
     }
+
+    #[test]
+    fn the_block_lets_ipv6_neighbour_discovery_through() {
+        let dir = scratch("kill-ndp");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        fs::write(dir.join("down"), "").unwrap();
+        wait_for("the block", || blocked(&log));
+
+        let rules = log_of(&log);
+        assert!(rules.contains("pass out quick inet6 proto icmp6 all icmp6-type { routersol, routeradv, neighbrsol, neighbradv }"), "{rules}");
+        assert!(rules.contains("pass out quick inet6 from fe80::/10 to fe80::/10"), "{rules}");
+        let pass_ndp = rules.find("icmp6-type").unwrap();
+        assert!(pass_ndp < rules.find("block drop out all").unwrap(), "the final block comes after the pass rules");
+
+        fs::write(dir.join("stop"), "").unwrap();
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn addresses_refreshed_after_the_run_started_are_allowed_and_junk_is_ignored() {
+        let dir = scratch("kill-allow");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        // The app learns of more addresses while connected; one entry is not an address at all.
+        fs::write(dir.join("allow"), "192.0.2.1,198.51.100.5,2001:db8::5,evil }; pass all #,none,-\n").unwrap();
+        fs::write(dir.join("down"), "").unwrap();
+        wait_for("the block", || blocked(&log));
+
+        let rules = log_of(&log);
+        assert!(rules.contains("pass out quick to { 192.0.2.1 198.51.100.5 2001:db8::5 }"), "{rules}");
+        assert!(!rules.contains("evil") && !rules.contains("pass all"), "{rules}");
+
+        fs::write(dir.join("stop"), "").unwrap();
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
 }

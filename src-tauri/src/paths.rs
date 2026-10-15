@@ -80,6 +80,11 @@ impl AppPaths {
         self.data_dir.join("down")
     }
 
+    /// The server addresses the kill switch lets through, refreshed by the app; see `allowlist`.
+    pub fn allow_file(&self) -> PathBuf {
+        self.data_dir.join("allow")
+    }
+
     pub fn helper_script(&self) -> PathBuf {
         self.data_dir.join("helper.sh")
     }

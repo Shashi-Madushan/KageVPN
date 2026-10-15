@@ -1,6 +1,6 @@
 # Kill switch redesign (audit item O2)
 
-Status: step 1 (G2) is implemented and tested against a stub `pfctl` (see `runner/helper.sh`, `session::holds_block`, `tests/runner.rs`); the rest is design only. Nothing has been run against the real firewall. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
+Status: steps 1 and 2 (G2, G4, G5) are implemented and tested against a stub `pfctl` (see `runner/helper.sh`, `session::holds_block`, `tests/runner.rs`); the rest is design only. Nothing has been run against the real firewall. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
 
 ## What happens today
 
@@ -61,6 +61,13 @@ The key change: rules are released only on `ready` or an explicit `stop`, never 
 - The app writes `down` for a restart (watchdog or lost tunnel with auto-reconnect) and for a failed attempt inside a reconnect loop, and `stop` for everything else. A failed first connect still releases, so a bad config never blocks the internet.
 - When a reconnect loop ends with nothing left to try (non-retryable error, or the user took over and is disconnected), the app writes `stop` so the block does not outlive the loop. When the loop gives up because the network is down, the block stays and the notification says so.
 - Not yet done: the block is still released the moment a new run is *requested*, so there is a short exposed window while sing-box starts (that is the `ready` signal in step 3's state machine). `supervisor.sh` (Proxy Only) never receives kill-switch IPs, so it was left alone.
+
+## Step 2 as built
+
+- `allowlist.rs` looks every server up on each connect and every 5 minutes while connected (kill switch on, TUN), remembers the last 3 answers per server and writes the union (capped at 64) to `<data dir>/allow`. A failed or blocked lookup changes nothing and is cut off after 3 seconds, so a reconnect behind a block is not held up by DNS.
+- The helper reads that file when it puts the block up, together with the addresses named for the run. Only entries shaped like an IPv4 or IPv6 address are used: both files are user-writable, and one bad word would make `pfctl` reject the whole rule set and leave traffic unblocked.
+- The rule set now passes outgoing router/neighbour solicitation and advertisement and link-local to link-local traffic (G5).
+- Not verified: the `pf` syntax of the ICMPv6 rules has only been exercised against a stub. Check it once on a test machine with `pfctl -n -f` on the generated rules (parse only, loads nothing) before relying on it.
 
 ## Order of work
 

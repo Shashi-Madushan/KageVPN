@@ -1,3 +1,4 @@
+mod allowlist;
 mod app_config;
 mod applog;
 mod app_update;
