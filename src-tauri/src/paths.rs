@@ -75,6 +75,11 @@ impl AppPaths {
         self.data_dir.join("stop")
     }
 
+    /// Like `stop_file`, but the root helper keeps the kill-switch block up; see `runner/helper.sh`.
+    pub fn down_file(&self) -> PathBuf {
+        self.data_dir.join("down")
+    }
+
     pub fn helper_script(&self) -> PathBuf {
         self.data_dir.join("helper.sh")
     }

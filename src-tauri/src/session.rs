@@ -107,7 +107,7 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
             applog::warn(format!("connect: failed: {error}"));
             *state.clash_secret.lock().unwrap() = None;
             note_stop(&state);
-            let _ = runner::request_stop(&state.paths);
+            let _ = end_run(app, mode, Ending::Failed);
             update(app, |s| *s = Status { error: Some(error.to_string()), failure: Some(error.info()), ..Status::disconnected(mode) });
             Err(error)
         }
@@ -145,7 +145,50 @@ fn check_cancelled(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+/// Why a run is being ended, which decides whether the kill-switch block stays up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ending {
+    /// The user disconnected, cancelled or quit: traffic is released.
+    UserStop,
+    /// A connect attempt failed.
+    Failed,
+    /// The tunnel is being restarted because it died or stopped carrying traffic.
+    Restart,
+}
+
+/// Whether ending a run should keep the kill-switch block up. A failed first connect releases
+/// it, so a wrong password or a bad config never cuts the user off; a failed *reconnect* and a
+/// restart keep it, because the user was connected a moment ago and expects no leaks.
+pub fn holds_block(ending: Ending, kill_switch: bool, mode: Mode, reconnecting: bool) -> bool {
+    kill_switch
+        && mode == Mode::Tun
+        && match ending {
+            Ending::UserStop => false,
+            Ending::Failed => reconnecting,
+            Ending::Restart => true,
+        }
+}
+
+fn end_run(app: &AppHandle, mode: Mode, ending: Ending) -> Result<()> {
+    let state = app.state::<AppState>();
+    let kill_switch = state.store.lock().unwrap().reliability().kill_switch;
+    if holds_block(ending, kill_switch, mode, state.reconnecting.load(Ordering::SeqCst)) {
+        runner::request_down(&state.paths)
+    } else {
+        runner::request_stop(&state.paths)
+    }
+}
+
 pub async fn disconnect(app: &AppHandle) -> Result<()> {
+    stop_with(app, Ending::UserStop).await
+}
+
+/// Ends the connection for a restart: the kill-switch block, if on, stays up until the next run.
+pub async fn disconnect_for_restart(app: &AppHandle) -> Result<()> {
+    stop_with(app, Ending::Restart).await
+}
+
+async fn stop_with(app: &AppHandle, ending: Ending) -> Result<()> {
     let state = app.state::<AppState>();
     let connection = state.status.lock().unwrap().state;
     let pid = match disconnect_plan(connection, *state.pid.lock().unwrap()) {
@@ -161,7 +204,8 @@ pub async fn disconnect(app: &AppHandle) -> Result<()> {
     applog::info(format!("disconnect: stopping supervisor pid {pid}"));
     state.stopping.store(true, Ordering::SeqCst);
     note_stop(&state);
-    runner::request_stop(&state.paths)?;
+    let mode = state.status.lock().unwrap().mode;
+    end_run(app, mode, ending)?;
     for _ in 0..STOP_ATTEMPTS {
         if !runner::is_alive(pid) {
             break;
@@ -184,7 +228,8 @@ pub async fn tunnel_lost(app: &AppHandle, pid: u32) {
     let reason = "The tunnel stopped answering while sing-box was still running.";
     crashlog::record(&state.paths.data_dir(), "tunnel lost", reason, &format!("auto-reconnect: {reconnect}\nlast error: {}", state.logs.last_error().unwrap_or_default()));
     notify::send(app, "VPN tunnel dropped", &format!("{reason} {}", if reconnect { "Reconnecting…" } else { "It was disconnected." }));
-    let _ = disconnect(app).await;
+    // With a reconnect coming, the kill-switch block stays up in between.
+    let _ = if reconnect { disconnect_for_restart(app).await } else { disconnect(app).await };
     if reconnect {
         reliability::spawn_reconnect(app.clone());
     }

@@ -6,8 +6,11 @@
 # for none listed, or "none" to leave the kill switch off); the helper starts sing-box, writes
 # its pid to <dir>/child.pid, and stops it when <dir>/stop appears. Disconnecting and
 # reconnecting therefore never prompt again. <dir>/helper.quit makes the helper exit.
+# <dir>/stop ends the run and releases any kill-switch block. <dir>/down also ends the run but,
+# when the kill switch is on for it, keeps (or puts up) the block until the next run is asked for,
+# <dir>/stop appears, or the app is gone: a failed reconnect must not leave traffic exposed.
 bin="$1"; config="$2"; dir="$3"; parent="$4"
-stop="$dir/stop"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
+stop="$dir/stop"; down="$dir/down"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
 anchor="com.apple/250.KageVPN"
 token=""
 child=""
@@ -61,7 +64,7 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
   owner="$parent"
   [ "$parent" = "-" ] && owner=$(sed -n 2p "$startf")
   [ -z "$owner" ] && owner="-"
-  rm -f "$startf" "$stop"
+  rm -f "$startf" "$stop" "$down"
   release_block
 
   [ "$(wc -c < "$errlog" 2>/dev/null || echo 0)" -gt 1000000 ] && : > "$errlog"
@@ -69,19 +72,29 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
   child=$!
   echo "$child" > "$pidf.tmp" && mv "$pidf.tmp" "$pidf"
 
-  while alive "$child" && [ ! -e "$stop" ] && [ ! -e "$quitf" ] && alive "$owner"; do
+  while alive "$child" && [ ! -e "$stop" ] && [ ! -e "$down" ] && [ ! -e "$quitf" ] && alive "$owner"; do
     sleep 0.5
   done
 
-  if ! alive "$child"; then
+  # "down": end the run now, so the block below is put up exactly as if sing-box had died.
+  held=""
+  if [ -e "$down" ]; then
+    held=yes
+    echo "$(date '+%F %T') down requested: stopping sing-box and holding the kill switch" >> "$errlog"
+    kill "$child" 2>/dev/null
+    wait "$child" 2>/dev/null
+  fi
+
+  if [ -z "$held" ] && ! alive "$child"; then
     wait "$child" 2>/dev/null
     status=$?
     echo "$(date '+%F %T') sing-box exited with status $status (stop requested: $([ -e "$stop" ] && echo yes || echo no))" >> "$errlog"
     [ ! -e "$stop" ] && note_context
   fi
 
-  # sing-box died on its own: with a kill switch, block traffic until the app asks for a new run.
-  if [ "$ips" != "none" ] && [ ! -e "$stop" ] && alive "$owner" && ! alive "$child"; then
+  # sing-box died on its own, or "down" was asked: with a kill switch, block traffic until the app
+  # asks for a new run. "stop" always wins and releases.
+  if [ "$ips" != "none" ] && [ ! -e "$stop" ] && [ ! -e "$quitf" ] && alive "$owner" && ! alive "$child"; then
     engage_block
     while [ ! -e "$stop" ] && [ ! -e "$startf" ] && [ ! -e "$quitf" ] && alive "$owner"; do
       sleep 0.5
@@ -91,7 +104,7 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
 
   kill "$child" 2>/dev/null
   wait "$child" 2>/dev/null
-  rm -f "$pidf" "$stop"
+  rm -f "$pidf" "$stop" "$down"
   child=""
 done
 

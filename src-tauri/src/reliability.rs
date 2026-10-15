@@ -113,6 +113,11 @@ pub fn spawn_reconnect(app: AppHandle) {
         }
         let state = app.state::<AppState>();
         state.reconnecting.store(false, Ordering::SeqCst);
+        // A kill-switch block may still be up from the failed attempts. It stays only while this loop
+        // (or its resume) is still going to try; otherwise nothing would ever release it.
+        if matches!(outcome, Outcome::UserTookOver | Outcome::Failed(_)) && state.status.lock().unwrap().state == Conn::Disconnected {
+            let _ = crate::runner::request_stop(&state.paths);
+        }
         match outcome {
             Outcome::Reconnected => notify::send(&app, "VPN reconnected", "The tunnel is back up."),
             Outcome::UserTookOver => {}
@@ -120,7 +125,9 @@ pub fn spawn_reconnect(app: AppHandle) {
             Outcome::GaveUp => {
                 state.reconnect_waiting.store(true, Ordering::SeqCst);
                 applog::info("reconnect gave up; it will start again when the network changes or the server answers");
-                notify::send(&app, "Could not reconnect", "It will try again when your internet is back, or open the app to connect now.");
+                let blocked = state.store.lock().unwrap().reliability().kill_switch;
+                let note = if blocked { " The kill switch keeps other traffic blocked until then; Settings can restore internet access." } else { "" };
+                notify::send(&app, "Could not reconnect", &format!("It will try again when your internet is back, or open the app to connect now.{note}"));
             }
         }
     });
@@ -134,7 +141,7 @@ pub async fn restart_tunnel(app: &AppHandle, pid: u32, why: &str) {
     }
     applog::warn(format!("restart tunnel (pid {pid}): {why} and the tunnel stopped responding"));
     notify::send(app, "Reconnecting VPN", &format!("{why} and the tunnel stopped responding."));
-    let _ = session::disconnect(app).await;
+    let _ = session::disconnect_for_restart(app).await;
     spawn_reconnect(app.clone());
 }
 

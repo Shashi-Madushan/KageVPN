@@ -153,6 +153,14 @@ pub fn request_stop(paths: &AppPaths) -> Result<()> {
     Ok(())
 }
 
+/// Ends the run but keeps the kill-switch block up, for a run that failed or is being replaced
+/// while the user still wants no traffic outside the tunnel. Only the root helper (TUN mode) holds
+/// a block; anywhere else this is a plain stop.
+pub fn request_down(paths: &AppPaths) -> Result<()> {
+    std::fs::write(paths.down_file(), b"")?;
+    Ok(())
+}
+
 pub fn is_alive(pid: u32) -> bool {
     Command::new("ps")
         .args(["-o", "stat=", "-p", &pid.to_string()])

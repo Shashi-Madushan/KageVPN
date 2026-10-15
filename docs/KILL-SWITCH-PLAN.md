@@ -1,6 +1,6 @@
 # Kill switch redesign (audit item O2)
 
-Status: design only. Nothing here is implemented or tested. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
+Status: step 1 (G2) is implemented and tested against a stub `pfctl` (see `runner/helper.sh`, `session::holds_block`, `tests/runner.rs`); the rest is design only. Nothing has been run against the real firewall. The kill switch edits `pf` rules as root, so every step below needs a test machine that is not running a live tunnel.
 
 ## What happens today
 
@@ -54,6 +54,13 @@ The key change: rules are released only on `ready` or an explicit `stop`, never 
 2. Shell tests: run the script with a stub `pfctl` on `PATH` that records its input; drive each transition by creating files; assert rules loaded and released at the right moments.
 3. Manual, on a test machine: kill sing-box (`kill -9`), cut the server (firewall it), restart watchdog, fail a reconnect, quit the app, hard-kill the app. After each, check `pfctl -a com.apple/250.KageVPN -sr` and that `curl` fails or works as expected.
 4. IPv6 network: confirm no neighbour-discovery loss while blocked.
+
+## Step 1 as built
+
+- New `down` file next to `stop`. The helper ends the run on either; `down` additionally puts up (or keeps) the block when the run had kill-switch IPs. `stop` always wins and releases.
+- The app writes `down` for a restart (watchdog or lost tunnel with auto-reconnect) and for a failed attempt inside a reconnect loop, and `stop` for everything else. A failed first connect still releases, so a bad config never blocks the internet.
+- When a reconnect loop ends with nothing left to try (non-retryable error, or the user took over and is disconnected), the app writes `stop` so the block does not outlive the loop. When the loop gives up because the network is down, the block stays and the notification says so.
+- Not yet done: the block is still released the moment a new run is *requested*, so there is a short exposed window while sing-box starts (that is the `ready` signal in step 3's state machine). `supervisor.sh` (Proxy Only) never receives kill-switch IPs, so it was left alone.
 
 ## Order of work
 

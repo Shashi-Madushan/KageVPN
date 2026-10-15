@@ -172,4 +172,177 @@ mod helper {
         let _ = service.wait();
         let _ = fs::remove_dir_all(dir);
     }
+
+    /// A stand-in `pfctl` that records what it is asked, so the kill switch can be exercised
+    /// without touching the real firewall. Returns the directory to put on `PATH` and the log.
+    fn stub_pfctl(dir: &Path) -> (PathBuf, PathBuf) {
+        let bin = dir.join("stub-bin");
+        fs::create_dir_all(&bin).unwrap();
+        let log = dir.join("pfctl.log");
+        let script = format!(
+            "#!/bin/sh\necho \"pfctl $*\" >> '{log}'\ncase \"$1\" in -E) echo 'Token : 42';; esac\n[ \"$1\" = \"-a\" ] && [ \"$3\" = \"-f\" ] && sed 's/^/  rule: /' >> '{log}'\nexit 0\n",
+            log = log.display()
+        );
+        let path = bin.join("pfctl");
+        fs::write(&path, script).unwrap();
+        Command::new("chmod").args(["+x", path.to_str().unwrap()]).status().unwrap();
+        (bin, log)
+    }
+
+    fn start_helper_with_stub(dir: &Path, core: &Path, stub_bin: &Path) -> Child {
+        let script = dir.join("helper.sh");
+        fs::write(&script, super::super::HELPER).unwrap();
+        Command::new("/bin/sh")
+            .args([script.to_str().unwrap(), core.to_str().unwrap(), "unused.json", dir.to_str().unwrap(), &std::process::id().to_string()])
+            .env("PATH", format!("{}:/usr/bin:/bin:/usr/sbin:/sbin", stub_bin.display()))
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap()
+    }
+
+    fn request_run_with_ips(dir: &Path, ips: &str) {
+        let _ = fs::remove_file(dir.join("child.pid"));
+        fs::write(dir.join("helper.start"), ips).unwrap();
+    }
+
+    fn log_of(log: &Path) -> String {
+        fs::read_to_string(log).unwrap_or_default()
+    }
+
+    fn engages(log: &Path) -> usize {
+        log_of(log).matches("-f -").count()
+    }
+
+    fn releases(log: &Path) -> usize {
+        log_of(log).matches("-X 42").count()
+    }
+
+    fn blocked(log: &Path) -> bool {
+        engages(log) > releases(log)
+    }
+
+    #[test]
+    fn a_dead_core_puts_up_the_block_and_stop_releases_it() {
+        let dir = scratch("kill-death");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        let child = child_pid(&dir).unwrap();
+        assert!(!blocked(&log), "no block while the core runs");
+
+        Command::new("kill").args(["-9", &child.to_string()]).status().unwrap();
+        wait_for("the block", || blocked(&log));
+        let rules = log_of(&log);
+        assert!(rules.contains("pass out quick to { 192.0.2.1 }"), "the server stays reachable: {rules}");
+        assert!(rules.contains("block drop out all"));
+
+        fs::write(dir.join("stop"), "").unwrap();
+        wait_for("the release", || !blocked(&log));
+
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn down_ends_the_run_but_keeps_the_block_until_stop() {
+        let dir = scratch("kill-down");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        let child = child_pid(&dir).unwrap();
+
+        fs::write(dir.join("down"), "").unwrap();
+        wait_for("the core to stop", || !alive(child));
+        wait_for("the block", || blocked(&log));
+        sleep(Duration::from_millis(1500));
+        assert!(blocked(&log), "the block stays while nothing asks for a new run");
+        assert!(helper.try_wait().unwrap().is_none(), "the helper keeps waiting");
+
+        fs::write(dir.join("stop"), "").unwrap();
+        wait_for("the release", || !blocked(&log));
+        assert_eq!(engages(&log), 1, "one block, one release");
+
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn stop_alone_never_blocks() {
+        let dir = scratch("kill-stop");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        let child = child_pid(&dir).unwrap();
+
+        fs::write(dir.join("stop"), "").unwrap();
+        wait_for("the core to stop", || !alive(child));
+        sleep(Duration::from_millis(1500));
+        assert_eq!(engages(&log), 0, "a user disconnect must not block traffic: {}", log_of(&log));
+
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn down_without_the_kill_switch_just_stops_the_core() {
+        let dir = scratch("kill-off");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "none");
+        wait_for("a run", || child_pid(&dir).is_some());
+        let child = child_pid(&dir).unwrap();
+
+        fs::write(dir.join("down"), "").unwrap();
+        wait_for("the core to stop", || !alive(child));
+        sleep(Duration::from_millis(1500));
+        assert_eq!(engages(&log), 0, "no kill switch, no block: {}", log_of(&log));
+
+        // The helper is still usable and the old request left nothing behind.
+        request_run_with_ips(&dir, "none");
+        wait_for("the next run", || child_pid(&dir).is_some_and(|p| p != child));
+
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_new_run_after_down_releases_the_block_and_a_late_down_does_not_leak_into_it() {
+        let dir = scratch("kill-rerun");
+        let core = fake_core(&dir);
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_helper_with_stub(&dir, &core, &bin);
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        let first = child_pid(&dir).unwrap();
+        fs::write(dir.join("down"), "").unwrap();
+        wait_for("the block", || blocked(&log));
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("the next run", || child_pid(&dir).is_some_and(|p| p != first));
+        let second = child_pid(&dir).unwrap();
+        assert!(!blocked(&log), "the block is released when the new run starts");
+        sleep(Duration::from_millis(1500));
+        assert!(alive(second), "the old down request must not stop the new run");
+
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
 }
