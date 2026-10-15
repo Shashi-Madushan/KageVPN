@@ -18,6 +18,9 @@
 	let fileInput: HTMLInputElement;
 
 	const found = $derived(text.split(/\s+/).filter((t) => protocols.isLink(t)).length);
+	/** A Clash or sing-box configuration file. The backend reads the servers out of it. */
+	const isConfig = $derived(/^proxies:/m.test(text) || /^\s*\{[\s\S]*"outbounds"\s*:/.test(text));
+	const ready = $derived(found > 0 || isConfig);
 
 	$effect(() => {
 		if (open) {
@@ -73,7 +76,7 @@
 	}
 </script>
 
-<Dialog {open} title="Add server" subtitle="Paste one or more server links, or drop a text file." onclose={() => (open = false)}>
+<Dialog {open} title="Add server" subtitle="Paste server links or a Clash or sing-box configuration, or drop a file." onclose={() => (open = false)}>
 	<div
 		class="drop"
 		class:dragging
@@ -84,15 +87,15 @@
 		aria-label="Drop a file with links"
 	>
 		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…  trojan://…  ss://…  hysteria2://…" aria-label="Server links"></textarea>
-		{#if dragging}<div class="overlay">Drop the file to load its links</div>{/if}
+		{#if dragging}<div class="overlay">Drop the file to load its servers</div>{/if}
 	</div>
 
 	<div class="meta">
-		<span class="found" class:ok={found > 0}>
-			{#if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No supported links found{:else}Nothing pasted yet{/if}
+		<span class="found" class:ok={ready}>
+			{#if isConfig}Configuration file: its servers will be added{:else if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No supported links found{:else}Nothing pasted yet{/if}
 		</span>
 		<span class="links">
-			<input type="file" accept=".txt,.json,text/plain" hidden bind:this={fileInput} onchange={(e) => loadFile(e.currentTarget.files?.[0])} />
+			<input type="file" accept=".txt,.json,.yaml,.yml,.conf,text/plain" hidden bind:this={fileInput} onchange={(e) => loadFile(e.currentTarget.files?.[0])} />
 			<button type="button" class="linkbtn" onclick={() => fileInput.click()}>Choose file…</button>
 			<button type="button" class="linkbtn" onclick={manual}>Enter details manually</button>
 		</span>
@@ -102,8 +105,8 @@
 
 	{#snippet footer()}
 		<button class="btn" onclick={() => (open = false)}>Cancel</button>
-		<button class="btn primary" disabled={found === 0 || busy} onclick={save}>
-			{busy ? 'Adding…' : found > 1 ? `Add ${found} servers` : 'Add server'}
+		<button class="btn primary" disabled={!ready || busy} onclick={save}>
+			{busy ? 'Adding…' : isConfig ? 'Add servers' : found > 1 ? `Add ${found} servers` : 'Add server'}
 		</button>
 	{/snippet}
 </Dialog>

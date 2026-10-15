@@ -44,10 +44,12 @@
 
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const statusText = $derived(
-		app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
+		app.status.blocked && app.reliability.killSwitch ? 'Blocked' : app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
 	);
 	const headline = $derived(
-		app.tunnelDown
+		app.status.blocked && app.reliability.killSwitch
+			? 'Internet blocked by the kill switch'
+			: app.tunnelDown
 			? 'Connected, but no internet'
 			: app.verifying
 				? 'Checking your connection…'
@@ -148,6 +150,9 @@
 					{#if elapsed}<span class="elapsed tabular">{elapsed}</span>{/if}
 				</div>
 				<div class="chips">
+					{#if app.connected && app.status.mode === 'proxy' && app.status.proxyPort}
+						<span class="chip mono" title={app.reliability.proxyAuth ? 'Point apps at this address (SOCKS5 or HTTP). Login: user kage, password in Settings' : 'Point apps at this address (SOCKS5 or HTTP)'}>127.0.0.1:{app.status.proxyPort}</span>
+					{/if}
 					{#if app.reliability.killSwitch}
 						<span class="chip" title="Kill switch is armed"><Icon name="shield" size={12} /> Kill switch</span>
 					{/if}

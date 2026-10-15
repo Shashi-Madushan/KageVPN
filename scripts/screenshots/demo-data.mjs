@@ -30,7 +30,7 @@ function install(opts) {
 		}, 'Reality · tcp', extra);
 	const profiles = opts.withServers
 		? [
-				city('p1', 'Frankfurt, Germany', 'de1.example.com', 'Europe', { favorite: true }),
+				city('p1', 'Frankfurt, Germany', 'de1.example.com', 'Europe', { favorite: true, subscriptionId: 's1' }),
 				city('p2', 'Amsterdam, Netherlands', 'nl1.example.com', 'Europe'),
 				server('p3', 'London, United Kingdom', 'uk1.example.com', 'Europe', 'trojan', { password: 'demo', transport: { kind: 'ws', path: '/', host: null, serviceName: null }, tls: tls() }, 'Trojan · ws'),
 				city('p4', 'New York, United States', 'us1.example.com', 'Americas', { favorite: true }),
@@ -47,8 +47,8 @@ function install(opts) {
 	}));
 
 	const status = opts.connected
-		? { state: 'connected', mode: 'tun', since: now - 5400, error: null, health: 'healthy', reason: null, latencyMs: 38, failure: null }
-		: { state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null };
+		? { state: 'connected', mode: 'tun', since: now - 5400, error: null, health: 'healthy', reason: null, latencyMs: 38, failure: null, proxyPort: null }
+		: { state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null };
 	const logLine = (level, text) => ({ level, text, hint: null });
 	const logs = opts.connected
 		? [
@@ -71,17 +71,22 @@ function install(opts) {
 		profiles, activeId: profiles.length ? 'p1' : null, mode: 'tun', status, logs,
 		traffic: opts.connected ? { up: 96000, down: 1750000, totalUp: 74 * MB, totalDown: 612 * MB } : { up: 0, down: 0, totalUp: 0, totalDown: 0 },
 		history: opts.connected ? history : [],
-		settings: { showSpeed: true, autoConnect: false }, launchAtLogin: true, auto: { enabled: false, group: null },
-		subscriptions: [{ id: 's1', name: 'Example provider', url: 'https://example.com/sub', intervalHours: 24, lastUpdated: now - 7200, lastError: null, userInfo: { upload: 8e9, download: 41e9, total: 200e9, expire: now + 86400 * 18 } }],
+		settings: { showSpeed: true, autoConnect: false, logLevel: 'normal', clearLogs: false }, launchAtLogin: true, auto: { enabled: false, group: null },
+		subscriptions: [{ id: 's1', name: 'Example provider', url: 'https://example.com/sub', intervalHours: 24, lastUpdated: now - 7200, lastError: null, userInfo: { upload: 8e9, download: 41e9, total: 200e9, expire: now + 86400 * 18 }, userAgent: null, sendDeviceId: false }],
 		routing: {
 			mode: 'rule', bypassLan: true, finalAction: 'proxy',
 			rules: [
 				{ id: 'r1', enabled: true, kind: 'domainSuffix', value: 'netflix.com', action: 'proxy' },
-				{ id: 'r2', enabled: true, kind: 'processName', value: 'Spotify', action: 'direct' },
+				{ id: 'r2', enabled: true, kind: 'app', value: '/Applications/Spotify.app', action: 'direct' },
 				{ id: 'r3', enabled: true, kind: 'domainKeyword', value: 'doubleclick', action: 'block' },
 				{ id: 'r4', enabled: true, kind: 'ipCidr', value: '192.168.50.0/24', action: 'direct' }
 			],
-			ruleSets: [{ id: 'g1', enabled: true, kind: 'geoip', country: 'lk', action: 'direct' }],
+			ruleSets: [
+				{ id: 'g1', enabled: true, kind: 'geoip', country: 'lk', action: 'direct' },
+				{ id: 'g2', enabled: true, kind: 'geosite', country: 'category-ads-all', action: 'block' },
+				{ id: 'g3', enabled: true, kind: 'geosite', country: 'netflix', action: 'proxy' }
+			],
+			ruleProvider: 'sagernet', customProviders: [],
 			dns: { provider: 'cloudflare', custom: '' }
 		},
 		reliability: { autoReconnect: true, watchdog: true, killSwitch: false, hotkey: true }, hotkey: '⌥⌘V'
@@ -117,13 +122,19 @@ function install(opts) {
 		settings: { managedVersion: '1.12.9', channel: 'stable', autoCheck: true, lastCheck: now - 3600, updatePolicy: 'ask', pendingVersion: null }, busy: false
 	};
 
+	const appPaths = { Spotify: '/Applications/Spotify.app', 'Slack Helper': '/Applications/Slack.app' };
 	const conns = [
 		['www.youtube.com', '142.250.0.1', '443', 'Safari', 'tcp', 18 * MB, 0.6 * MB, 'proxy', 'domain_suffix: youtube.com'],
 		['netflix.com', '198.51.100.20', '443', 'Safari', 'tcp', 42 * MB, 1 * MB, 'proxy', 'domain_suffix: netflix.com'],
-		['api.spotify.com', '198.51.100.31', '443', 'Spotify', 'tcp', 6 * MB, 0.2 * MB, 'direct', 'process_name: Spotify'],
+		['api.spotify.com', '198.51.100.31', '443', 'Spotify', 'tcp', 6 * MB, 0.2 * MB, 'direct', 'process_path_regex: ^/Applications/Spotify\\.app/'],
 		['github.com', '140.82.0.4', '22', 'ssh', 'tcp', 0.4 * MB, 0.3 * MB, 'proxy', 'final'],
 		['slack-edge.com', '198.51.100.44', '443', 'Slack Helper', 'tcp', 2.2 * MB, 0.9 * MB, 'proxy', 'final']
-	].map((c, i) => ({ id: 'c' + i, host: c[0], destinationIp: c[1], destinationPort: c[2], process: c[3], network: c[4], down: Math.round(c[5]), up: Math.round(c[6]), start: new Date((now - 120 - i * 300) * 1000).toISOString(), chain: c[7], rule: c[8] }));
+	].map((c, i) => ({ id: 'c' + i, host: c[0], destinationIp: c[1], destinationPort: c[2], process: c[3], appPath: appPaths[c[3]] ?? null, network: c[4], down: Math.round(c[5]), up: Math.round(c[6]), start: new Date((now - 120 - i * 300) * 1000).toISOString(), chain: c[7], rule: c[8] }));
+	const apps = [
+		['App Store', '/System/Applications/App Store.app'], ['Discord', '/Applications/Discord.app'], ['Google Chrome', '/Applications/Google Chrome.app'],
+		['Mail', '/System/Applications/Mail.app'], ['Safari', '/Applications/Safari.app'], ['Slack', '/Applications/Slack.app'],
+		['Spotify', '/Applications/Spotify.app'], ['Telegram', '/Applications/Telegram.app'], ['Xcode', '/Applications/Xcode.app'], ['Zoom', '/Applications/zoom.us.app']
+	].map(([name, path]) => ({ name, path, bundleId: null }));
 
 	const cbs = {}; const listeners = {}; let nextId = 1;
 	const emit = (ev, payload) => (listeners[ev] || []).forEach((h) => cbs[h] && cbs[h]({ event: ev, id: 0, payload }));
@@ -154,11 +165,26 @@ function install(opts) {
 		usage_report: () => ({ series, total: sum, previous: null, peak: series.reduce((a, b) => (b.down + b.up > a.down + a.up ? b : a)), connectedSecs: 86400 * 11 }),
 		usage_top: (a) => (a.args.kind === 'app' ? topApps : a.args.kind === 'domain' ? topDomains : topProfiles),
 		connections_list: () => conns,
+		installed_apps: () => apps,
+		export_backup: () => '~/Downloads/kage-vpn-backup-demo.json',
 		run_diagnostics: () => ({
 			// In full-system (TUN) mode the system route exits through the tunnel too, so both match.
 			system: { ip: '203.0.113.42', country: 'Germany', city: 'Frankfurt', org: 'Example Hosting GmbH' },
 			tunnel: { ip: '203.0.113.42', country: 'Germany', city: 'Frankfurt', org: 'Example Hosting GmbH' },
 			dns: { ip: '203.0.113.53', geo: 'Germany' }
+		}),
+		rule_providers: () => [
+			{ id: 'sagernet', name: 'SagerNet', geoip: 'x{name}', geosite: 'x{name}', note: "The sing-box authors' own lists: countries and V2Ray's domain categories." },
+			{ id: 'metacubex', name: 'MetaCubeX', geoip: 'x{name}', geosite: 'x{name}', note: 'meta-rules-dat, the lists Clash Meta uses. Many more categories than SagerNet.' },
+			{ id: 'loyalsoldier', name: 'Loyalsoldier (IP lists)', geoip: 'x{name}', geosite: '', note: 'Enhanced country IP lists.' }
+		],
+		rule_sets_status: () => ({
+			downloadedFrom: 'sagernet', throughTunnel: !!opts.connected,
+			lists: [
+				{ tag: 'geoip-lk', kind: 'geoip', name: 'lk', present: true, bytes: 9400, modified: now - 86400 * 2 },
+				{ tag: 'geosite-category-ads-all', kind: 'geosite', name: 'category-ads-all', present: true, bytes: 61000, modified: now - 86400 * 2 },
+				{ tag: 'geosite-netflix', kind: 'geosite', name: 'netflix', present: false, bytes: 0, modified: null }
+			]
 		}),
 		run_speed_test: async () => {
 			const steps = [['ping', 0, 0.5], ['download', 120, 0.3], ['download', 340, 0.7], ['download', 412, 1], ['upload', 60, 0.5], ['upload', 96, 1]];

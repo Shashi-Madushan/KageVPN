@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type LiveConnection } from '$lib/api';
+	import { api, type LiveConnection, type RouteAction, type Rule } from '$lib/api';
 	import { app } from '$lib/app.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import HeaderActions from './HeaderActions.svelte';
 	import { formatBytes, formatRate } from '$lib/format';
 
@@ -10,7 +11,8 @@
 	let error = $state<string | null>(null);
 
 	type Tally = { up: number; down: number };
-	type AppRow = { name: string; open: number; rate: Tally; total: Tally; hosts: string[] };
+	/** `target` is the routing rule that would match this app: its bundle, or its process name. */
+	type AppRow = { name: string; open: number; rate: Tally; total: Tally; hosts: string[]; target: Pick<Rule, 'kind' | 'value'> | null };
 
 	let view = $state<'apps' | 'connections'>('apps');
 	let expanded = $state<string | null>(null);
@@ -88,8 +90,10 @@
 		for (const c of rows) {
 			const name = appName(c.process);
 			if (q && !`${name} ${c.host} ${c.destinationIp}`.toLowerCase().includes(q)) continue;
-			const row = byName.get(name) ?? { name, open: 0, rate: rates[name] ?? { up: 0, down: 0 }, total: totals[name] ?? { up: 0, down: 0 }, hosts: [] };
+			const row = byName.get(name) ?? { name, open: 0, rate: rates[name] ?? { up: 0, down: 0 }, total: totals[name] ?? { up: 0, down: 0 }, hosts: [], target: null };
 			row.open++;
+			if (c.appPath) row.target = { kind: 'app', value: c.appPath };
+			else if (!row.target && c.process) row.target = { kind: 'processName', value: c.process };
 			const host = c.host || c.destinationIp;
 			if (host && !row.hosts.includes(host) && row.hosts.length < 8) row.hosts.push(host);
 			byName.set(name, row);
@@ -108,6 +112,38 @@
 	async function close(id: string) {
 		await api.closeConnection(id).catch((e) => app.notify(String(e)));
 		load();
+	}
+
+	const actionWords: Record<RouteAction, { short: string; title: string }> = {
+		proxy: { short: 'Through VPN', title: 'Send {app} through the VPN?' },
+		direct: { short: 'Direct', title: 'Send {app} directly, outside the VPN?' },
+		block: { short: 'Block', title: 'Block {app}?' }
+	};
+
+	let routing = $state<{ row: AppRow; action: RouteAction } | null>(null);
+
+	/** The rule that already decides where this app's traffic goes, if any. */
+	function currentRule(row: AppRow) {
+		if (app.routing?.mode !== 'rule' || !row.target) return null;
+		return app.routing.rules.find((r) => r.enabled && r.kind === row.target!.kind && r.value === row.target!.value) ?? null;
+	}
+
+	const routeMessage = $derived.by(() => {
+		if (!routing || !app.routing) return '';
+		const mode = app.routing.mode;
+		const modeNote =
+			mode === 'rule' ? '' : ` Routing switches to Rules mode; everything else still goes ${mode === 'direct' ? 'direct' : 'through the VPN'}.`;
+		const when = app.connected ? ' The VPN reconnects to apply it.' : ' It applies the next time you connect.';
+		return `This adds a rule at the top of your routing rules, so it wins over broader ones.${modeNote}${when}`;
+	});
+
+	async function applyRoute() {
+		if (!routing?.row.target) return;
+		const { row, action } = routing;
+		routing = null;
+		if (!(await app.routeApp(row.target!, action))) return;
+		if (app.connected) await app.restartTunnel();
+		else app.notify(`Rule added for ${row.name}.`, 'info');
 	}
 
 	async function closeAll() {
@@ -148,11 +184,22 @@
 					<span class="num tabular">{formatBytes(a.total.down)}</span>
 				</button>
 				{#if expanded === a.name}
-					<div class="hosts mono">{a.hosts.join(' · ')}{a.open > a.hosts.length ? ' …' : ''}</div>
+					{@const rule = currentRule(a)}
+					<div class="detail">
+						<div class="hosts mono">{a.hosts.join(' · ')}{a.open > a.hosts.length ? ' …' : ''}</div>
+						{#if a.target}
+							<div class="route-bar">
+								<span>Route {a.name}{rule ? ` (now: ${actionWords[rule.action].short})` : ''}</span>
+								{#each ['proxy', 'direct', 'block'] as const as action (action)}
+									<button class="btn small" class:active={rule?.action === action} disabled={rule?.action === action} onclick={() => (routing = { row: a, action })}>{actionWords[action].short}</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
 				{/if}
 			{/each}
 		</div>
-		<small class="note">Rates are measured every 2 seconds. Sent and Received count what moved since you opened this page.</small>
+		<small class="note">Rates are measured every 2 seconds. Sent and Received count what moved since you opened this page. Click an app to route it through the VPN, directly or not at all.</small>
 	{:else}
 		<div class="card list">
 			<div class="head"><span>Destination</span><span>App</span><span>Route</span><span class="num">Down</span><span class="num">Up</span><span class="num">Age</span><span></span></div>
@@ -170,6 +217,16 @@
 		</div>
 	{/if}
 </div>
+
+<ConfirmDialog
+	open={routing !== null}
+	title={routing ? actionWords[routing.action].title.replace('{app}', routing.row.name) : ''}
+	message={routeMessage}
+	confirmLabel={app.connected ? 'Add rule and reconnect' : 'Add rule'}
+	danger={routing?.action === 'block'}
+	onconfirm={applyRoute}
+	onclose={() => (routing = null)}
+/>
 
 <style>
 	.page {
@@ -235,11 +292,35 @@
 	.up {
 		color: var(--up);
 	}
+	.detail {
+		background: color-mix(in srgb, var(--hairline) 50%, transparent);
+	}
+	.route-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+		padding: 0 12px 10px;
+		font-size: 12px;
+	}
+	.route-bar span {
+		flex: 1;
+		min-width: 140px;
+		color: var(--fg-muted);
+	}
+	.route-bar .btn {
+		min-height: 24px;
+		padding: 2px 10px;
+		font-size: 12px;
+	}
+	.route-bar .active {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
 	.hosts {
 		padding: 6px 12px 8px;
 		font-size: 11px;
 		color: var(--fg-muted);
-		background: color-mix(in srgb, var(--hairline) 50%, transparent);
 		overflow-wrap: anywhere;
 	}
 	.note {

@@ -34,6 +34,10 @@ export interface Status {
 	latencyMs: number | null;
 	/** Why the last attempt to connect failed. */
 	failure: ErrorInfo | null;
+	/** The local proxy's port while connected; it is not always 2080 when that port was busy. */
+	proxyPort: number | null;
+	/** The kill switch is blocking traffic outside the tunnel right now. */
+	blocked: boolean;
 }
 
 export interface ErrorInfo {
@@ -65,9 +69,15 @@ export interface Traffic {
 	totalDown: number;
 }
 
+export type LogLevel = 'errors' | 'normal' | 'detailed';
+
 export interface Settings {
 	showSpeed: boolean;
 	autoConnect: boolean;
+	/** How much the VPN engine writes to its log. Takes effect on the next connection. */
+	logLevel: LogLevel;
+	/** Empty the engine's log files whenever the VPN is turned off. */
+	clearLogs: boolean;
 }
 
 export interface AutoSettings {
@@ -90,11 +100,33 @@ export interface Subscription {
 	lastUpdated: number;
 	lastError: string | null;
 	userInfo: UserInfo | null;
+	/** Client name sent instead of the app's own; `null` uses the default. */
+	userAgent: string | null;
+	/** Send this Mac's device ID, for providers that limit devices. */
+	sendDeviceId: boolean;
+}
+
+/** How a subscription asks for its list. */
+export interface SubscriptionOptions {
+	userAgent: string | null;
+	sendDeviceId: boolean;
+}
+
+export interface InstalledApp {
+	name: string;
+	/** The bundle, such as `/Applications/Slack.app`; app rules store this. */
+	path: string;
+	bundleId: string | null;
+}
+
+export interface RestoreSummary {
+	servers: number;
+	subscriptions: number;
 }
 
 export type RouteMode = 'global' | 'rule' | 'direct';
 export type RouteAction = 'proxy' | 'direct' | 'block';
-export type RuleKind = 'domain' | 'domainSuffix' | 'domainKeyword' | 'ipCidr' | 'processName';
+export type RuleKind = 'domain' | 'domainSuffix' | 'domainKeyword' | 'ipCidr' | 'processName' | 'app';
 export type RuleSetKind = 'geoip' | 'geosite';
 export type DnsProvider = 'cloudflare' | 'google' | 'quad9' | 'custom' | 'system';
 
@@ -114,12 +146,44 @@ export interface RuleSetRef {
 	action: RouteAction;
 }
 
+/** Where country and category lists come from. The addresses contain `{name}`; an empty one means none of that kind. */
+export interface RuleProvider {
+	id: string;
+	name: string;
+	geoip: string;
+	geosite: string;
+	note: string;
+}
+
+export interface ListStatus {
+	tag: string;
+	kind: RuleSetKind;
+	name: string;
+	present: boolean;
+	bytes: number;
+	modified: number | null;
+}
+
+export interface RuleSetsStatus {
+	downloadedFrom: string | null;
+	lists: ListStatus[];
+	throughTunnel: boolean;
+}
+
+export interface ListResult {
+	tag: string;
+	error: string | null;
+}
+
 export interface RoutingSettings {
 	mode: RouteMode;
 	bypassLan: boolean;
 	finalAction: RouteAction;
 	rules: Rule[];
 	ruleSets: RuleSetRef[];
+	/** The id of the list source in use: a built-in one or one of `customProviders`. */
+	ruleProvider: string;
+	customProviders: RuleProvider[];
 	dns: { provider: DnsProvider; custom: string };
 }
 
@@ -128,6 +192,8 @@ export interface ReliabilitySettings {
 	watchdog: boolean;
 	killSwitch: boolean;
 	hotkey: boolean;
+	proxyAuth: boolean;
+	proxyPassword: string;
 }
 
 export interface UsageSettings {
@@ -192,6 +258,8 @@ export interface RefreshSummary {
 	removed: number;
 	total: number;
 	skipped: number;
+	/** Why the first skipped link was skipped. */
+	skippedReason: string | null;
 }
 
 export interface NodeLatency {
@@ -205,6 +273,8 @@ export interface LiveConnection {
 	destinationIp: string;
 	destinationPort: string;
 	process: string;
+	/** The app bundle the process belongs to, when it is inside one. */
+	appPath: string | null;
 	network: string;
 	up: number;
 	down: number;
@@ -276,12 +346,24 @@ export const api = {
 	setAuto: (settings: AutoSettings) => invoke<void>('set_auto', { settings }),
 	testAll: () => invoke<NodeLatency[]>('test_all'),
 	setRouting: (settings: RoutingSettings) => invoke<void>('set_routing', { settings }),
+	ruleProviders: () => invoke<RuleProvider[]>('rule_providers'),
+	ruleSetsStatus: () => invoke<RuleSetsStatus>('rule_sets_status'),
+	downloadRuleSets: (tag: string | null) => invoke<ListResult[]>('download_rule_sets', { tag }),
+	deleteRuleSets: (tag: string | null) => invoke<void>('delete_rule_sets', { tag }),
 	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
 	restoreNetwork: () => invoke<void>('restore_network'),
+	unblockInternet: () => invoke<void>('unblock_internet'),
 	rootServiceInstalled: () => invoke<boolean>('root_service_installed'),
 	installRootService: () => invoke<void>('install_root_service'),
 	uninstallRootService: () => invoke<void>('uninstall_root_service'),
-	addSubscription: (name: string, url: string) => invoke<RefreshSummary>('add_subscription', { name, url }),
+	addSubscription: (name: string, url: string, options: SubscriptionOptions) =>
+		invoke<RefreshSummary>('add_subscription', { name, url, ...options }),
+	editSubscription: (id: string, name: string, url: string, options: SubscriptionOptions) =>
+		invoke<void>('edit_subscription', { id, name, url, ...options }),
+	installedApps: () => invoke<InstalledApp[]>('installed_apps'),
+	deleteProfiles: (ids: string[]) => invoke<number>('delete_profiles', { ids }),
+	exportBackup: () => invoke<string>('export_backup'),
+	restoreBackup: (text: string) => invoke<RestoreSummary>('restore_backup', { text }),
 	refreshSubscription: (id: string) => invoke<RefreshSummary>('refresh_subscription', { id }),
 	removeSubscription: (id: string) => invoke<void>('remove_subscription', { id }),
 	runDiagnostics: () => invoke<Diagnostics>('run_diagnostics'),

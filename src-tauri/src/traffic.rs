@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::time::sleep;
 
-use crate::config::CLASH_PORT;
+use crate::config::clash_port;
 use crate::error::Result;
 use crate::state::AppState;
 use crate::{applog, session, tray, usage};
@@ -87,7 +87,7 @@ pub fn reset(app: &AppHandle) {
 
 async fn stream(app: &AppHandle, pid: u32, secret: &str) -> Result<bool> {
     let client = reqwest::Client::builder().no_proxy().build()?;
-    let url = format!("http://127.0.0.1:{CLASH_PORT}/traffic");
+    let url = format!("http://127.0.0.1:{}/traffic", clash_port());
 
     let mut response = None;
     for _ in 0..CONNECT_ATTEMPTS {

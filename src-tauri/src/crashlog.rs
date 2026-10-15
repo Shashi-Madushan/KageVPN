@@ -37,12 +37,21 @@ pub fn format_entry(kind: &str, reason: &str, details: &str, time: &str) -> Stri
     format!("==== {time} · {kind}\n{reason}\n{}\n\n", details.trim_end())
 }
 
+/// The first character boundary at or after `index`. Cutting text at a raw byte offset panics
+/// inside a multi-byte character (server names and domains are often not ASCII).
+fn boundary_at_or_after(text: &str, mut index: usize) -> usize {
+    while !text.is_char_boundary(index) {
+        index += 1;
+    }
+    index
+}
+
 pub fn record(dir: &Path, kind: &str, reason: &str, details: &str) {
     let path = dir.join(FILE);
     let entry = format_entry(kind, reason, details, &chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
     if fs::metadata(&path).map(|m| m.len()).unwrap_or(0) > MAX_BYTES {
         if let Ok(text) = fs::read_to_string(&path) {
-            let keep = text.len() / 2;
+            let keep = boundary_at_or_after(&text, text.len() / 2);
             let cut = text[keep..].find("==== ").map_or(text.len(), |i| keep + i);
             let _ = fs::write(&path, &text[cut..]);
         }
@@ -58,10 +67,7 @@ pub fn read(dir: &Path) -> String {
     if text.len() <= READ_BYTES {
         return text;
     }
-    let mut start = text.len() - READ_BYTES;
-    while !text.is_char_boundary(start) {
-        start += 1;
-    }
+    let start = boundary_at_or_after(&text, text.len() - READ_BYTES);
     let cut = text[start..].find("==== ").map_or(start, |i| start + i);
     text[cut..].to_string()
 }

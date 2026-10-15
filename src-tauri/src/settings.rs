@@ -27,6 +27,9 @@ pub enum RuleKind {
     DomainKeyword,
     IpCidr,
     ProcessName,
+    /// An installed app, stored as its bundle path (`/Applications/Slack.app`). Matches every
+    /// process inside the bundle, so helpers such as "Slack Helper (Renderer)" follow the app.
+    App,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -57,6 +60,20 @@ pub struct RuleSetRef {
     pub action: Action,
 }
 
+/// Where country and category lists are downloaded from. The two addresses are templates: `{name}`
+/// stands for the country or category (`cn`, `category-ads-all`). An empty one means the source
+/// has no lists of that kind.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RuleProvider {
+    pub id: String,
+    pub name: String,
+    pub geoip: String,
+    pub geosite: String,
+    /// A line about the source, for the built-in ones.
+    pub note: String,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DnsProvider {
@@ -83,6 +100,9 @@ pub struct RoutingSettings {
     pub final_action: Action,
     pub rules: Vec<Rule>,
     pub rule_sets: Vec<RuleSetRef>,
+    /// The id of the source the lists come from; a built-in one or one of `custom_providers`.
+    pub rule_provider: String,
+    pub custom_providers: Vec<RuleProvider>,
     pub dns: DnsSettings,
 }
 
@@ -94,7 +114,31 @@ impl Default for RoutingSettings {
             final_action: Action::Proxy,
             rules: Vec::new(),
             rule_sets: Vec::new(),
+            rule_provider: crate::rulesets::DEFAULT_PROVIDER.into(),
+            custom_providers: Vec::new(),
             dns: DnsSettings::default(),
+        }
+    }
+}
+
+/// How much sing-box writes to its log. Anything above `Errors` lists the sites that were visited
+/// (checked against sing-box 1.14: `info` and `debug` log every connection's destination; `warn`
+/// only the ones that failed).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Errors,
+    #[default]
+    Normal,
+    Detailed,
+}
+
+impl LogLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            LogLevel::Errors => "warn",
+            LogLevel::Normal => "info",
+            LogLevel::Detailed => "debug",
         }
     }
 }
@@ -144,11 +188,15 @@ pub struct ReliabilitySettings {
     pub watchdog: bool,
     pub kill_switch: bool,
     pub hotkey: bool,
+    /// Protect the local proxy with a login (user `kage`). Off by default so Proxy Only mode
+    /// keeps working for apps that cannot send a login.
+    pub proxy_auth: bool,
+    pub proxy_password: String,
 }
 
 impl Default for ReliabilitySettings {
     fn default() -> Self {
-        Self { auto_reconnect: true, watchdog: false, kill_switch: false, hotkey: false }
+        Self { auto_reconnect: true, watchdog: true, kill_switch: false, hotkey: false, proxy_auth: false, proxy_password: String::new() }
     }
 }
 
@@ -178,6 +226,22 @@ pub struct Subscription {
     pub last_updated: u64,
     pub last_error: Option<String>,
     pub user_info: Option<UserInfo>,
+    /// The expiry date the last expiry notice was for, and which one it was (1 soon, 2 expired),
+    /// so each notice appears once per date instead of on every refresh.
+    pub notified_expire: u64,
+    pub notified_stage: u8,
+    /// When the last refresh was tried (successful or not), and how many in a row failed.
+    pub last_attempt: u64,
+    pub failures: u32,
+    /// Sent instead of the app's own user agent. Providers choose the list format, or whether to
+    /// answer at all, by the client name.
+    pub user_agent: Option<String>,
+    /// Send this Mac's device ID with each refresh, for providers that limit how many devices can
+    /// use one subscription. Off unless the user turns it on.
+    pub send_device_id: bool,
+    /// The data warning last shown for the provider's allowance (1 at 90 percent, 2 used up), so
+    /// each is shown once; it drops back to 0 when a new period starts.
+    pub notified_quota: u8,
 }
 
 impl Default for Subscription {
@@ -190,6 +254,13 @@ impl Default for Subscription {
             last_updated: 0,
             last_error: None,
             user_info: None,
+            notified_expire: 0,
+            notified_stage: 0,
+            last_attempt: 0,
+            failures: 0,
+            user_agent: None,
+            send_device_id: false,
+            notified_quota: 0,
         }
     }
 }

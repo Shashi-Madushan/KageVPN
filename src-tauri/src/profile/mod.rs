@@ -10,6 +10,7 @@ mod common;
 #[path = "../tests/profile_conformance.rs"]
 mod conformance;
 mod form;
+mod formats;
 mod hysteria2;
 mod links;
 mod shadowsocks;

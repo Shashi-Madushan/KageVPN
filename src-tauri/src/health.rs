@@ -113,7 +113,27 @@ pub fn needs_tcp_check(protocol: &str) -> bool {
 
 /// Cheap checks before sing-box starts, so an obviously unusable server fails in seconds with a
 /// plain explanation instead of connecting and then showing no internet.
-pub async fn preflight(profile: &Profile) -> crate::error::Result<()> {
+///
+/// `behind_block`: the kill switch is blocking DNS, so the server's remembered addresses are
+/// checked instead of looking its name up.
+pub async fn preflight(profile: &Profile, behind_block: bool) -> crate::error::Result<()> {
+    if behind_block {
+        let known = crate::allowlist::known(&profile.server);
+        if !known.is_empty() {
+            if !needs_tcp_check(profile.protocol.as_str()) {
+                return Ok(());
+            }
+            for address in &known {
+                if net::tcp_latency(address, profile.port).await.is_ok() {
+                    return Ok(());
+                }
+            }
+            return Err(AppError::ServerUnreachable(format!(
+                "{} did not accept a connection on port {}. It may be offline, or the internet is not back yet.",
+                profile.server, profile.port
+            )));
+        }
+    }
     let target = (profile.server.as_str(), profile.port);
     let resolved = tokio::net::lookup_host(target).await.map(|mut a| a.next().is_some()).unwrap_or(false);
     if !resolved {
@@ -164,8 +184,12 @@ pub fn spawn_monitor(app: AppHandle, pid: u32) {
             }
             match net::proxy_delay().await {
                 Ok(latency_ms) => {
+                    let recovered = failures > 0;
                     failures = 0;
                     apply(&app, &Verdict::Healthy { latency_ms });
+                    if recovered {
+                        session::signal_tunnel(&app, true);
+                    }
                 }
                 Err(error) => {
                     failures += 1;
@@ -176,6 +200,9 @@ pub fn spawn_monitor(app: AppHandle, pid: u32) {
                             return;
                         }
                         apply(&app, &verdict);
+                        if matches!(verdict, Verdict::Down(_)) {
+                            session::signal_tunnel(&app, false);
+                        }
                     }
                     let restart = app.state::<AppState>().store.lock().unwrap().reliability().watchdog;
                     if restart && failures >= FAILURES_BEFORE_RESTART {
@@ -212,6 +239,10 @@ async fn verify_first(app: &AppHandle, pid: u32) -> bool {
         return false;
     }
     apply(app, &verdict);
+    if matches!(verdict, Verdict::Healthy { .. }) {
+        session::signal_tunnel(app, true);
+        session::spawn_rule_set_refresh(app.clone(), pid);
+    }
     true
 }
 

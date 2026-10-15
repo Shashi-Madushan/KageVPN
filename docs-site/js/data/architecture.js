@@ -283,22 +283,29 @@ route add -net 128.0.0.0/1 -interface utun3</code></pre>
 
       <h2 id="pfctl-anchor-rules">pfctl Anchor Rules</h2>
       <p>
-        When the Kill Switch is active, Kage injects rules into the <code>com.apple/250.KageVPN</code> anchor table:
+        When the Kill Switch puts its block up, the root helper loads these rules into the <code>com.apple/250.KageVPN</code> anchor (server and addresses are examples):
       </p>
     </div>
 
     <div class="code-block-container">
       <div class="code-header">
         <span class="code-lang-label">pfctl rules</span>
-        <button class="btn-copy-code" data-code="block drop out on en0 all&#10;pass out on en0 proto tcp to 198.51.100.25 port 443">Copy</button>
+        <button class="btn-copy-code" data-code="pass quick on lo0 all&#10;block drop out all">Copy</button>
       </div>
-      <pre><code># Drop all egress on physical interfaces
-block drop out on en0 all
-block drop out on en1 all
+      <pre><code>pass quick on lo0 all
+pass out quick to { 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 224.0.0.0/4 255.255.255.255 }
+pass out quick inet6 proto icmp6 all icmp6-type { routersol, routeradv, neighbrsol, neighbradv }
+pass out quick inet6 from fe80::/10 to fe80::/10
+pass out quick to { 198.51.100.25 2001:db8::25 }
+# only while a new run comes up behind a block, for 20 seconds:
+pass out quick proto { udp tcp } to any port 53
+block drop out all</code></pre>
+    </div>
 
-# Allow traffic strictly destined to the active proxy endpoint
-pass out on en0 proto tcp to 198.51.100.25 port 443
-pass out on en0 proto udp to 198.51.100.25 port 443</code></pre>
+    <div class="docs-prose">
+      <p>
+        The helper is driven by small files in the data folder: <code>stop</code> (end the run and release), <code>down</code> (end the run, keep the block), <code>block</code> (put the block up now), <code>ready</code> (the tunnel is verified, release) and <code>allow</code> (the refreshed server addresses). It writes <code>blocked</code> while a block is up, which the app reads to show the state on Home. Entries in <code>allow</code> are accepted only if they look like IPv4 or IPv6 addresses.
+      </p>
     </div>
   `
 };
