@@ -388,25 +388,59 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
 /// stops the connection.
 async fn prepare_rule_sets(app: &AppHandle, routing: &crate::settings::RoutingSettings) {
     let dir = app.state::<AppState>().paths.rule_sets_dir();
-    let (missing, stale) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(routing), crate::rulesets::MAX_AGE);
+    let (missing, _) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(routing), crate::rulesets::MAX_AGE);
     // A list that just failed is not waited for again: reconnect attempts follow each other fast.
     let missing = crate::rulesets::skip_recent_failures(missing);
-    if !missing.is_empty() {
-        applog::info(format!("downloading {} rule list(s) before connecting", missing.len()));
-        let failed = crate::rulesets::fetch_all(&dir, missing).await;
-        for (item, error) in &failed {
-            applog::warn(format!("rule list {} left out: {error}", item.tag));
-        }
-        if !failed.is_empty() {
-            let tags: Vec<String> = failed.into_iter().map(|(item, _)| item.tag).collect();
-            notify::send(app, "Some lists were left out", &crate::rulesets::skipped_message(&tags));
-        }
+    if missing.is_empty() {
+        return;
     }
-    if !stale.is_empty() {
-        tauri::async_runtime::spawn(async move {
-            let _ = crate::rulesets::fetch_all(&dir, stale).await;
-        });
+    applog::info(format!("downloading {} rule list(s) before connecting", missing.len()));
+    // No tunnel yet, so this is a direct download; lists that fail here are tried again through the
+    // tunnel once it is verified (see `refresh_rule_sets`).
+    let fetch = crate::rulesets::Fetch { provider: crate::rulesets::provider_of(routing), proxy: None };
+    let failed = crate::rulesets::fetch_all(&dir, missing, &fetch).await;
+    for (item, error) in &failed {
+        applog::warn(format!("rule list {} left out: {error}", item.tag));
     }
+    if !failed.is_empty() {
+        let tags: Vec<String> = failed.into_iter().map(|(item, _)| item.tag).collect();
+        notify::send(app, "Some lists were left out", &crate::rulesets::skipped_message(&tags));
+    }
+}
+
+/// The tunnel's local proxy, when connected: downloads made through it do not depend on the
+/// local network letting GitHub through.
+pub fn tunnel_proxy(app: &AppHandle) -> Option<String> {
+    let connected = app.state::<AppState>().status.lock().unwrap().state == State::Connected;
+    connected.then(config::proxy_url)
+}
+
+/// Once the tunnel is verified: fetches the lists that were left out before connecting, and
+/// refreshes old ones, through the tunnel. A list that was missing cannot apply until the next
+/// connect, so the user is told.
+pub fn spawn_rule_set_refresh(app: AppHandle, pid: u32) {
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        if *state.pid.lock().unwrap() != Some(pid) {
+            return;
+        }
+        let routing = state.store.lock().unwrap().routing();
+        let dir = state.paths.rule_sets_dir();
+        let (missing, stale) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(&routing), crate::rulesets::MAX_AGE);
+        if missing.is_empty() && stale.is_empty() {
+            return;
+        }
+        let Some(proxy) = tunnel_proxy(&app) else { return };
+        let fetch = crate::rulesets::Fetch { provider: crate::rulesets::provider_of(&routing), proxy: Some(proxy) };
+        let mut items = missing.clone();
+        items.extend(stale);
+        applog::info(format!("rule lists: fetching {} through the tunnel", items.len()));
+        let failed = crate::rulesets::fetch_all(&dir, items, &fetch).await;
+        let arrived: Vec<String> = missing.iter().filter(|m| failed.iter().all(|(f, _)| f.tag != m.tag)).map(|m| m.tag.clone()).collect();
+        if !arrived.is_empty() {
+            notify::send(&app, "Rule lists downloaded", &format!("{} downloaded through the tunnel. Reconnect to apply {}.", arrived.join(", "), if arrived.len() == 1 { "it" } else { "them" }));
+        }
+    });
 }
 
 async fn wait_until_ready(app: &AppHandle, pid: u32) -> Result<()> {

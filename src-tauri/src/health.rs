@@ -241,6 +241,7 @@ async fn verify_first(app: &AppHandle, pid: u32) -> bool {
     apply(app, &verdict);
     if matches!(verdict, Verdict::Healthy { .. }) {
         session::signal_tunnel(app, true);
+        session::spawn_rule_set_refresh(app.clone(), pid);
     }
     true
 }

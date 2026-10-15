@@ -4,6 +4,7 @@
 	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import Segmented from './Segmented.svelte';
+	import RuleSources from './RuleSources.svelte';
 
 	let draft = $state<RoutingSettings | null>(null);
 	let kind = $state<RuleKind>('domainSuffix');
@@ -220,8 +221,10 @@
 						<button class="btn" disabled={!country.trim()}>Add</button>
 					</form>
 				</div>
-				<p class="foot">Downloaded by the app from GitHub, or a mirror when GitHub is blocked, and refreshed weekly.</p>
+				<p class="foot">Downloaded by the app and refreshed weekly. Where from is set below.</p>
 			</div>
+
+			<RuleSources {draft} {dirty} />
 
 			<div class="section">
 				<div class="section-head"><span class="caption">Test a domain</span></div>

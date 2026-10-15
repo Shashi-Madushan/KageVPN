@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-15", label: "15 Oct 2026" },
     { id: "oct-13", label: "13 Oct 2026" },
     { id: "oct-12", label: "12 Oct 2026" },
     { id: "oct-11", label: "11 Oct 2026" },
@@ -22,6 +23,16 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-15">15 October 2026</h2>
+      <ul>
+        <li><strong>New:</strong> Rule lists can come from other sources. In <strong>Routing</strong>, under <em>List sources</em>, choose SagerNet (the default), MetaCubeX, v2rayN, Loyalsoldier (IP lists) or runetfreedom (Russia), or add your own source with an address that contains <code>{name}</code>. Every source must publish sing-box <code>.srs</code> files; V2Ray <code>.dat</code> files cannot be used.</li>
+        <li><strong>New:</strong> <em>Downloaded lists</em> shows each list's size and age, with buttons to download, update or remove one or all of them.</li>
+        <li><strong>Improved:</strong> Lists are downloaded through the VPN first when you are connected, then directly. A list that could not be fetched before connecting (for example because GitHub is blocked) is fetched through the tunnel as soon as it is verified, and you are told to reconnect to apply it.</li>
+        <li><strong>New:</strong> The kill switch now keeps blocking while a reconnect is in progress and while the tunnel is up but carrying no traffic, instead of letting traffic out after the first failed attempt. It lets IPv6 neighbour discovery through, keeps a refreshed list of your server's addresses, and Home shows <strong>Internet blocked by the kill switch</strong> with an <strong>Unblock internet</strong> button. For up to 20 seconds while a reconnect starts, DNS lookups are allowed so the server name can be found. Still experimental.</li>
+        <li><strong>New:</strong> An optional password for the local proxy (Settings, Reliability), for Proxy Only mode and other users on your Mac.</li>
+        <li><strong>Changed:</strong> A dead tunnel is now restarted automatically by default on new installs.</li>
+      </ul>
+
       <h2 id="oct-13">13 October 2026</h2>
       <ul>
         <li><strong>New:</strong> <strong>Settings &rarr; Logs</strong>: choose how much the engine writes down. <em>Errors only</em> keeps no list of the sites you visit (apart from ones that failed to load); <em>Normal</em> and <em>Detailed</em> list every connection. The default is Normal, where it used to be Detailed. A second switch empties the log files whenever the VPN turns off.</li>

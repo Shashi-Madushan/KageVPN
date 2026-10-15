@@ -146,12 +146,44 @@ export interface RuleSetRef {
 	action: RouteAction;
 }
 
+/** Where country and category lists come from. The addresses contain `{name}`; an empty one means none of that kind. */
+export interface RuleProvider {
+	id: string;
+	name: string;
+	geoip: string;
+	geosite: string;
+	note: string;
+}
+
+export interface ListStatus {
+	tag: string;
+	kind: RuleSetKind;
+	name: string;
+	present: boolean;
+	bytes: number;
+	modified: number | null;
+}
+
+export interface RuleSetsStatus {
+	downloadedFrom: string | null;
+	lists: ListStatus[];
+	throughTunnel: boolean;
+}
+
+export interface ListResult {
+	tag: string;
+	error: string | null;
+}
+
 export interface RoutingSettings {
 	mode: RouteMode;
 	bypassLan: boolean;
 	finalAction: RouteAction;
 	rules: Rule[];
 	ruleSets: RuleSetRef[];
+	/** The id of the list source in use: a built-in one or one of `customProviders`. */
+	ruleProvider: string;
+	customProviders: RuleProvider[];
 	dns: { provider: DnsProvider; custom: string };
 }
 
@@ -314,6 +346,10 @@ export const api = {
 	setAuto: (settings: AutoSettings) => invoke<void>('set_auto', { settings }),
 	testAll: () => invoke<NodeLatency[]>('test_all'),
 	setRouting: (settings: RoutingSettings) => invoke<void>('set_routing', { settings }),
+	ruleProviders: () => invoke<RuleProvider[]>('rule_providers'),
+	ruleSetsStatus: () => invoke<RuleSetsStatus>('rule_sets_status'),
+	downloadRuleSets: (tag: string | null) => invoke<ListResult[]>('download_rule_sets', { tag }),
+	deleteRuleSets: (tag: string | null) => invoke<void>('delete_rule_sets', { tag }),
 	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
 	restoreNetwork: () => invoke<void>('restore_network'),
 	unblockInternet: () => invoke<void>('unblock_internet'),

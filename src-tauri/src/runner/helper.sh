@@ -57,11 +57,13 @@ engage_block() {
 
 release_block() {
   dns_until=0
+  if [ -n "$token" ]; then
+    pfctl -a "$anchor" -F all 2>/dev/null
+    pfctl -X "$token" 2>/dev/null
+    token=""
+  fi
+  # Last, so the marker never says "released" before the firewall really is.
   rm -f "$blockedf"
-  [ -z "$token" ] && return
-  pfctl -a "$anchor" -F all 2>/dev/null
-  pfctl -X "$token" 2>/dev/null
-  token=""
 }
 
 # Runs every half second while sing-box is running: the app's signals about the block.

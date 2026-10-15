@@ -103,10 +103,8 @@ pub mod urls {
     pub const DNS_LEAK: &str = "http://edns.ip-api.com/json";
     pub const SPEED_DOWNLOAD: &str = "https://speed.cloudflare.com/__down?bytes=25000000";
     pub const SPEED_UPLOAD: &str = "https://speed.cloudflare.com/__up";
-    /// Prefixes for per-country and per-category rule sets; the file name is appended.
+    /// Prefixes for per-country and per-category rule sets of the default provider (SagerNet); the
+    /// name and `.srs` are appended. Other providers live in `rulesets::builtin_providers`.
     pub const GEOIP_RULE_SETS: &str = "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-";
     pub const GEOSITE_RULE_SETS: &str = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-";
-    /// The same files through a CDN, tried when GitHub itself cannot be reached.
-    pub const GEOIP_RULE_SETS_MIRROR: &str = "https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-";
-    pub const GEOSITE_RULE_SETS_MIRROR: &str = "https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-";
 }

@@ -60,6 +60,20 @@ pub struct RuleSetRef {
     pub action: Action,
 }
 
+/// Where country and category lists are downloaded from. The two addresses are templates: `{name}`
+/// stands for the country or category (`cn`, `category-ads-all`). An empty one means the source
+/// has no lists of that kind.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RuleProvider {
+    pub id: String,
+    pub name: String,
+    pub geoip: String,
+    pub geosite: String,
+    /// A line about the source, for the built-in ones.
+    pub note: String,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DnsProvider {
@@ -86,6 +100,9 @@ pub struct RoutingSettings {
     pub final_action: Action,
     pub rules: Vec<Rule>,
     pub rule_sets: Vec<RuleSetRef>,
+    /// The id of the source the lists come from; a built-in one or one of `custom_providers`.
+    pub rule_provider: String,
+    pub custom_providers: Vec<RuleProvider>,
     pub dns: DnsSettings,
 }
 
@@ -97,6 +114,8 @@ impl Default for RoutingSettings {
             final_action: Action::Proxy,
             rules: Vec::new(),
             rule_sets: Vec::new(),
+            rule_provider: crate::rulesets::DEFAULT_PROVIDER.into(),
+            custom_providers: Vec::new(),
             dns: DnsSettings::default(),
         }
     }

@@ -325,6 +325,68 @@ pub fn update_settings(app: AppHandle, state: State<AppState>, settings: Setting
     Ok(())
 }
 
+/// The list sources that come with the app. Custom ones are part of the routing settings.
+#[tauri::command]
+pub fn rule_providers() -> Vec<crate::settings::RuleProvider> {
+    crate::rulesets::builtin_providers()
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleSetsStatus {
+    /// The source the files on disk came from, when known.
+    downloaded_from: Option<String>,
+    lists: Vec<crate::rulesets::ListStatus>,
+    /// Whether downloads go through the tunnel right now.
+    through_tunnel: bool,
+}
+
+#[tauri::command]
+pub fn rule_sets_status(app: AppHandle, state: State<AppState>) -> RuleSetsStatus {
+    let dir = state.paths.rule_sets_dir();
+    let routing = state.store.lock().unwrap().routing();
+    RuleSetsStatus {
+        downloaded_from: crate::rulesets::downloaded_from(&dir),
+        lists: crate::rulesets::status(&dir, &routing),
+        through_tunnel: crate::session::tunnel_proxy(&app).is_some(),
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListResult {
+    tag: String,
+    error: Option<String>,
+}
+
+/// Downloads the saved routing's lists now (one when `tag` is given), through the tunnel when it
+/// is up. Ignores the retry pause, since the user asked.
+#[tauri::command]
+pub async fn download_rule_sets(app: AppHandle, state: State<'_, AppState>, tag: Option<String>) -> Result<Vec<ListResult>> {
+    let dir = state.paths.rule_sets_dir();
+    let routing = state.store.lock().unwrap().routing();
+    let provider = crate::rulesets::provider_of(&routing);
+    let items: Vec<_> = crate::rulesets::enabled_lists(&routing).into_iter().filter(|i| tag.as_deref().is_none_or(|t| t == i.tag)).collect();
+    let fetch = crate::rulesets::Fetch { provider: provider.clone(), proxy: crate::session::tunnel_proxy(&app) };
+    let failed = crate::rulesets::fetch_all(&dir, items.clone(), &fetch).await;
+    if tag.is_none() && failed.is_empty() {
+        crate::rulesets::remember_provider(&dir, &provider.id);
+    }
+    Ok(items
+        .into_iter()
+        .map(|item| {
+            let error = failed.iter().find(|(f, _)| f.tag == item.tag).map(|(_, e)| e.to_string());
+            ListResult { tag: item.tag, error }
+        })
+        .collect())
+}
+
+/// Deletes the downloaded file of one list, or of all of them. They are fetched again when needed.
+#[tauri::command]
+pub fn delete_rule_sets(state: State<AppState>, tag: Option<String>) -> Result<()> {
+    crate::rulesets::remove(&state.paths.rule_sets_dir(), tag.as_deref())
+}
+
 #[tauri::command]
 pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
     let autolaunch = app.autolaunch();
@@ -335,14 +397,24 @@ pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
 #[tauri::command]
 pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSettings) -> Result<()> {
     crate::config::validate_dns(&settings.dns)?;
+    crate::rulesets::validate_providers(&settings.custom_providers)?;
     let dir = state.paths.rule_sets_dir();
-    let (missing, _) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(&settings), crate::rulesets::MAX_AGE);
+    let provider = crate::rulesets::provider_of(&settings);
+    // Files from another source are replaced (the old ones stay until the new ones arrive).
+    let changed_source = crate::rulesets::downloaded_from(&dir).is_some_and(|id| id != provider.id);
+    let (mut missing, _) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(&settings), crate::rulesets::MAX_AGE);
+    if changed_source {
+        missing = crate::rulesets::wanted(&settings);
+    }
     state.store.lock().unwrap().set_routing(settings)?;
     // Fetch new lists now, so connecting later does not wait for them and a failure shows up here.
     if !missing.is_empty() {
+        let fetch = crate::rulesets::Fetch { provider: provider.clone(), proxy: crate::session::tunnel_proxy(&app) };
         tauri::async_runtime::spawn(async move {
-            let failed = crate::rulesets::fetch_all(&dir, missing).await;
-            if !failed.is_empty() {
+            let failed = crate::rulesets::fetch_all(&dir, missing, &fetch).await;
+            if failed.is_empty() {
+                crate::rulesets::remember_provider(&dir, &provider.id);
+            } else {
                 let tags: Vec<String> = failed.into_iter().map(|(item, _)| item.tag).collect();
                 notify::send(&app, "Some lists could not be downloaded", &crate::rulesets::skipped_message(&tags));
             }
