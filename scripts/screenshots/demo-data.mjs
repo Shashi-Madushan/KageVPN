@@ -81,7 +81,12 @@ function install(opts) {
 				{ id: 'r3', enabled: true, kind: 'domainKeyword', value: 'doubleclick', action: 'block' },
 				{ id: 'r4', enabled: true, kind: 'ipCidr', value: '192.168.50.0/24', action: 'direct' }
 			],
-			ruleSets: [{ id: 'g1', enabled: true, kind: 'geoip', country: 'lk', action: 'direct' }],
+			ruleSets: [
+				{ id: 'g1', enabled: true, kind: 'geoip', country: 'lk', action: 'direct' },
+				{ id: 'g2', enabled: true, kind: 'geosite', country: 'category-ads-all', action: 'block' },
+				{ id: 'g3', enabled: true, kind: 'geosite', country: 'netflix', action: 'proxy' }
+			],
+			ruleProvider: 'sagernet', customProviders: [],
 			dns: { provider: 'cloudflare', custom: '' }
 		},
 		reliability: { autoReconnect: true, watchdog: true, killSwitch: false, hotkey: true }, hotkey: '⌥⌘V'
@@ -167,6 +172,19 @@ function install(opts) {
 			system: { ip: '203.0.113.42', country: 'Germany', city: 'Frankfurt', org: 'Example Hosting GmbH' },
 			tunnel: { ip: '203.0.113.42', country: 'Germany', city: 'Frankfurt', org: 'Example Hosting GmbH' },
 			dns: { ip: '203.0.113.53', geo: 'Germany' }
+		}),
+		rule_providers: () => [
+			{ id: 'sagernet', name: 'SagerNet', geoip: 'x{name}', geosite: 'x{name}', note: "The sing-box authors' own lists: countries and V2Ray's domain categories." },
+			{ id: 'metacubex', name: 'MetaCubeX', geoip: 'x{name}', geosite: 'x{name}', note: 'meta-rules-dat, the lists Clash Meta uses. Many more categories than SagerNet.' },
+			{ id: 'loyalsoldier', name: 'Loyalsoldier (IP lists)', geoip: 'x{name}', geosite: '', note: 'Enhanced country IP lists.' }
+		],
+		rule_sets_status: () => ({
+			downloadedFrom: 'sagernet', throughTunnel: !!opts.connected,
+			lists: [
+				{ tag: 'geoip-lk', kind: 'geoip', name: 'lk', present: true, bytes: 9400, modified: now - 86400 * 2 },
+				{ tag: 'geosite-category-ads-all', kind: 'geosite', name: 'category-ads-all', present: true, bytes: 61000, modified: now - 86400 * 2 },
+				{ tag: 'geosite-netflix', kind: 'geosite', name: 'netflix', present: false, bytes: 0, modified: null }
+			]
 		}),
 		run_speed_test: async () => {
 			const steps = [['ping', 0, 0.5], ['download', 120, 0.3], ['download', 340, 0.7], ['download', 412, 1], ['upload', 60, 0.5], ['upload', 96, 1]];
