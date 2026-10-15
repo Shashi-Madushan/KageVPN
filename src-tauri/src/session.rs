@@ -250,6 +250,8 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
             store.settings().log_level,
         )
     };
+    let proxy_password = Some(reliability.proxy_password.clone()).filter(|p| reliability.proxy_auth && !p.is_empty());
+    config::set_proxy_password(proxy_password.clone());
     prepare_rule_sets(app, &routing).await;
     check_cancelled(app)?;
 
@@ -271,6 +273,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         clash_port: ports.clash,
         rule_sets_dir: &paths.rule_sets_dir(),
         secret,
+        proxy_password: proxy_password.as_deref(),
     })?;
     crate::fsutil::write_private_atomic(&paths.config_file(), &serde_json::to_vec_pretty(&config)?)?;
     crate::singbox::check(&binary, &paths.config_file())?;

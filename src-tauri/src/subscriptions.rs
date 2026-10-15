@@ -103,7 +103,7 @@ async fn request(url: &str, options: &FetchOptions, through_tunnel: bool) -> std
     let user_agent = options.user_agent.clone().unwrap_or_else(crate::app_config::user_agent);
     let mut client = reqwest::Client::builder().user_agent(user_agent).timeout(Duration::from_secs(20));
     if through_tunnel {
-        client = client.proxy(reqwest::Proxy::all(format!("socks5h://127.0.0.1:{}", crate::config::mixed_port()))?);
+        client = client.proxy(reqwest::Proxy::all(crate::config::proxy_url())?);
     }
     let mut request = client.build()?.get(url.trim());
     if let Some(id) = &options.device_id {

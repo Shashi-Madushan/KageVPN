@@ -119,19 +119,19 @@ pub async fn exit_ip() -> Result<String> {
 
 /// One client for every probe: building a client loads TLS roots, which is wasteful to repeat
 /// every few seconds. Idle connections are not kept, so a restarted tunnel never meets a stale one.
-/// It is built again when the proxy port changes.
+/// It is built again when the proxy address or login changes.
 fn proxied_client() -> Result<Client> {
-    static CLIENT: Mutex<Option<(u16, Client)>> = Mutex::new(None);
-    let port = mixed_port();
+    static CLIENT: Mutex<Option<(String, Client)>> = Mutex::new(None);
+    let proxy_url = crate::config::proxy_url();
     let mut cached = CLIENT.lock().unwrap();
     if let Some((built_for, client)) = cached.as_ref() {
-        if *built_for == port {
+        if *built_for == proxy_url {
             return Ok(client.clone());
         }
     }
-    let proxy = Proxy::all(format!("socks5h://127.0.0.1:{port}"))?;
+    let proxy = Proxy::all(&proxy_url)?;
     let client = Client::builder().proxy(proxy).timeout(HTTP_TIMEOUT).pool_max_idle_per_host(0).build()?;
-    *cached = Some((port, client.clone()));
+    *cached = Some((proxy_url, client.clone()));
     Ok(client)
 }
 

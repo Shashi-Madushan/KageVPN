@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -25,6 +26,24 @@ pub fn mixed_port() -> u16 {
 /// The sing-box controller port of the current (or last) connection.
 pub fn clash_port() -> u16 {
     CLASH_PORT.load(Ordering::SeqCst)
+}
+
+/// User name of the optional local proxy login; the password is a setting.
+pub const PROXY_USER: &str = "kage";
+static PROXY_PASSWORD: Mutex<Option<String>> = Mutex::new(None);
+
+/// Sets the local proxy password of the current connection (`None` = open proxy).
+pub fn set_proxy_password(password: Option<String>) {
+    *PROXY_PASSWORD.lock().unwrap() = password;
+}
+
+/// The local proxy address, with the login when one is set. Every in-app request through the
+/// tunnel must use this, or a protected proxy would refuse it.
+pub fn proxy_url() -> String {
+    match PROXY_PASSWORD.lock().unwrap().as_deref() {
+        Some(password) => format!("socks5h://{PROXY_USER}:{password}@127.0.0.1:{}", mixed_port()),
+        None => format!("socks5h://127.0.0.1:{}", mixed_port()),
+    }
 }
 
 pub fn set_ports(mixed: u16, clash: u16) {
@@ -66,6 +85,8 @@ pub struct ConfigInput<'a> {
     /// Where the country and category lists are kept (see `rulesets`).
     pub rule_sets_dir: &'a Path,
     pub secret: &'a str,
+    /// Password for the local proxy; `None` leaves it open.
+    pub proxy_password: Option<&'a str>,
 }
 
 pub fn node_tag(profile_id: &str) -> String {
@@ -95,9 +116,13 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
     });
     outbounds.push(json!({ "type": "direct", "tag": "direct" }));
 
-    let mut inbounds = vec![json!({
+    let mut mixed = json!({
         "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": input.mixed_port,
-    })];
+    });
+    if let Some(password) = input.proxy_password {
+        mixed["users"] = json!([{ "username": PROXY_USER, "password": password }]);
+    }
+    let mut inbounds = vec![mixed];
     if input.mode == Mode::Tun {
         // sing-box only routes an address family into the tunnel when the interface has an address
         // of that family. With IPv4 alone, IPv6 traffic would skip the VPN on any network that has

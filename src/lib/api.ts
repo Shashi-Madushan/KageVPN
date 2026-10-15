@@ -158,6 +158,8 @@ export interface ReliabilitySettings {
 	watchdog: boolean;
 	killSwitch: boolean;
 	hotkey: boolean;
+	proxyAuth: boolean;
+	proxyPassword: string;
 }
 
 export interface UsageSettings {

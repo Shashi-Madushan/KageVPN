@@ -169,11 +169,15 @@ pub struct ReliabilitySettings {
     pub watchdog: bool,
     pub kill_switch: bool,
     pub hotkey: bool,
+    /// Protect the local proxy with a login (user `kage`). Off by default so Proxy Only mode
+    /// keeps working for apps that cannot send a login.
+    pub proxy_auth: bool,
+    pub proxy_password: String,
 }
 
 impl Default for ReliabilitySettings {
     fn default() -> Self {
-        Self { auto_reconnect: true, watchdog: false, kill_switch: false, hotkey: false }
+        Self { auto_reconnect: true, watchdog: true, kill_switch: false, hotkey: false, proxy_auth: false, proxy_password: String::new() }
     }
 }
 

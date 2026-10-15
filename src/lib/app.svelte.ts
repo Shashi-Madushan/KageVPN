@@ -46,7 +46,7 @@ class AppStore {
 	auto = $state<AutoSettings>({ enabled: false, group: null });
 	subscriptions = $state<Subscription[]>([]);
 	routing = $state<RoutingSettings | null>(null);
-	reliability = $state<ReliabilitySettings>({ autoReconnect: true, watchdog: false, killSwitch: false, hotkey: false });
+	reliability = $state<ReliabilitySettings>({ autoReconnect: true, watchdog: true, killSwitch: false, hotkey: false, proxyAuth: false, proxyPassword: '' });
 	hotkey = $state('');
 	latency = $state<Record<string, Latency>>({});
 	latencyHistory = $state<Record<string, (number | null)[]>>({});

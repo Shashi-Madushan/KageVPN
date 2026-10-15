@@ -78,6 +78,7 @@ impl DownloadProvider for CoreProvider {
                         clash_port: config::DEFAULT_CLASH_PORT,
                         rule_sets_dir: &state.paths.rule_sets_dir(),
                         secret: "check",
+                        proxy_password: None,
                     })
                     .ok()
                 })

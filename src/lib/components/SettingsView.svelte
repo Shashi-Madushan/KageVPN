@@ -50,6 +50,12 @@
 		rootBusy = false;
 	}
 
+	function toggleProxyAuth(on: boolean) {
+		const bytes = crypto.getRandomValues(new Uint8Array(12));
+		const fresh = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+		app.saveReliability({ proxyAuth: on, proxyPassword: app.reliability.proxyPassword || fresh });
+	}
+
 	async function restore() {
 		restoring = true;
 		await api.restoreNetwork().then(
@@ -114,6 +120,15 @@
 			<span><strong>Global shortcut</strong><small>Toggle the VPN from anywhere with {app.hotkey.replace('CommandOrControl', '⌘').replace('Alt', '⌥').replace(/\+/g, ' ')}.</small></span>
 			<input type="checkbox" checked={app.reliability.hotkey} onchange={(e) => app.saveReliability({ hotkey: e.currentTarget.checked })} />
 		</label>
+		<label>
+			<span><strong>Password for the local proxy</strong><small>Require a login (user <code>kage</code>) on 127.0.0.1, so other users on this Mac cannot use your tunnel. In Proxy Only mode, enter the password in each app. Applies the next time you connect.</small></span>
+			<input type="checkbox" checked={app.reliability.proxyAuth} onchange={(e) => toggleProxyAuth(e.currentTarget.checked)} />
+		</label>
+		{#if app.reliability.proxyAuth}
+			<div class="restore">
+				<small>Username <code>kage</code>, password <code class="mono">{app.reliability.proxyPassword}</code></small>
+			</div>
+		{/if}
 		<label>
 			<span>
 				<strong>Kill switch <em>experimental</em></strong>

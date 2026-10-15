@@ -6,7 +6,6 @@ use reqwest::{Client, Proxy};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-use crate::config::mixed_port;
 use crate::error::{AppError, Result};
 
 use crate::app_config::urls::{CONNECTION_PROBE as PING_URL, DNS_LEAK as DNS_URL, IP_DETAILS as IP_URL, SPEED_DOWNLOAD as DOWN_URL, SPEED_UPLOAD as UP_URL};
@@ -104,7 +103,7 @@ fn direct_client() -> Result<Client> {
 }
 
 fn tunnel_client(timeout: u64) -> Result<Client> {
-    let proxy = Proxy::all(format!("socks5h://127.0.0.1:{}", mixed_port()))?;
+    let proxy = Proxy::all(crate::config::proxy_url())?;
     Ok(Client::builder().proxy(proxy).timeout(Duration::from_secs(timeout)).build()?)
 }
 

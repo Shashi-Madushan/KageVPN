@@ -24,6 +24,7 @@ fn input<'a>(profiles: &'a [Profile], routing: &'a RoutingSettings, mode: Mode) 
         clash_port: DEFAULT_CLASH_PORT,
         rule_sets_dir: Path::new("/tmp/kage-vpn-no-rule-sets"),
         secret: "secret",
+        proxy_password: None,
     }
 }
 
@@ -274,6 +275,22 @@ fn a_config_with_other_ports_and_a_quiet_log_passes_singbox_check() {
     config_input.clash_port = 19191;
     let path = std::env::temp_dir().join("kage-vpn-test-ports.json");
     std::fs::write(&path, serde_json::to_vec(&build(&config_input).unwrap()).unwrap()).unwrap();
+    crate::singbox::check(&binary, &path).unwrap();
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn the_local_proxy_asks_for_a_login_only_when_a_password_is_set() {
+    let profiles = vec![profile()];
+    let routing = RoutingSettings::default();
+    let mut config_input = input(&profiles, &routing, Mode::Proxy);
+    assert!(build(&config_input).unwrap()["inbounds"][0].get("users").is_none());
+    config_input.proxy_password = Some("pw");
+    let cfg = build(&config_input).unwrap();
+    assert_eq!(cfg["inbounds"][0]["users"][0], serde_json::json!({ "username": PROXY_USER, "password": "pw" }));
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let path = std::env::temp_dir().join("kage-vpn-test-proxy-login.json");
+    std::fs::write(&path, serde_json::to_vec(&cfg).unwrap()).unwrap();
     crate::singbox::check(&binary, &path).unwrap();
     let _ = std::fs::remove_file(path);
 }
