@@ -20,6 +20,7 @@ mod health;
 mod logs;
 mod net;
 mod network_watch;
+mod networks;
 mod notify;
 mod paths;
 mod profile;
@@ -138,6 +139,8 @@ pub fn run() {
             commands::test_all,
             commands::set_routing,
             commands::set_reliability,
+            networks::set_network_settings,
+            networks::current_network,
             commands::restore_network,
             commands::unblock_internet,
             commands::rule_providers,

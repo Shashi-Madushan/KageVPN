@@ -9,7 +9,7 @@ use crate::error::{AppError, Result};
 use crate::logs::LogLine;
 use crate::profile::{parse_many, to_link, Profile, ProfileView};
 use crate::session::{self, State as ConnState, Status};
-use crate::settings::{AutoSettings, ReliabilitySettings, RoutingSettings, Subscription};
+use crate::settings::{AutoSettings, NetworkSettings, ReliabilitySettings, RoutingSettings, Subscription};
 use crate::state::AppState;
 use crate::store::Settings;
 use crate::subscriptions::{self, RefreshSummary};
@@ -32,6 +32,7 @@ pub struct Snapshot {
     subscriptions: Vec<Subscription>,
     routing: RoutingSettings,
     reliability: ReliabilitySettings,
+    networks: NetworkSettings,
     hotkey: &'static str,
 }
 
@@ -91,6 +92,7 @@ pub fn snapshot(app: AppHandle, state: State<AppState>) -> Snapshot {
         subscriptions: store.subscriptions().to_vec(),
         routing: store.routing(),
         reliability: store.reliability(),
+        networks: store.networks(),
         hotkey: reliability::hotkey_label(),
     }
 }

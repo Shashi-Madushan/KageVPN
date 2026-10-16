@@ -188,6 +188,25 @@ export interface RoutingSettings {
 	dns: { provider: DnsProvider; custom: string };
 }
 
+export type NetworkAction = 'connect' | 'disconnect' | 'ignore';
+
+export interface KnownNetwork {
+	id: string;
+	name: string;
+	action: NetworkAction;
+	lastSeen: number;
+}
+
+export interface NetworkSettings {
+	enabled: boolean;
+	networks: KnownNetwork[];
+}
+
+export interface CurrentNetwork {
+	id: string;
+	name: string;
+}
+
 export interface ReliabilitySettings {
 	autoReconnect: boolean;
 	watchdog: boolean;
@@ -329,6 +348,7 @@ export interface Snapshot {
 	subscriptions: Subscription[];
 	routing: RoutingSettings;
 	reliability: ReliabilitySettings;
+	networks: NetworkSettings;
 	hotkey: string;
 }
 
@@ -352,6 +372,8 @@ export const api = {
 	downloadRuleSets: (tag: string | null) => invoke<ListResult[]>('download_rule_sets', { tag }),
 	deleteRuleSets: (tag: string | null) => invoke<void>('delete_rule_sets', { tag }),
 	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
+	setNetworkSettings: (settings: NetworkSettings) => invoke<void>('set_network_settings', { settings }),
+	currentNetwork: () => invoke<CurrentNetwork | null>('current_network'),
 	restoreNetwork: () => invoke<void>('restore_network'),
 	unblockInternet: () => invoke<void>('unblock_internet'),
 	rootServiceInstalled: () => invoke<boolean>('root_service_installed'),

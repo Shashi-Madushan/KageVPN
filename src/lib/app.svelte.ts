@@ -11,6 +11,7 @@ import {
 	type LogLine,
 	type Mode,
 	type Profile,
+	type NetworkSettings,
 	type ReliabilitySettings,
 	type RouteAction,
 	type RoutingSettings,
@@ -46,6 +47,7 @@ class AppStore {
 	auto = $state<AutoSettings>({ enabled: false, group: null });
 	subscriptions = $state<Subscription[]>([]);
 	routing = $state<RoutingSettings | null>(null);
+	networks = $state<NetworkSettings>({ enabled: false, networks: [] });
 	reliability = $state<ReliabilitySettings>({ autoReconnect: true, watchdog: true, killSwitch: false, hotkey: false, proxyAuth: false, proxyPassword: '' });
 	hotkey = $state('');
 	latency = $state<Record<string, Latency>>({});
@@ -92,6 +94,7 @@ class AppStore {
 		this.subscriptions = snap.subscriptions;
 		this.routing = snap.routing;
 		this.reliability = snap.reliability;
+		this.networks = snap.networks;
 		this.hotkey = snap.hotkey;
 		this.loaded = true;
 		if (snap.status.state === 'connected') this.verify();
@@ -327,6 +330,11 @@ class AppStore {
 		this.reliability = next;
 	}
 
+	async saveNetworks(next: NetworkSettings) {
+		if (!(await this.attempt(() => api.setNetworkSettings(next)))) return;
+		this.networks = next;
+	}
+
 	async saveRouting(next: RoutingSettings) {
 		if (!(await this.attempt(() => api.setRouting(next)))) return;
 		this.routing = next;
@@ -437,6 +445,7 @@ class AppStore {
 			this.subscriptions = snap.subscriptions;
 			this.routing = snap.routing;
 			this.reliability = snap.reliability;
+			this.networks = snap.networks;
 			this.latency = {};
 			const subs = summary.subscriptions ? ` and ${summary.subscriptions} subscription${summary.subscriptions === 1 ? '' : 's'}` : '';
 			this.notify(`Restored ${summary.servers} server${summary.servers === 1 ? '' : 's'}${subs}.`, 'info');

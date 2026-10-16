@@ -55,3 +55,35 @@
 **Context**: CONSTRUCTION - U1 Code Generation Part 2
 
 ---
+
+## U1 approved; U2 Functional Design questions
+**Timestamp**: 2026-10-16T14:29:41Z
+**User Input**: "Continue to Next Stage."
+**AI Response**: Created construction/plans/u2-auto-connect-functional-design-plan.md with 6 questions; waiting for answers.
+**Context**: CONSTRUCTION - U2 Functional Design Step 3-4
+
+---
+
+## U2 Functional Design answers
+**Timestamp**: 2026-10-16T14:32:48Z
+**User Input**: "I filled in the U2 functional design answers, continue." Answers: Q1 b; Q2 a; Q3 a; Q4 a; Q5 a; Q6 a
+**AI Response**: Wrote functional-design artifacts in construction/u2-auto-connect/functional-design/; presented completion message.
+**Context**: CONSTRUCTION - U2 Functional Design Step 6-7
+
+---
+
+## U2 design approved; Code Generation plan
+**Timestamp**: 2026-10-16T14:33:24Z
+**User Input**: "Continue to Next Stage."
+**AI Response**: Created construction/plans/u2-auto-connect-code-generation-plan.md; asked for approval.
+**Context**: CONSTRUCTION - U2 Code Generation Part 1
+
+---
+
+## U2 Code Generation complete
+**Timestamp**: 2026-10-16T14:47:26Z
+**User Input**: "Approve the U2 plan, the dialog is fine."
+**AI Response**: Implemented U2 (settings, networks.rs, network_watch hook, commands, Settings UI, docs). cargo test 299 passed (4 threads), clippy clean, svelte-check 0 errors. Presented completion message.
+**Context**: CONSTRUCTION - U2 Code Generation Part 2
+
+---

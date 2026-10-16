@@ -267,3 +267,30 @@ impl Default for Subscription {
         }
     }
 }
+
+/// What to do when the Mac joins a known network.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NetworkAction {
+    Connect,
+    Disconnect,
+    #[default]
+    Ignore,
+}
+
+/// A network the app has seen, identified by its gateway's hardware address.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct KnownNetwork {
+    pub id: String,
+    pub name: String,
+    pub action: NetworkAction,
+    pub last_seen: u64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct NetworkSettings {
+    pub enabled: bool,
+    pub networks: Vec<KnownNetwork>,
+}
