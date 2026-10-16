@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-16", label: "16 Oct 2026" },
     { id: "oct-15", label: "15 Oct 2026" },
     { id: "oct-13", label: "13 Oct 2026" },
     { id: "oct-12", label: "12 Oct 2026" },
@@ -23,6 +24,14 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-16">16 October 2026</h2>
+      <ul>
+        <li><strong>New:</strong> <strong>Allow IPv6</strong> (Routing, Network). Turn it off if a server has no IPv6 and some apps are slow to connect: IPv6 traffic is then blocked, never sent around the VPN.</li>
+        <li><strong>New:</strong> <strong>Export diagnostics</strong> (Diagnostics) saves a zip to your Downloads folder with the logs, the engine configuration and a summary. Server addresses, passwords, keys, user IDs, subscription links and your home folder are replaced with placeholders, and nothing is sent anywhere.</li>
+        <li><strong>New:</strong> <strong>Repair VPN service</strong> (Diagnostics) installs the VPN service again and clears the leftovers of an interrupted connection, with one password prompt.</li>
+        <li><strong>New:</strong> <strong>Roll back</strong> (Engine) goes back to the engine version that last carried a working connection. <strong>Remove old versions</strong> deletes the other versions kept on disk.</li>
+      </ul>
+
       <h2 id="oct-15">15 October 2026</h2>
       <ul>
         <li><strong>Redesigned:</strong> The <strong>Routing</strong> page is easier to use. Three cards choose how traffic is handled, an <strong>Everything else</strong> card sets the default, and three tabs hold <strong>Your rules</strong>, <strong>Ready-made lists</strong> and <strong>Try a website</strong>. Rules and lists use plain words (<em>Use the VPN</em>, <em>Go direct</em>, <em>Block</em>), and the network settings sit in their own section.</li>

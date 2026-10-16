@@ -7,6 +7,7 @@
 	import HeaderActions from './HeaderActions.svelte';
 	import Icon from './Icon.svelte';
 	import SpeedGauge from './SpeedGauge.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 
 	let result = $state<Diagnostics | null>(null);
 	let speed = $state<SpeedResult | null>(null);
@@ -29,6 +30,33 @@
 		result = await api.runDiagnostics().catch((e) => (app.notify(String(e)), null));
 		checking = false;
 		checkedAt = new Date();
+	}
+
+	let exporting = $state(false);
+	let repairAsk = $state(false);
+	let repairing = $state(false);
+
+	async function exportBundle() {
+		exporting = true;
+		try {
+			const out = await api.exportDiagnostics();
+			await navigator.clipboard.writeText(out.summary).catch(() => null);
+			app.notify(`Saved ${out.path}. A short summary was copied.`, 'info');
+		} catch (e) {
+			app.notify(String(e));
+		}
+		exporting = false;
+	}
+
+	async function repair() {
+		repairAsk = false;
+		repairing = true;
+		try {
+			app.notify(await api.repairService(), 'info');
+		} catch (e) {
+			app.notify(String(e));
+		}
+		repairing = false;
 	}
 
 	const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
@@ -117,6 +145,8 @@
 
 <HeaderActions>
 	<button class="btn" onclick={copyReport}>Copy report</button>
+	<button class="btn" disabled={exporting} onclick={exportBundle}>{exporting ? 'Exporting…' : 'Export diagnostics'}</button>
+	<button class="btn" disabled={repairing || app.locked} onclick={() => (repairAsk = true)}>{repairing ? 'Repairing…' : 'Repair VPN service'}</button>
 	{#if app.info.feedbackConfigured}<button class="btn" onclick={() => feedback.show('bug')}>Report a problem</button>{/if}
 </HeaderActions>
 
@@ -181,6 +211,15 @@
 		{/if}
 	</section>
 </div>
+
+<ConfirmDialog
+	open={repairAsk}
+	title="Repair the VPN service?"
+	message="This installs the VPN service again and clears leftovers of an interrupted connection. macOS asks for your password once. Your servers and settings are not touched."
+	confirmLabel="Repair"
+	onconfirm={repair}
+	onclose={() => (repairAsk = false)}
+/>
 
 <style>
 	.page {

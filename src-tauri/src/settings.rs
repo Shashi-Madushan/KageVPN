@@ -97,6 +97,8 @@ pub struct DnsSettings {
 pub struct RoutingSettings {
     pub mode: RouteMode,
     pub bypass_lan: bool,
+    /// Whether IPv6 is allowed. Off blocks IPv6 traffic and never hands out IPv6 addresses, for servers without IPv6.
+    pub ipv6: bool,
     pub final_action: Action,
     pub rules: Vec<Rule>,
     pub rule_sets: Vec<RuleSetRef>,
@@ -111,6 +113,7 @@ impl Default for RoutingSettings {
         Self {
             mode: RouteMode::Global,
             bypass_lan: true,
+            ipv6: true,
             final_action: Action::Proxy,
             rules: Vec::new(),
             rule_sets: Vec::new(),

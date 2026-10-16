@@ -11,6 +11,7 @@ mod core;
 mod crashlog;
 mod device;
 mod diagnostics;
+mod diagnostics_bundle;
 mod downloads;
 mod error;
 mod feedback;
@@ -23,6 +24,7 @@ mod notify;
 mod paths;
 mod profile;
 mod reliability;
+mod repair;
 mod rulesets;
 mod runner;
 mod sampler;
@@ -191,6 +193,10 @@ pub fn run() {
             core::commands::core_check,
             core::commands::core_use,
             core::commands::core_remove,
+            repair::repair_service,
+            diagnostics_bundle::diagnostics_export,
+            core::commands::core_rollback,
+            core::commands::core_remove_old,
             core::commands::set_core_channel,
             core::commands::core_set_active,
             core::commands::set_core_update_policy,

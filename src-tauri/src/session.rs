@@ -22,7 +22,7 @@ const PORT_WAIT_WINDOW: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 const DROP_GRACE: Duration = Duration::from_millis(1500);
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum State {
     Disconnected,

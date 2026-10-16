@@ -178,6 +178,7 @@ export interface ListResult {
 export interface RoutingSettings {
 	mode: RouteMode;
 	bypassLan: boolean;
+	ipv6: boolean;
 	finalAction: RouteAction;
 	rules: Rule[];
 	ruleSets: RuleSetRef[];
@@ -354,6 +355,8 @@ export const api = {
 	restoreNetwork: () => invoke<void>('restore_network'),
 	unblockInternet: () => invoke<void>('unblock_internet'),
 	rootServiceInstalled: () => invoke<boolean>('root_service_installed'),
+	repairService: () => invoke<string>('repair_service'),
+	exportDiagnostics: () => invoke<{ path: string; summary: string }>('diagnostics_export'),
 	installRootService: () => invoke<void>('install_root_service'),
 	uninstallRootService: () => invoke<void>('uninstall_root_service'),
 	addSubscription: (name: string, url: string, options: SubscriptionOptions) =>
@@ -421,6 +424,8 @@ export interface CoreSettings {
 	lastCheck: number;
 	updatePolicy: UpdatePolicy;
 	pendingVersion: string | null;
+	goodVersion: string | null;
+	previousVersion: string | null;
 }
 
 export interface CoreRef {
@@ -529,6 +534,8 @@ export const coreApi = {
 	check: () => invoke<Release[]>('core_check'),
 	use: (version: string | null) => invoke<void>('core_use', { version }),
 	remove: (version: string) => invoke<void>('core_remove', { version }),
+	rollback: () => invoke<string>('core_rollback'),
+	removeOld: () => invoke<string[]>('core_remove_old'),
 	installBackground: (version: string | null, allowUnverified = false) =>
 		invoke<void>('core_install_background', { version, allowUnverified }),
 	setActive: (id: string) => invoke<void>('core_set_active', { id }),

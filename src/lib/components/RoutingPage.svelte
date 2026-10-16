@@ -407,6 +407,10 @@
 					<span class="grow">Keep my local network reachable<span class="sub">Printers, routers and other devices at home or work keep working.</span></span>
 					<input type="checkbox" bind:checked={draft.bypassLan} />
 				</label>
+				<label class="item">
+					<span class="grow">Allow IPv6<span class="sub">Turn off if a server has no IPv6 and some apps are slow to connect. IPv6 traffic is then blocked, never sent around the VPN.</span></span>
+					<input type="checkbox" bind:checked={draft.ipv6} />
+				</label>
 				<div class="item">
 					<span class="grow">DNS provider<span class="sub">{draft.dns.provider === 'system' ? 'Your internet provider can see which sites you look up.' : 'Lookups go through the VPN, so they stay private.'}</span></span>
 					<Select bind:value={draft.dns.provider} label="DNS provider" options={dnsProviders} />

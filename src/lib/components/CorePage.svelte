@@ -154,6 +154,18 @@
 				</span>
 			</div>
 
+			{#if core.rollbackTarget || (status?.installed.length ?? 0) > 2}
+				<div class="item note" role="row">
+					<span class="grow">
+						{#if core.rollbackTarget}Engine misbehaving after an update? Version <span class="mono">{core.rollbackTarget}</span> worked before.{:else}Older versions are kept on disk.{/if}
+					</span>
+					<span class="act">
+						{#if core.rollbackTarget}<button class="btn" disabled={app.locked} onclick={() => core.rollback()}>Roll back</button>{/if}
+						{#if (status?.installed.length ?? 0) > 2 || !core.rollbackTarget}<button class="btn" onclick={() => core.removeOld()}>Remove old versions</button>{/if}
+					</span>
+				</div>
+			{/if}
+
 			{#each status?.installed ?? [] as item (item.version)}
 				<div class="item" role="row">
 					<span class="grow">

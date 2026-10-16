@@ -91,7 +91,7 @@ impl DownloadProvider for CoreProvider {
         let mut store = state.store.lock().unwrap();
         let mut settings = store.core_settings_for(spec.id);
         if self.activation == Activation::Now || idle {
-            settings.managed_version = Some(release.version.clone());
+            settings.activate(Some(release.version.clone()));
             settings.pending_version = None;
         } else {
             settings.pending_version = Some(release.version.clone());
