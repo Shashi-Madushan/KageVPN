@@ -2240,6 +2240,8 @@ dependencies = [
  "chrono",
  "flate2",
  "libc",
+ "objc2",
+ "objc2-foundation",
  "percent-encoding",
  "plist",
  "qrcode",

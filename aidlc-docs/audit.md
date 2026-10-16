@@ -87,3 +87,19 @@
 **Context**: CONSTRUCTION - U2 Code Generation Part 2
 
 ---
+
+## U2 approved; U3 Code Generation plan
+**Timestamp**: 2026-10-16T14:50:24Z
+**User Input**: "Continue to Next Stage."
+**AI Response**: Found that the popover server picker already exists; created construction/plans/u3-popover-and-app-nap-code-generation-plan.md (App Nap + latency in the picker); asked for approval.
+**Context**: CONSTRUCTION - U3 Code Generation Part 1
+
+---
+
+## U3 Code Generation complete
+**Timestamp**: 2026-10-16T14:52:22Z
+**User Input**: "Approve the U3 plan."
+**AI Response**: Implemented App Nap assertion and popover latency labels. cargo test 300 passed, clippy clean, svelte-check 0 errors. Presented completion message.
+**Context**: CONSTRUCTION - U3 Code Generation Part 2
+
+---

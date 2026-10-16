@@ -44,9 +44,14 @@
 	});
 
 	const serverValue = $derived(app.auto.enabled ? 'auto' : (app.activeId ?? ''));
+	/** " · 42 ms" once a server has been timed, so the list shows which one is quick. */
+	function latencyNote(id: string): string {
+		const found = app.latency[id];
+		return found && 'ms' in found ? ` · ${found.ms} ms` : '';
+	}
 	const serverOptions = $derived([
 		...(app.profiles.length > 1 ? [{ value: 'auto', label: 'Auto (fastest server)', icon: '↯' }] : []),
-		...app.profiles.map((p) => ({ value: p.id, label: p.name.replace(/^\p{RI}{2}\s*/u, ''), icon: profileFlag(p.name, p.server) }))
+		...app.profiles.map((p) => ({ value: p.id, label: p.name.replace(/^\p{RI}{2}\s*/u, '') + latencyNote(p.id), icon: profileFlag(p.name, p.server) }))
 	]);
 
 	const isConnecting = $derived(app.status.state === 'connecting');

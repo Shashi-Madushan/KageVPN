@@ -26,6 +26,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
     <div class="docs-prose">
       <h2 id="oct-16">16 October 2026</h2>
       <ul>
+        <li><strong>Improved:</strong> The menu-bar popover's server list shows each server's measured latency. While the VPN is connected, macOS no longer slows the app's background timers (App Nap), so the health check and automatic reconnect run on time.</li>
         <li><strong>New:</strong> <strong>Networks</strong> (Settings). Connect or disconnect the VPN automatically on each network. A network is recognised by its router's hardware address, so no location permission is needed. A network you have not used before asks once; the choice is saved and can be changed or forgotten in Settings. A <em>Disconnect</em> action also lifts the kill switch there. Connecting or disconnecting by hand wins until the network changes.</li>
         <li><strong>New:</strong> <strong>Allow IPv6</strong> (Routing, Network). Turn it off if a server has no IPv6 and some apps are slow to connect: IPv6 traffic is then blocked, never sent around the VPN.</li>
         <li><strong>New:</strong> <strong>Export diagnostics</strong> (Diagnostics) saves a zip to your Downloads folder with the logs, the engine configuration and a summary. Server addresses, passwords, keys, user IDs, subscription links and your home folder are replaced with placeholders, and nothing is sent anywhere.</li>

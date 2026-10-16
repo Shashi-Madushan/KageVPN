@@ -2,6 +2,7 @@ mod allowlist;
 mod app_config;
 mod applog;
 mod app_update;
+mod appnap;
 mod apps;
 mod backup;
 mod clash;
@@ -218,6 +219,7 @@ pub fn run() {
         tauri::RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
         tauri::RunEvent::ExitRequested { code, .. } => applog::info(format!("exit requested (code {code:?})")),
         tauri::RunEvent::Exit => {
+            appnap::release();
             if let Some(state) = app.try_state::<AppState>() {
                 applog::clean_exit(&state.paths.data_dir());
             }

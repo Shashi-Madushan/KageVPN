@@ -538,6 +538,12 @@ pub(crate) fn update(app: &AppHandle, change: impl FnOnce(&mut Status)) {
     let mut status = state.status.lock().unwrap();
     change(&mut status);
     status.blocked = state.blocked.load(Ordering::SeqCst);
+    // Timers must not be napped while a tunnel is up; the health and reconnect logic runs on them.
+    if status.state == State::Connected {
+        crate::appnap::hold();
+    } else {
+        crate::appnap::release();
+    }
     let _ = app.emit("status", status.clone());
 }
 
