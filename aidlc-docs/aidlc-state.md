@@ -31,7 +31,7 @@
 - [-] Application Design (skipped)
 - [-] Units Generation (skipped; 3 units in execution-plan.md)
 ### CONSTRUCTION PHASE
-- [ ] Per-unit stages, Build and Test
+- [x] U1, U2, U3 (code generation), Build and Test (awaiting approval)
 
 ## Carry-over (done before AI-DLC was followed)
 - IPv6 allow/block setting implemented in working tree (settings.rs, config.rs, RoutingPage.svelte, api.ts, test) - uncommitted; passes cargo test and real sing-box check.
