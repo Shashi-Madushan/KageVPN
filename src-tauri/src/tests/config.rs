@@ -303,3 +303,21 @@ fn the_default_log_level_is_normal_and_reads_from_old_settings() {
     let new: crate::store::Settings = serde_json::from_str(r#"{"logLevel":"errors","clearLogs":true}"#).unwrap();
     assert_eq!((new.log_level, new.clear_logs), (LogLevel::Errors, true));
 }
+
+#[test]
+fn ipv6_off_blocks_ipv6_and_passes_singbox_check() {
+    let profiles = every_protocol();
+    let routing = RoutingSettings { ipv6: false, ..RoutingSettings::default() };
+    let cfg = build(&input(&profiles, &routing, Mode::Tun)).unwrap();
+    assert_eq!(cfg["dns"]["strategy"], "ipv4_only");
+    assert!(cfg["route"]["rules"].as_array().unwrap().iter().any(|r| r["ip_version"] == 6 && r["action"] == "reject"));
+    // Still dual-stack, so v6 is captured by the tunnel and rejected rather than leaking.
+    assert_eq!(cfg["inbounds"][1]["address"].as_array().unwrap().len(), 2);
+    let on = build(&input(&profiles, &RoutingSettings::default(), Mode::Tun)).unwrap();
+    assert!(on["dns"].get("strategy").is_none());
+    if let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) {
+        let path = std::env::temp_dir().join("kage-vpn-test-ipv6off.json");
+        std::fs::write(&path, serde_json::to_vec(&cfg).unwrap()).unwrap();
+        crate::singbox::check(&binary, &path).unwrap();
+    }
+}

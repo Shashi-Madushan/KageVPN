@@ -154,7 +154,7 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
 
     Ok(json!({
         "log": { "level": input.log_level.as_str(), "timestamp": true, "output": input.log_path },
-        "dns": dns(&input.routing.dns),
+        "dns": dns(&input.routing.dns, input.routing.ipv6),
         "experimental": experimental,
         "inbounds": inbounds,
         "outbounds": outbounds,
@@ -174,6 +174,9 @@ fn select_nodes<'a>(input: &ConfigInput<'a>) -> Vec<&'a Profile> {
 
 fn route_rules(routing: &RoutingSettings, available: &[(String, PathBuf)]) -> Vec<Value> {
     let mut rules = vec![json!({ "action": "sniff" }), json!({ "protocol": "dns", "action": "hijack-dns" })];
+    if !routing.ipv6 {
+        rules.push(json!({ "ip_version": 6, "action": "reject" }));
+    }
     if routing.bypass_lan {
         rules.push(json!({ "ip_is_private": true, "outbound": "direct" }));
     }
@@ -319,7 +322,15 @@ pub fn validate_dns(settings: &DnsSettings) -> Result<()> {
     Ok(())
 }
 
-fn dns(settings: &DnsSettings) -> Value {
+fn dns(settings: &DnsSettings, ipv6: bool) -> Value {
+    let mut config = dns_servers(settings);
+    if !ipv6 {
+        config["strategy"] = json!("ipv4_only");
+    }
+    config
+}
+
+fn dns_servers(settings: &DnsSettings) -> Value {
     let remote = match settings.provider {
         DnsProvider::Cloudflare => Some(doh("1.1.1.1")),
         DnsProvider::Google => Some(doh("8.8.8.8")),

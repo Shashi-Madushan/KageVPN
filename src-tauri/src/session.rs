@@ -22,7 +22,7 @@ const PORT_WAIT_WINDOW: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 const DROP_GRACE: Duration = Duration::from_millis(1500);
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum State {
     Disconnected,
@@ -538,6 +538,12 @@ pub(crate) fn update(app: &AppHandle, change: impl FnOnce(&mut Status)) {
     let mut status = state.status.lock().unwrap();
     change(&mut status);
     status.blocked = state.blocked.load(Ordering::SeqCst);
+    // Timers must not be napped while a tunnel is up; the health and reconnect logic runs on them.
+    if status.state == State::Connected {
+        crate::appnap::hold();
+    } else {
+        crate::appnap::release();
+    }
     let _ = app.emit("status", status.clone());
 }
 

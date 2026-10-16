@@ -16,6 +16,7 @@ const TICK: Duration = Duration::from_secs(3);
 const SLEEP_GAP: Duration = Duration::from_secs(10);
 const WAKE_SETTLE: Duration = Duration::from_secs(4);
 const NETWORK_SETTLE: Duration = Duration::from_secs(2);
+const START_SETTLE: Duration = Duration::from_secs(5);
 const PROBE_ATTEMPTS: u32 = 2;
 const PROBE_PAUSE: Duration = Duration::from_secs(2);
 /// While a reconnect that gave up is waiting, how often to check whether the server is reachable
@@ -30,7 +31,7 @@ pub enum Change {
 }
 
 /// Interfaces that do not describe where the Mac reaches the internet from.
-fn is_virtual(name: &str) -> bool {
+pub(crate) fn is_virtual(name: &str) -> bool {
     ["lo", "utun", "awdl", "llw", "bridge", "gif", "stf", "anpi", "ap", "vmenet", "vnic", "ipsec"]
         .iter()
         .any(|prefix| name.starts_with(prefix))
@@ -106,6 +107,12 @@ pub fn spawn(app: AppHandle) {
         let mut mono = Instant::now();
         let mut known = current_fingerprint();
         let mut last_poll = Instant::now();
+        // The network the Mac is on at launch counts too.
+        sleep(START_SETTLE).await;
+        let manual = app.state::<AppState>().manual_actions.load(std::sync::atomic::Ordering::SeqCst);
+        if app.state::<AppState>().store.lock().unwrap().networks().enabled {
+            crate::networks::apply(&app, manual).await;
+        }
         loop {
             sleep(TICK).await;
             let (wall_now, mono_now) = (SystemTime::now(), Instant::now());
@@ -148,6 +155,7 @@ async fn resume_if_reachable(app: &AppHandle) {
 
 async fn handle(app: &AppHandle, change: Change) {
     applog::info(format!("network watch: {change:?}"));
+    let manual = app.state::<AppState>().manual_actions.load(std::sync::atomic::Ordering::SeqCst);
     crate::health::recheck();
     let settle = if change == Change::Woke { WAKE_SETTLE } else { NETWORK_SETTLE };
     // A reconnect that gave up while the network was down starts over now that it changed.
@@ -156,6 +164,11 @@ async fn handle(app: &AppHandle, change: Change) {
         sleep(settle).await;
         reliability::spawn_reconnect(app.clone());
         return;
+    }
+    // Auto-connect by network: acts once the network has settled, unless the user chose by hand.
+    if app.state::<AppState>().store.lock().unwrap().networks().enabled {
+        sleep(settle).await;
+        crate::networks::apply(app, manual).await;
     }
     if !should_react(app) {
         return;

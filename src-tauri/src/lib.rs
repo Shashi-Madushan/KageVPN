@@ -2,6 +2,7 @@ mod allowlist;
 mod app_config;
 mod applog;
 mod app_update;
+mod appnap;
 mod apps;
 mod backup;
 mod clash;
@@ -11,6 +12,7 @@ mod core;
 mod crashlog;
 mod device;
 mod diagnostics;
+mod diagnostics_bundle;
 mod downloads;
 mod error;
 mod feedback;
@@ -19,10 +21,12 @@ mod health;
 mod logs;
 mod net;
 mod network_watch;
+mod networks;
 mod notify;
 mod paths;
 mod profile;
 mod reliability;
+mod repair;
 mod rulesets;
 mod runner;
 mod sampler;
@@ -136,6 +140,8 @@ pub fn run() {
             commands::test_all,
             commands::set_routing,
             commands::set_reliability,
+            networks::set_network_settings,
+            networks::current_network,
             commands::restore_network,
             commands::unblock_internet,
             commands::rule_providers,
@@ -191,6 +197,10 @@ pub fn run() {
             core::commands::core_check,
             core::commands::core_use,
             core::commands::core_remove,
+            repair::repair_service,
+            diagnostics_bundle::diagnostics_export,
+            core::commands::core_rollback,
+            core::commands::core_remove_old,
             core::commands::set_core_channel,
             core::commands::core_set_active,
             core::commands::set_core_update_policy,
@@ -209,6 +219,7 @@ pub fn run() {
         tauri::RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
         tauri::RunEvent::ExitRequested { code, .. } => applog::info(format!("exit requested (code {code:?})")),
         tauri::RunEvent::Exit => {
+            appnap::release();
             if let Some(state) = app.try_state::<AppState>() {
                 applog::clean_exit(&state.paths.data_dir());
             }

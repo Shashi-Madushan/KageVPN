@@ -178,6 +178,7 @@ export interface ListResult {
 export interface RoutingSettings {
 	mode: RouteMode;
 	bypassLan: boolean;
+	ipv6: boolean;
 	finalAction: RouteAction;
 	rules: Rule[];
 	ruleSets: RuleSetRef[];
@@ -185,6 +186,25 @@ export interface RoutingSettings {
 	ruleProvider: string;
 	customProviders: RuleProvider[];
 	dns: { provider: DnsProvider; custom: string };
+}
+
+export type NetworkAction = 'connect' | 'disconnect' | 'ignore';
+
+export interface KnownNetwork {
+	id: string;
+	name: string;
+	action: NetworkAction;
+	lastSeen: number;
+}
+
+export interface NetworkSettings {
+	enabled: boolean;
+	networks: KnownNetwork[];
+}
+
+export interface CurrentNetwork {
+	id: string;
+	name: string;
 }
 
 export interface ReliabilitySettings {
@@ -328,6 +348,7 @@ export interface Snapshot {
 	subscriptions: Subscription[];
 	routing: RoutingSettings;
 	reliability: ReliabilitySettings;
+	networks: NetworkSettings;
 	hotkey: string;
 }
 
@@ -351,9 +372,13 @@ export const api = {
 	downloadRuleSets: (tag: string | null) => invoke<ListResult[]>('download_rule_sets', { tag }),
 	deleteRuleSets: (tag: string | null) => invoke<void>('delete_rule_sets', { tag }),
 	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
+	setNetworkSettings: (settings: NetworkSettings) => invoke<void>('set_network_settings', { settings }),
+	currentNetwork: () => invoke<CurrentNetwork | null>('current_network'),
 	restoreNetwork: () => invoke<void>('restore_network'),
 	unblockInternet: () => invoke<void>('unblock_internet'),
 	rootServiceInstalled: () => invoke<boolean>('root_service_installed'),
+	repairService: () => invoke<string>('repair_service'),
+	exportDiagnostics: () => invoke<{ path: string; summary: string }>('diagnostics_export'),
 	installRootService: () => invoke<void>('install_root_service'),
 	uninstallRootService: () => invoke<void>('uninstall_root_service'),
 	addSubscription: (name: string, url: string, options: SubscriptionOptions) =>
@@ -421,6 +446,8 @@ export interface CoreSettings {
 	lastCheck: number;
 	updatePolicy: UpdatePolicy;
 	pendingVersion: string | null;
+	goodVersion: string | null;
+	previousVersion: string | null;
 }
 
 export interface CoreRef {
@@ -529,6 +556,8 @@ export const coreApi = {
 	check: () => invoke<Release[]>('core_check'),
 	use: (version: string | null) => invoke<void>('core_use', { version }),
 	remove: (version: string) => invoke<void>('core_remove', { version }),
+	rollback: () => invoke<string>('core_rollback'),
+	removeOld: () => invoke<string[]>('core_remove_old'),
 	installBackground: (version: string | null, allowUnverified = false) =>
 		invoke<void>('core_install_background', { version, allowUnverified }),
 	setActive: (id: string) => invoke<void>('core_set_active', { id }),

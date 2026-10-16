@@ -241,9 +241,20 @@ async fn verify_first(app: &AppHandle, pid: u32) -> bool {
     apply(app, &verdict);
     if matches!(verdict, Verdict::Healthy { .. }) {
         session::signal_tunnel(app, true);
+        mark_engine_good(app);
         session::spawn_rule_set_refresh(app.clone(), pid);
     }
     true
+}
+
+/// A verified tunnel proves the engine in use, so a rollback can return to it later.
+fn mark_engine_good(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let mut store = state.store.lock().unwrap();
+    let mut settings = store.core_settings();
+    if settings.mark_good() {
+        let _ = store.set_core_settings(settings);
+    }
 }
 
 /// Publishes a verdict in the connection status.

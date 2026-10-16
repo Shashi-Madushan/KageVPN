@@ -12,7 +12,7 @@ use crate::core::{CoreSet, CoreSettings};
 use crate::error::{AppError, Result};
 use crate::fsutil;
 use crate::profile::Profile;
-use crate::settings::{AutoSettings, LogLevel, ReliabilitySettings, RoutingSettings, Subscription, UsageSettings};
+use crate::settings::{AutoSettings, LogLevel, NetworkSettings, ReliabilitySettings, RoutingSettings, Subscription, UsageSettings};
 
 const SCHEMA_VERSION: u32 = 4;
 /// Fields that describe this Mac rather than the user's setup, so a backup leaves them out and a
@@ -52,6 +52,7 @@ struct Data {
     routing: RoutingSettings,
     reliability: ReliabilitySettings,
     auto: AutoSettings,
+    networks: NetworkSettings,
     subscriptions: Vec<Subscription>,
     /// Servers this version cannot read, such as a protocol added by a newer version. They are kept
     /// exactly as they were and offered to the parser again on every start.
@@ -228,6 +229,15 @@ impl Store {
 
     pub fn reliability(&self) -> ReliabilitySettings {
         self.data.reliability.clone()
+    }
+
+    pub fn networks(&self) -> NetworkSettings {
+        self.data.networks.clone()
+    }
+
+    pub fn set_networks(&mut self, settings: NetworkSettings) -> Result<()> {
+        self.data.networks = settings;
+        self.save()
     }
 
     pub fn auto(&self) -> AutoSettings {

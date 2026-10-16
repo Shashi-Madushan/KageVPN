@@ -24,6 +24,12 @@ static SCRIPT_UPDATE_TRIED: AtomicBool = AtomicBool::new(false);
 /// Set once the app has reinstalled a root service that did not answer, for the same reason.
 static SERVICE_REPAIR_TRIED: AtomicBool = AtomicBool::new(false);
 
+/// Lets the next connect try the once-per-launch service updates and reinstalls again.
+pub fn forget_repair_attempts() {
+    SCRIPT_UPDATE_TRIED.store(false, Ordering::SeqCst);
+    SERVICE_REPAIR_TRIED.store(false, Ordering::SeqCst);
+}
+
 /// The root helper for this app launch and the sing-box binary it was started for.
 static ROOT_HELPER: Mutex<Option<(u32, PathBuf)>> = Mutex::new(None);
 

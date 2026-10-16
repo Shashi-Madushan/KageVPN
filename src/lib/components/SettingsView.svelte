@@ -5,6 +5,7 @@
 	import ConfirmDialog from './ConfirmDialog.svelte';
 	import Select from './Select.svelte';
 	import UsageSettingsSection from './UsageSettingsSection.svelte';
+	import NetworksSection from './NetworksSection.svelte';
 	import { clipboardWatch } from '$lib/clipboard.svelte';
 	import { appUpdate } from '$lib/appUpdate.svelte';
 	import { feedback } from '$lib/feedback.svelte';
@@ -143,6 +144,8 @@
 			</div>
 		{/if}
 	</div>
+
+	<NetworksSection />
 
 	<span class="caption">Logs</span>
 	<div class="settings card">

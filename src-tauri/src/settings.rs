@@ -97,6 +97,8 @@ pub struct DnsSettings {
 pub struct RoutingSettings {
     pub mode: RouteMode,
     pub bypass_lan: bool,
+    /// Whether IPv6 is allowed. Off blocks IPv6 traffic and never hands out IPv6 addresses, for servers without IPv6.
+    pub ipv6: bool,
     pub final_action: Action,
     pub rules: Vec<Rule>,
     pub rule_sets: Vec<RuleSetRef>,
@@ -111,6 +113,7 @@ impl Default for RoutingSettings {
         Self {
             mode: RouteMode::Global,
             bypass_lan: true,
+            ipv6: true,
             final_action: Action::Proxy,
             rules: Vec::new(),
             rule_sets: Vec::new(),
@@ -263,4 +266,31 @@ impl Default for Subscription {
             notified_quota: 0,
         }
     }
+}
+
+/// What to do when the Mac joins a known network.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NetworkAction {
+    Connect,
+    Disconnect,
+    #[default]
+    Ignore,
+}
+
+/// A network the app has seen, identified by its gateway's hardware address.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct KnownNetwork {
+    pub id: String,
+    pub name: String,
+    pub action: NetworkAction,
+    pub last_seen: u64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct NetworkSettings {
+    pub enabled: bool,
+    pub networks: Vec<KnownNetwork>,
 }
