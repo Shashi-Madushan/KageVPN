@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-19", label: "19 Oct 2026" },
     { id: "oct-16", label: "16 Oct 2026" },
     { id: "oct-15", label: "15 Oct 2026" },
     { id: "oct-13", label: "13 Oct 2026" },
@@ -24,6 +25,14 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-19">19 October 2026</h2>
+      <ul>
+        <li><strong>New:</strong> A <strong>setup guide</strong> replaces the welcome tour. It walks through downloading the engine, adding a server or subscription (paste a link right in the guide) and choosing the connection mode, then explains the mascot, the menu-bar popover and the usage pages. Run it again any time from Settings, or from Home when no server has been added yet.</li>
+        <li><strong>New:</strong> <strong>Route by site name (FakeIP)</strong> (Routing, DNS), for Full system mode only and off by default. Sites are routed by their name instead of an address looked up on your Mac, which keeps domain rules exact. Local names (<code>.local</code>, <code>.lan</code> and similar) still resolve normally. Turn it off if an app that remembers addresses misbehaves.</li>
+        <li><strong>Improved:</strong> Pressing <em>Disconnect</em> now shows <strong>Disconnecting&hellip;</strong> on the mascot, Home, the menu-bar popover and the menu until the engine has actually stopped, and further presses are ignored. Before, the button looked connected for a few seconds and extra clicks could queue more stops.</li>
+        <li><strong>Fixed:</strong> <em>Cancel</em> while connecting did nothing until the current step finished. It now closes the administrator password prompt, withdraws the request to the VPN service, and abandons a port wait or list download straight away.</li>
+      </ul>
+
       <h2 id="oct-16">16 October 2026</h2>
       <ul>
         <li><strong>Improved:</strong> The menu-bar popover's server list shows each server's measured latency. While the VPN is connected, macOS no longer slows the app's background timers (App Nap), so the health check and automatic reconnect run on time.</li>
