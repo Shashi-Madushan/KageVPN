@@ -111,3 +111,11 @@
 **Context**: CONSTRUCTION - Build and Test
 
 ---
+
+## Onboarding wizard and FakeIP (condensed flow)
+**Timestamp**: 2026-10-19T00:00:00Z
+**User Input**: "can do this Onboarding wizard and FakeIP." Answers: wizard = replace tour with setup steps; FakeIP = opt-in TUN-only toggle; process = condensed.
+**AI Response**: Added `dns.fakeIp` (config.rs, settings.rs, Routing page toggle) with 3 tests; turned the tour into a setup wizard (engine download, add server or subscription, connection mode). cargo test 303 passed, clippy clean, svelte-check 0 errors, vite build ok.
+**Context**: CONSTRUCTION - condensed single unit
+
+---

@@ -418,6 +418,10 @@
 				{#if draft.dns.provider === 'custom'}
 					<div class="item"><input class="input grow" bind:value={draft.dns.custom} placeholder="dns.example.com or https://dns.example.com/your-id" aria-label="Custom DNS server" spellcheck="false" /></div>
 				{/if}
+				<label class="item">
+					<span class="grow">Route by site name (FakeIP)<span class="sub">Full system mode only. Sites are routed by their name, which keeps domain rules exact and avoids wrong answers from your local resolver. Turn off if an app that remembers addresses misbehaves.</span></span>
+					<input type="checkbox" bind:checked={draft.dns.fakeIp} />
+				</label>
 			</div>
 		</section>
 

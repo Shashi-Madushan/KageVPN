@@ -54,7 +54,7 @@ fn generated_configs_pass_singbox_check() {
 }
 
 fn dns_with(custom: &str) -> DnsSettings {
-    DnsSettings { provider: DnsProvider::Custom, custom: custom.into() }
+    DnsSettings { provider: DnsProvider::Custom, custom: custom.into(), ..Default::default() }
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn a_custom_dns_entry_that_cannot_work_is_refused_not_ignored() {
     }
     assert!(validate_dns(&dns_with("tls://dns.google")).is_ok());
     // Only the custom provider reads the text.
-    assert!(validate_dns(&DnsSettings { provider: DnsProvider::Cloudflare, custom: "junk".into() }).is_ok());
+    assert!(validate_dns(&DnsSettings { provider: DnsProvider::Cloudflare, custom: "junk".into(), ..Default::default() }).is_ok());
 }
 
 #[test]
@@ -320,4 +320,45 @@ fn ipv6_off_blocks_ipv6_and_passes_singbox_check() {
         std::fs::write(&path, serde_json::to_vec(&cfg).unwrap()).unwrap();
         crate::singbox::check(&binary, &path).unwrap();
     }
+}
+
+fn fake_ip_config(mode: Mode, route: RouteMode, ipv6: bool) -> serde_json::Value {
+    let profiles = every_protocol();
+    let mut routing = RoutingSettings::default();
+    routing.dns.fake_ip = true;
+    routing.mode = route;
+    routing.ipv6 = ipv6;
+    build(&input(&profiles, &routing, mode)).unwrap()["dns"].clone()
+}
+
+#[test]
+fn fake_ip_adds_a_server_and_keeps_local_names_real() {
+    let dns = fake_ip_config(Mode::Tun, RouteMode::Global, true);
+    let servers = dns["servers"].as_array().unwrap();
+    let fake = servers.iter().find(|s| s["type"] == "fakeip").expect("fakeip server");
+    assert_eq!((fake["tag"].as_str(), fake["inet4_range"].as_str(), fake["inet6_range"].as_str()), (Some("fakeip"), Some("198.18.0.0/15"), Some("fc00::/18")));
+    let rules = dns["rules"].as_array().unwrap();
+    assert_eq!(rules[0]["server"], "local");
+    assert_eq!(rules[1]["server"], "fakeip");
+}
+
+#[test]
+fn fake_ip_is_left_out_when_it_cannot_help() {
+    for dns in [fake_ip_config(Mode::Proxy, RouteMode::Global, true), fake_ip_config(Mode::Tun, RouteMode::Direct, true)] {
+        assert!(dns.get("rules").is_none());
+        assert!(!dns["servers"].as_array().unwrap().iter().any(|s| s["type"] == "fakeip"));
+    }
+    let no_v6 = fake_ip_config(Mode::Tun, RouteMode::Global, false);
+    assert!(no_v6["servers"].as_array().unwrap().iter().find(|s| s["type"] == "fakeip").unwrap().get("inet6_range").is_none());
+}
+
+#[test]
+fn fake_ip_config_passes_singbox_check() {
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let profiles = every_protocol();
+    let mut routing = RoutingSettings::default();
+    routing.dns.fake_ip = true;
+    let path = std::env::temp_dir().join("kage-vpn-test-fakeip.json");
+    std::fs::write(&path, serde_json::to_vec(&build(&input(&profiles, &routing, Mode::Tun)).unwrap()).unwrap()).unwrap();
+    crate::singbox::check(&binary, &path).unwrap();
 }

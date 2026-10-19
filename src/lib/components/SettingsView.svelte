@@ -214,8 +214,8 @@
 			<span><strong>{app.info.name}</strong><small>Version {app.info.version}</small></span>
 		</div>
 		<div class="restore">
-			<span><strong>Welcome tour</strong><small>A quick walkthrough of adding a server and connecting.</small></span>
-			<button class="btn" onclick={() => onboarding.show()}>Show tour</button>
+			<span><strong>Setup guide</strong><small>Get the engine, add a server and choose a connection mode.</small></span>
+			<button class="btn" onclick={() => onboarding.show()}>Run setup again</button>
 		</div>
 		{#if app.info.feedbackConfigured}
 			<div class="restore">

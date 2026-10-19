@@ -185,7 +185,7 @@ export interface RoutingSettings {
 	/** The id of the list source in use: a built-in one or one of `customProviders`. */
 	ruleProvider: string;
 	customProviders: RuleProvider[];
-	dns: { provider: DnsProvider; custom: string };
+	dns: { provider: DnsProvider; custom: string; fakeIp: boolean };
 }
 
 export type NetworkAction = 'connect' | 'disconnect' | 'ignore';

@@ -90,6 +90,8 @@ pub enum DnsProvider {
 pub struct DnsSettings {
     pub provider: DnsProvider,
     pub custom: String,
+    /// Hand out made-up addresses for lookups (full-system mode only), so sites are routed by name.
+    pub fake_ip: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -154,7 +154,7 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
 
     Ok(json!({
         "log": { "level": input.log_level.as_str(), "timestamp": true, "output": input.log_path },
-        "dns": dns(&input.routing.dns, input.routing.ipv6),
+        "dns": dns(input.routing, input.mode),
         "experimental": experimental,
         "inbounds": inbounds,
         "outbounds": outbounds,
@@ -275,6 +275,9 @@ fn rule_set_definitions(available: &[(String, PathBuf)]) -> Vec<Value> {
         .collect()
 }
 
+const FAKE_IP_V4: &str = "198.18.0.0/15";
+const FAKE_IP_V6: &str = "fc00::/18";
+
 fn doh(server: &str) -> Value {
     json!({ "type": "https", "tag": "remote", "server": server, "detour": "proxy" })
 }
@@ -322,12 +325,32 @@ pub fn validate_dns(settings: &DnsSettings) -> Result<()> {
     Ok(())
 }
 
-fn dns(settings: &DnsSettings, ipv6: bool) -> Value {
-    let mut config = dns_servers(settings);
-    if !ipv6 {
+fn dns(routing: &RoutingSettings, mode: Mode) -> Value {
+    let mut config = dns_servers(&routing.dns);
+    if routing.dns.fake_ip && mode == Mode::Tun && routing.mode != RouteMode::Direct {
+        add_fake_ip(&mut config, routing.ipv6);
+    }
+    if !routing.ipv6 {
         config["strategy"] = json!("ipv4_only");
     }
     config
+}
+
+/// Answers address lookups with made-up addresses that the tunnel maps back to the domain, so the
+/// route and the server see the name and not an address resolved on this Mac. Local names keep
+/// their real answers, and the server's own host is resolved through `default_domain_resolver`.
+fn add_fake_ip(config: &mut Value, ipv6: bool) {
+    let mut server = json!({ "type": "fakeip", "tag": "fakeip", "inet4_range": FAKE_IP_V4 });
+    if ipv6 {
+        server["inet6_range"] = json!(FAKE_IP_V6);
+    }
+    if let Some(servers) = config["servers"].as_array_mut() {
+        servers.push(server);
+    }
+    config["rules"] = json!([
+        { "domain_suffix": ["local", "lan", "localdomain", "home.arpa"], "server": "local" },
+        { "query_type": ["A", "AAAA"], "server": "fakeip" },
+    ]);
 }
 
 fn dns_servers(settings: &DnsSettings) -> Value {

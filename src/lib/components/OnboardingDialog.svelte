@@ -7,22 +7,46 @@
 	import Icon from './Icon.svelte';
 	import Mascot from './Mascot.svelte';
 	import Segmented from './Segmented.svelte';
+	import { importMessage } from '$lib/format';
 	import type { Page } from './Sidebar.svelte';
 
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
 
-	const slides = $derived([
-		{ title: `Welcome to ${app.info.name}`, text: 'A simple way to run a private, encrypted connection on your Mac. Meet the Kage mascot: it is your connect button and your status light. This quick tour takes about a minute.' },
-		{ title: 'Add a server', text: 'Your VPN provider gives you a server link (vless://, trojan://, ss:// or hysteria2://) or a subscription URL. Paste it once and the app saves and keeps it for you.' },
-		{ title: 'Choose how to connect', text: 'Full system sends every app through the VPN. Proxy only protects just the apps you point at the local proxy. You can change this while disconnected.' },
-		{ title: 'Tap the mascot to connect', text: 'Pick a server, then tap the mascot to start the VPN. Tap it again any time to disconnect. A sleeping mascot means you are not connected; a smiling one means you are protected. Turn on auto mode and the app picks the fastest server for you.' },
-		{ title: 'Read the mascot’s face', text: 'The mascot shows what is happening. “Protected” appears only after a real request has gone through the tunnel. If it looks worried, you are connected but no internet is getting through. Open Home to see why and use the one-click fix.' },
-		{ title: 'Always within reach', text: 'Click the menu bar icon to open the popover. Tap the mascot there too, check your latency, switch mode and watch live traffic, without opening the window.' },
-		{ title: 'See what uses your data', text: 'Data usage tells you in plain words how much you used this month. Connections shows which apps are sending and receiving data right now.' },
-		{ title: "You're all set", text: 'Here is where your setup stands.' }
-	]);
-
 	let step = $state(0);
+
+	const slides = $derived([
+		{ id: 'welcome', title: `Welcome to ${app.info.name}`, text: 'A simple way to run a private, encrypted connection on your Mac. Meet the Kage mascot: it is your connect button and your status light. Three quick steps get you set up.' },
+		{ id: 'engine', title: 'Get the engine', text: 'The engine is the program that carries your traffic. It is downloaded once from its official release page and checked before use.' },
+		{ id: 'add', title: 'Add a server', text: 'Your VPN provider gives you a server link (vless://, trojan://, ss:// or hysteria2://) or a subscription URL. Paste it here and the app saves and keeps it for you.' },
+		{ id: 'mode', title: 'Choose how to connect', text: 'Full system sends every app through the VPN and asks for your password once to set it up. Proxy only protects just the apps you point at the local proxy. You can change this later.' },
+		{ id: 'tap', title: 'Tap the mascot to connect', text: 'Pick a server, then tap the mascot to start the VPN. Tap it again any time to disconnect. A sleeping mascot means you are not connected; a smiling one means you are protected.' },
+		{ id: 'face', title: 'Read the mascot’s face', text: 'The mascot shows what is happening. “Protected” appears only after a real request has gone through the tunnel. If it looks worried, you are connected but no internet is getting through. Open Home to see why and use the one-click fix.' },
+		{ id: 'tray', title: 'Always within reach', text: 'Click the menu bar icon to open the popover. Tap the mascot there too, check your latency, switch mode and watch live traffic, without opening the window.' },
+		{ id: 'usage', title: 'See what uses your data', text: 'Data usage tells you in plain words how much you used this month. Connections shows which apps are sending and receiving data right now.' },
+		{ id: 'done', title: "You're all set", text: 'Here is where your setup stands.' }
+	]);
+	const id = $derived(slides[step].id);
+
+	let pasted = $state('');
+	let adding = $state(false);
+	let addError = $state<string | null>(null);
+	const isSubscription = $derived(/^https?:\/\/\S+$/i.test(pasted.trim()));
+
+	async function addServer() {
+		adding = true;
+		addError = null;
+		if (isSubscription) {
+			addError = await app.addSubscription('My subscription', pasted.trim(), { userAgent: null, sendDeviceId: false });
+		} else {
+			const { summary, error } = await app.importText(pasted);
+			addError = error;
+			if (summary) app.notify(importMessage(summary), 'info');
+		}
+		adding = false;
+		if (!addError) pasted = '';
+	}
+
+
 	const last = $derived(slides.length - 1);
 	const hasServer = $derived(app.profiles.length > 0);
 	const hotkey = $derived(
@@ -43,10 +67,7 @@
 
 	function primary() {
 		if (step < last) return next();
-		if (!hasServer) {
-			onboarding.addServerRequested = true;
-			onnavigate('profiles');
-		}
+		if (!hasServer) onnavigate('profiles');
 		onboarding.finish();
 	}
 
@@ -64,17 +85,17 @@
 
 <svelte:window {onkeydown} />
 
-<Dialog open={onboarding.open} title="Welcome tour" width={620} bare onclose={() => onboarding.finish()}>
+<Dialog open={onboarding.open} title="Set up" width={620} bare onclose={() => onboarding.finish()}>
 	<div class="stage" aria-hidden="true">
 		{#key step}
 			<div class="demo" inert>
-					{#if step === 0}
+					{#if id === 'welcome'}
 						<div class="d-hero">
 							<Mascot mood="happy" size={118} />
 							<strong class="d-headline">You're protected</strong>
 							<span class="d-chips"><i>Kill switch</i><i>Auto-reconnect</i></span>
 						</div>
-					{:else if step === 1}
+					{:else if id === 'add'}
 						<div class="d-card d-add">
 							<div class="d-title">Add server</div>
 							<div class="d-textarea mono">vless://3f9a1c2e-…@vpn.example.com:443<br />?security=reality&amp;sni=…#Frankfurt</div>
@@ -83,7 +104,7 @@
 								<span class="d-btn primary">Add server</span>
 							</div>
 						</div>
-					{:else if step === 2}
+					{:else if id === 'mode'}
 						<div class="d-modes">
 							<Segmented options={modes} value="tun" label="Connection mode" onchange={() => {}} />
 							<div class="d-mode-cards">
@@ -91,7 +112,7 @@
 								<div class="d-card"><strong>Proxy only</strong><span>Only apps set to use the local proxy are protected.</span></div>
 							</div>
 						</div>
-					{:else if step === 3}
+					{:else if id === 'tap'}
 						<div class="d-tap">
 							<div class="d-tap-side">
 								<span class="d-tap-btn"><i class="ripple"></i><Mascot mood="sleep" size={104} /><span class="finger"><Icon name="bolt" size={14} /> Tap</span></span>
@@ -103,14 +124,14 @@
 								<span class="d-cap ok">Protected · tap to disconnect</span>
 							</div>
 						</div>
-					{:else if step === 4}
+					{:else if id === 'face'}
 						<div class="d-moods">
 							<div><Mascot mood="sleep" size={84} /><b>Off</b><small>Tap to connect</small></div>
 							<div><Mascot mood="busy" size={84} /><b class="warn">Checking</b><small>Verifying it works</small></div>
 							<div><Mascot mood="happy" size={84} /><b class="ok">Protected</b><small>Traffic is flowing</small></div>
 							<div><Mascot mood="worried" size={84} /><b class="bad">No internet</b><small>Open Home to fix</small></div>
 						</div>
-					{:else if step === 5}
+					{:else if id === 'tray'}
 						<div class="d-tray">
 							<div class="d-menubar">
 								<span class="mb-icon"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3v8" /><path d="M6.6 6.6a8 8 0 1 0 10.8 0" /></svg></span>
@@ -123,7 +144,7 @@
 								<div class="d-tray-speeds"><span><em>Download</em><b class="down">2.3 MB/s</b></span><span><em>Upload</em><b class="up">178 KB/s</b></span></div>
 							</div>
 						</div>
-					{:else if step === 6}
+					{:else if id === 'usage'}
 						<div class="d-card d-usage">
 							<span class="d-sub">You used</span>
 							<strong class="d-big">37 GB <small>this month</small></strong>
@@ -151,10 +172,32 @@
 			<div class="copy-in">
 				<h2>{slides[step].title}</h2>
 				<p>{slides[step].text}</p>
-				{#if step === 5 && hotkey}<p class="tip">Tip: press <kbd>{hotkey}</kbd> from anywhere to connect or disconnect.</p>{/if}
-				{#if step === 1}<p class="tip">You can also drop a text file, or use <em>Enter details manually</em> if you have the values.</p>{/if}
-				{#if step === 0}<div class="brand"><PoweredBy align="start" /></div>{/if}
-				{#if step === last}<p class="tip">You can replay this tour any time from Settings.</p>{/if}
+				{#if id === 'tray' && hotkey}<p class="tip">Tip: press <kbd>{hotkey}</kbd> from anywhere to connect or disconnect.</p>{/if}
+				{#if id === 'welcome'}<div class="brand"><PoweredBy align="start" /></div>{/if}
+				{#if id === 'engine'}
+					{#if core.missing}
+						{#if core.installing}
+							<p class="tip">Downloading{core.percent !== null ? ` ${Math.round(core.percent)}%` : '…'}</p>
+						{:else}
+							<button class="btn primary" onclick={() => core.installBackground()}>Download the engine</button>
+							{#if core.failure}<p class="tip bad">{core.failure}</p>{/if}
+						{/if}
+					{:else}
+						<p class="tip ok">Engine ready{core.activeVersion ? ` (${core.activeVersion})` : ''}.</p>
+					{/if}
+				{/if}
+				{#if id === 'add'}
+					{#if hasServer}
+						<p class="tip ok">{app.profiles.length} server{app.profiles.length === 1 ? '' : 's'} added. Add more or continue.</p>
+					{/if}
+					<textarea class="input mono paste" bind:value={pasted} rows="3" spellcheck="false" placeholder="vless://…  or  https://provider.example/subscription" aria-label="Server link or subscription URL"></textarea>
+					<button class="btn" disabled={!pasted.trim() || adding} onclick={addServer}>{adding ? 'Adding…' : isSubscription ? 'Add subscription' : 'Add server'}</button>
+					{#if addError}<p class="tip bad" role="alert">{addError}</p>{/if}
+				{/if}
+				{#if id === 'mode'}
+					<Segmented options={modes} value={app.mode} label="Connection mode" onchange={(m) => app.setMode(m)} />
+				{/if}
+				{#if id === 'done'}<p class="tip">You can run this setup again any time from Settings.</p>{/if}
 				{#if step === last && core.missing}
 					<button class="btn" onclick={installEngine}>Download the engine</button>
 				{/if}
@@ -163,7 +206,7 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="dots" role="tablist" aria-label="Tour steps">
+		<div class="dots" role="tablist" aria-label="Setup steps">
 			{#each slides as slide, i (slide.title)}
 				<button type="button" role="tab" class="dot" class:on={i === step} aria-selected={i === step} aria-label="Step {i + 1}: {slide.title}" onclick={() => (step = i)}></button>
 			{/each}
@@ -227,6 +270,17 @@
 	}
 	.copy .tip {
 		font-size: 12.5px;
+	}
+	.copy .tip.ok {
+		color: var(--ok, var(--accent));
+	}
+	.copy .tip.bad {
+		color: var(--danger, #d33);
+	}
+	.paste {
+		width: 100%;
+		max-width: 420px;
+		font-size: 11.5px;
 	}
 	kbd {
 		padding: 1px 6px;

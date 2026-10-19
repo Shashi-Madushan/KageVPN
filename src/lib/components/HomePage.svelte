@@ -175,7 +175,7 @@
 					{:else}
 						<span class="ready-sub">{app.profiles.length ? (isConnecting ? 'Establishing secure tunnel…' : 'Tap to connect') : 'Add a server to connect'}</span>
 						{#if app.profiles.length && !isConnecting}<PingButton />{/if}
-						{#if !app.profiles.length}<button class="linkbtn" onclick={() => onboarding.show()}>New here? Take the quick tour</button>{/if}
+						{#if !app.profiles.length}<button class="linkbtn" onclick={() => onboarding.show()}>New here? Run the quick setup</button>{/if}
 					{/if}
 				</div>
 			</div>
