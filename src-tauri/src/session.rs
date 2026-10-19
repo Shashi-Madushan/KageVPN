@@ -21,6 +21,7 @@ const STOP_ATTEMPTS: u32 = 40;
 const PORT_WAIT_WINDOW: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 const DROP_GRACE: Duration = Duration::from_millis(1500);
+const CANCEL_POLL: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,11 +55,15 @@ pub struct Status {
     /// tunnel is down). Set from the root helper's marker; see `reliability::spawn_block_watch`.
     #[serde(default)]
     pub blocked: bool,
+    /// A stop was asked for and sing-box has not exited yet. The state stays `Connected` until it
+    /// has, so this is what lets the screens show "Disconnecting…" instead of an unresponsive button.
+    #[serde(default)]
+    pub disconnecting: bool,
 }
 
 impl Status {
     pub fn disconnected(mode: Mode) -> Self {
-        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None, proxy_port: None, blocked: false }
+        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None, proxy_port: None, blocked: false, disconnecting: false }
     }
 }
 
@@ -127,14 +132,26 @@ enum Plan {
     Cancel,
     /// Stop the running connection.
     Stop(u32),
+    /// A stop is already under way: wait for it instead of starting a second one.
+    WaitForStop,
     Nothing,
 }
 
-fn disconnect_plan(state: State, pid: Option<u32>) -> Plan {
+fn disconnect_plan(state: State, pid: Option<u32>, disconnecting: bool) -> Plan {
     match (state, pid) {
         (State::Connecting, _) => Plan::Cancel,
+        (State::Connected, Some(_)) if disconnecting => Plan::WaitForStop,
         (_, Some(pid)) => Plan::Stop(pid),
         (_, None) => Plan::Nothing,
+    }
+}
+
+/// Runs `work` until it finishes or the user cancels the connection, whichever comes first, so a
+/// slow step (a port wait, a list download, a lookup) never makes the Cancel button feel dead.
+async fn until_cancelled<T>(cancel: &std::sync::atomic::AtomicBool, work: impl std::future::Future<Output = T>) -> Result<T> {
+    tokio::select! {
+        value = work => Ok(value),
+        () = async { while !cancel.load(Ordering::SeqCst) { sleep(CANCEL_POLL).await } } => Err(AppError::Cancelled),
     }
 }
 
@@ -223,12 +240,27 @@ pub async fn disconnect_for_restart(app: &AppHandle) -> Result<()> {
 
 async fn stop_with(app: &AppHandle, ending: Ending) -> Result<()> {
     let state = app.state::<AppState>();
-    let connection = state.status.lock().unwrap().state;
-    let pid = match disconnect_plan(connection, *state.pid.lock().unwrap()) {
+    let (connection, disconnecting) = {
+        let status = state.status.lock().unwrap();
+        (status.state, status.disconnecting)
+    };
+    let running = *state.pid.lock().unwrap();
+    let pid = match disconnect_plan(connection, running, disconnecting) {
         Plan::Nothing => return Ok(()),
         Plan::Cancel => {
             applog::info("disconnect: cancelling a connection that is still starting");
             state.cancel_connect.store(true, Ordering::SeqCst);
+            return Ok(());
+        }
+        Plan::WaitForStop => {
+            // A reconnect or a second click lands here: it has to see the connection gone, not
+            // return while the first stop is still waiting for sing-box.
+            for _ in 0..STOP_ATTEMPTS {
+                if state.status.lock().unwrap().state == State::Disconnected {
+                    break;
+                }
+                sleep(POLL_INTERVAL).await;
+            }
             return Ok(());
         }
         Plan::Stop(pid) => pid,
@@ -239,6 +271,7 @@ async fn stop_with(app: &AppHandle, ending: Ending) -> Result<()> {
     note_stop(&state);
     let mode = state.status.lock().unwrap().mode;
     end_run(app, mode, ending)?;
+    update(app, |s| s.disconnecting = true);
     for _ in 0..STOP_ATTEMPTS {
         if !runner::is_alive(pid) {
             break;
@@ -299,7 +332,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     // A sing-box this app stopped a moment ago can take a few seconds to let go of its port, so
     // that one is waited for. Any other program holding a port is moved around.
     let just_stopped = state.stop_requested_at.lock().unwrap().is_some_and(|at| at.elapsed() < PORT_WAIT_WINDOW);
-    let ports = net::choose_ports(just_stopped).await?;
+    let ports = until_cancelled(&state.cancel_connect, net::choose_ports(just_stopped)).await??;
     if !ports.is_default() {
         applog::warn(format!("default ports are busy: using proxy port {} and controller port {}", ports.mixed, ports.clash));
         notify::send(app, "Using another local port", &format!("Port {} was busy, so the local proxy listens on {}.", config::DEFAULT_MIXED_PORT, ports.mixed));
@@ -311,7 +344,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     if !state.store.lock().unwrap().auto().enabled {
         let active = state.store.lock().unwrap().active_profile().cloned();
         if let Some(profile) = active {
-            health::preflight(&profile, behind_block).await?;
+            until_cancelled(&state.cancel_connect, health::preflight(&profile, behind_block)).await??;
         }
     }
     check_cancelled(app)?;
@@ -336,7 +369,7 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
     if behind_block {
         applog::info("connect: the kill switch is blocking, so rule lists are not downloaded now");
     } else {
-        prepare_rule_sets(app, &routing).await;
+        until_cancelled(&state.cancel_connect, prepare_rule_sets(app, &routing)).await?;
     }
     check_cancelled(app)?;
 
@@ -365,12 +398,12 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
 
     let kill_switch_ips = if reliability.kill_switch && mode == Mode::Tun {
         let targets = nodes.iter().map(|p| (p.server.clone(), p.port)).collect();
-        Some(crate::allowlist::refresh(paths, Some(targets), !behind_block).await)
+        Some(until_cancelled(&state.cancel_connect, crate::allowlist::refresh(paths, Some(targets), !behind_block)).await?)
     } else {
         None
     };
     check_cancelled(app)?;
-    let pid = runner::start(paths, &binary, mode, kill_switch_ips).await?;
+    let pid = runner::start(paths, &binary, mode, kill_switch_ips, &state.cancel_connect).await?;
     wait_until_ready(app, pid).await?;
 
     if !auto {

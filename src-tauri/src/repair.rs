@@ -47,7 +47,7 @@ pub async fn repair_service(state: State<'_, AppState>) -> Result<String> {
     };
     let (binary, _) = core::resolve(&state.paths, spec, &settings)?;
     applog::info(format!("repair: cleared {cleared} stale file(s), installing the service again"));
-    daemon::install(&state.paths, &binary).await?;
+    daemon::install(&state.paths, &binary, None).await?;
     if !daemon::installed() {
         return Err(AppError::Launch("the service files are still missing after the repair".into()));
     }

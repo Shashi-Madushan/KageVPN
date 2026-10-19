@@ -12,6 +12,7 @@ fn escapes_applescript_specials() {
 
 mod helper {
     use std::fs;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::path::{Path, PathBuf};
     use std::process::{Child, Command, Stdio};
     use std::thread::sleep;
@@ -78,7 +79,7 @@ mod helper {
         let core = fake_core(&dir);
         let mut helper = start_helper(&dir, &core, std::process::id());
 
-        let pid = block_on(super::super::request_start(&paths_in(&dir), "none", Duration::from_secs(8))).unwrap().expect("an answer");
+        let pid = block_on(super::super::request_start(&paths_in(&dir), "none", Duration::from_secs(8), &AtomicBool::new(false))).unwrap().expect("an answer");
         assert!(alive(pid));
         assert_eq!(Some(pid), child_pid(&dir));
 
@@ -88,11 +89,64 @@ mod helper {
     }
 
     #[test]
+    fn cancelling_while_waiting_for_the_helper_ends_the_wait_and_takes_the_request_back() {
+        // The user pressed Cancel while nothing answered: the wait must not run its full 15 seconds,
+        // and a helper that wakes up later must not find a request to start sing-box from.
+        let dir = scratch("cancel-wait");
+        let cancel = std::sync::Arc::new(AtomicBool::new(false));
+        let flag = cancel.clone();
+        std::thread::spawn(move || {
+            sleep(Duration::from_millis(300));
+            flag.store(true, Ordering::SeqCst);
+        });
+        let started = Instant::now();
+        let result = block_on(super::super::request_start(&paths_in(&dir), "none", Duration::from_secs(30), &cancel));
+        assert!(matches!(result, Err(crate::error::AppError::Cancelled)));
+        assert!(started.elapsed() < Duration::from_secs(3), "returned promptly, not after the full wait");
+        assert!(!dir.join("helper.start").exists(), "the request is withdrawn");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_pending_password_prompt_is_ended_by_cancelling() {
+        // Stands in for osascript waiting on the password dialog.
+        let child = Command::new("sleep").arg("60").stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        let pid = child.id();
+        let cancel = std::sync::Arc::new(AtomicBool::new(false));
+        let flag = cancel.clone();
+        std::thread::spawn(move || {
+            sleep(Duration::from_millis(300));
+            flag.store(true, Ordering::SeqCst);
+        });
+        let started = Instant::now();
+        let result = block_on(super::super::wait_cancellable(child, Some(&cancel)));
+        assert!(matches!(result, Err(crate::error::AppError::Cancelled)));
+        assert!(started.elapsed() < Duration::from_secs(3));
+        assert!(!alive(pid), "the prompt process is gone, so no dialog is left behind");
+    }
+
+    #[test]
+    fn a_finished_admin_command_gives_back_what_it_printed() {
+        let child = Command::new("/bin/sh").args(["-c", "echo out; echo err >&2; exit 3"]).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        let output = block_on(super::super::wait_cancellable(child, Some(&AtomicBool::new(false)))).unwrap();
+        assert_eq!(output.status.code(), Some(3));
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "out");
+        assert_eq!(String::from_utf8_lossy(&output.stderr).trim(), "err");
+    }
+
+    #[test]
+    fn output_larger_than_a_pipe_buffer_does_not_hang_the_wait() {
+        let child = Command::new("/bin/sh").args(["-c", "head -c 300000 /dev/zero | tr '\\0' x"]).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        let output = block_on(super::super::wait_cancellable(child, None)).unwrap();
+        assert_eq!(output.stdout.len(), 300_000);
+    }
+
+    #[test]
     fn a_helper_that_never_answers_gives_nothing_instead_of_hanging() {
         // What a service that was unloaded looks like: the request is written and nobody reads it.
         let dir = scratch("silent");
         let started = Instant::now();
-        let answer = block_on(super::super::request_start(&paths_in(&dir), "none", Duration::from_millis(400))).unwrap();
+        let answer = block_on(super::super::request_start(&paths_in(&dir), "none", Duration::from_millis(400), &AtomicBool::new(false))).unwrap();
         assert_eq!(answer, None);
         assert!(started.elapsed() < Duration::from_secs(3));
         assert!(dir.join("helper.start").exists(), "the request is left for a helper that starts later");

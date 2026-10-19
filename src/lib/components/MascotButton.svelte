@@ -5,18 +5,18 @@
 	let { size = 120 }: { size?: number } = $props();
 
 	const connecting = $derived(app.status.state === 'connecting');
-	const tone = $derived(app.tunnelDown ? 'down' : app.verifying ? 'checking' : app.protectedNow ? 'ok' : 'off');
+	const tone = $derived(app.disconnecting ? 'checking' : app.tunnelDown ? 'down' : app.verifying ? 'checking' : app.protectedNow ? 'ok' : 'off');
 	const mood = $derived(tone === 'ok' ? 'happy' : tone === 'down' ? 'worried' : tone === 'checking' || connecting ? 'busy' : 'sleep');
-	const label = $derived(app.busy ? 'Cancel connecting' : app.connected ? 'Disconnect from VPN' : 'Connect to VPN');
+	const label = $derived(app.disconnecting ? 'Disconnecting from VPN…' : app.busy ? 'Cancel connecting' : app.connected ? 'Disconnect from VPN' : 'Connect to VPN');
 </script>
 
 <button
 	class="mascot-btn {tone}"
-	disabled={!app.busy && !app.activeProfile}
+	disabled={app.disconnecting || (!app.busy && !app.activeProfile)}
 	onclick={() => app.toggle()}
 	aria-label={label}
 	title={label}
-	aria-busy={connecting}
+	aria-busy={connecting || app.disconnecting}
 >
 	<Mascot {mood} {size} />
 </button>

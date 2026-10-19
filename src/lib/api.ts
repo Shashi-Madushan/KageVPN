@@ -38,6 +38,8 @@ export interface Status {
 	proxyPort: number | null;
 	/** The kill switch is blocking traffic outside the tunnel right now. */
 	blocked: boolean;
+	/** A stop was asked for and sing-box has not exited yet; `state` is still 'connected' until it has. */
+	disconnecting: boolean;
 }
 
 export interface ErrorInfo {

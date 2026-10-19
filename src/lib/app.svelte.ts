@@ -38,7 +38,7 @@ class AppStore {
 	profiles = $state<Profile[]>([]);
 	activeId = $state<string | null>(null);
 	mode = $state<Mode>('tun');
-	status = $state<Status>({ state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null, blocked: false });
+	status = $state<Status>({ state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null, blocked: false, disconnecting: false });
 	logs = $state<LogLine[]>([]);
 	traffic = $state<Traffic>(NO_TRAFFIC);
 	history = $state<Sample[]>([]);
@@ -68,6 +68,8 @@ class AppStore {
 	activeProfile = $derived(this.profiles.find((p) => p.id === this.activeId) ?? null);
 	busy = $derived(this.status.state === 'connecting');
 	connected = $derived(this.status.state === 'connected');
+	/** Being stopped: still connected underneath, but the button has nothing left to ask for. */
+	disconnecting = $derived(this.status.disconnecting);
 	/** Connected and proven to carry traffic. */
 	protectedNow = $derived(this.status.state === 'connected' && this.status.health === 'healthy');
 	/** Connected, but the tunnel does not pass traffic. */
@@ -165,6 +167,8 @@ class AppStore {
 	}
 
 	async toggle() {
+		// A second press while sing-box is shutting down would only queue another stop.
+		if (this.disconnecting) return;
 		if (this.busy) {
 			// Still connecting: pressing again cancels, unless it is the tail of a double-click.
 			if (Date.now() - this.connectingSince > CANCEL_GUARD_MS) await this.run(api.disconnect);

@@ -18,7 +18,7 @@
 		{ value: 'tun' as const, label: 'Full System' },
 		{ value: 'proxy' as const, label: 'Proxy Only' }
 	];
-	const tone = $derived(app.tunnelDown ? 'down' : app.verifying ? 'checking' : app.protectedNow ? 'ok' : 'off');
+	const tone = $derived(app.disconnecting ? 'checking' : app.tunnelDown ? 'down' : app.verifying ? 'checking' : app.protectedNow ? 'ok' : 'off');
 	const via = $derived(app.connected ? 'tunnel' : 'server');
 	const check = $derived(
 		app.check && app.checkVia === via ? app.check : app.connected && app.delayMs !== null ? { ms: app.delayMs } : undefined
@@ -56,10 +56,12 @@
 
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const headline = $derived(
-		app.tunnelDown ? 'No internet' : app.verifying ? 'Checking…' : app.protectedNow ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
+		app.disconnecting ? 'Disconnecting…' : app.tunnelDown ? 'No internet' : app.verifying ? 'Checking…' : app.protectedNow ? "You're protected" : isConnecting ? 'Connecting…' : "You're not protected"
 	);
 	const sub = $derived(
-		app.tunnelDown
+		app.disconnecting
+			? 'Closing the tunnel…'
+			: app.tunnelDown
 			? (app.status.reason?.message ?? 'Traffic is not getting through the tunnel.')
 			: isConnecting
 				? 'Establishing secure tunnel…'

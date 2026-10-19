@@ -97,6 +97,9 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
 
 /// The one-line summary at the top of the menu.
 fn status_text(status: &Status) -> String {
+    if status.disconnecting {
+        return "Disconnecting…".into();
+    }
     match (status.state, status.health) {
         (State::Disconnected, _) => "Not protected".into(),
         (State::Connecting, _) => "Connecting…".into(),
@@ -109,17 +112,27 @@ fn status_text(status: &Status) -> String {
     }
 }
 
-fn apply_status(app: &AppHandle, toggle: &MenuItem<tauri::Wry>, status_line: &MenuItem<tauri::Wry>, status: &Status) {
-    let state = status.state;
-    TUNNEL_DOWN.store(status.health == Health::Down, Ordering::Relaxed);
-    let _ = status_line.set_text(status_text(status));
-    let label = match state {
+/// The menu's connect button: its text, and whether it can be pressed. While sing-box is being
+/// stopped there is nothing to ask for, so it says so instead of looking connected.
+fn toggle_item(status: &Status) -> (&'static str, bool) {
+    if status.disconnecting {
+        return ("Disconnecting…", false);
+    }
+    let label = match status.state {
         State::Disconnected => "Connect",
         State::Connecting => "Cancel",
         State::Connected => "Disconnect",
     };
+    (label, true)
+}
+
+fn apply_status(app: &AppHandle, toggle: &MenuItem<tauri::Wry>, status_line: &MenuItem<tauri::Wry>, status: &Status) {
+    let state = status.state;
+    TUNNEL_DOWN.store(status.health == Health::Down, Ordering::Relaxed);
+    let _ = status_line.set_text(status_text(status));
+    let (label, enabled) = toggle_item(status);
     let _ = toggle.set_text(label);
-    let _ = toggle.set_enabled(true);
+    let _ = toggle.set_enabled(enabled);
 
     refresh(app, state, None);
 }
@@ -320,7 +333,13 @@ pub fn toggle_connection(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         crate::reliability::user_took_over(&app);
-        let state = app.state::<AppState>().status.lock().unwrap().state;
+        let (state, disconnecting) = {
+            let status = app.state::<AppState>().status.lock().unwrap().clone();
+            (status.state, status.disconnecting)
+        };
+        if disconnecting {
+            return;
+        }
         let result = match state {
             State::Disconnected => session::connect(&app).await,
             // While it is still starting, disconnecting means "cancel".

@@ -44,10 +44,12 @@
 
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const statusText = $derived(
-		app.status.blocked && app.reliability.killSwitch ? 'Blocked' : app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
+		app.disconnecting ? 'Disconnecting…' : app.status.blocked && app.reliability.killSwitch ? 'Blocked' : app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
 	);
 	const headline = $derived(
-		app.status.blocked && app.reliability.killSwitch
+		app.disconnecting
+			? 'Disconnecting…'
+			: app.status.blocked && app.reliability.killSwitch
 			? 'Internet blocked by the kill switch'
 			: app.tunnelDown
 			? 'Connected, but no internet'
@@ -144,7 +146,7 @@
 		<!-- Connection -->
 		<section class="hero card" class:on={app.connected}>
 			<div class="card-header">
-				<div class="status-pill {app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">
+				<div class="status-pill {app.disconnecting ? 'connecting' : app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">
 					<span class="dot"></span>
 					<strong>{statusText}</strong>
 					{#if elapsed}<span class="elapsed tabular">{elapsed}</span>{/if}
@@ -164,7 +166,7 @@
 
 			<div class="power-center">
 				<MascotButton size={150} />
-				<h2 class="headline {app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">{headline}</h2>
+				<h2 class="headline {app.disconnecting ? 'connecting' : app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">{headline}</h2>
 				<div class="ip-row">
 					{#if app.connected}
 						{#if app.exitIp}

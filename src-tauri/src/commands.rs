@@ -444,7 +444,7 @@ pub async fn install_root_service(state: State<'_, AppState>) -> Result<()> {
         (store.active_core(), store.core_settings())
     };
     let (binary, _) = crate::core::resolve(&state.paths, spec, &settings)?;
-    crate::runner::daemon::install(&state.paths, &binary).await
+    crate::runner::daemon::install(&state.paths, &binary, None).await
 }
 
 #[tauri::command]

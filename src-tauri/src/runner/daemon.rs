@@ -6,7 +6,9 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{run_admin_script, shell_quote, HELPER};
+use std::sync::atomic::AtomicBool;
+
+use super::{run_admin_script, run_admin_script_until, shell_quote, HELPER};
 use crate::error::Result;
 use crate::paths::AppPaths;
 
@@ -41,7 +43,8 @@ fn script_matches(installed: &Path) -> bool {
 }
 
 /// Installs (or refreshes) the service for `binary`, starting it with launchd.
-pub async fn install(paths: &AppPaths, binary: &Path) -> Result<()> {
+/// `cancel` ends the password prompt early when the user stops connecting meanwhile.
+pub async fn install(paths: &AppPaths, binary: &Path, cancel: Option<&AtomicBool>) -> Result<()> {
     let plist = plist(paths);
     let commands = [
         "set -e".to_string(),
@@ -55,7 +58,7 @@ pub async fn install(paths: &AppPaths, binary: &Path) -> Result<()> {
         format!("chmod 644 {}", shell_quote(PLIST)),
         format!("launchctl bootstrap system {}", shell_quote(PLIST)),
     ];
-    run_admin_script(&commands.join("; "), INSTALL_PROMPT).await.map(|_| ())
+    run_admin_script_until(&commands.join("; "), INSTALL_PROMPT, cancel).await.map(|_| ())
 }
 
 pub async fn uninstall() -> Result<()> {
