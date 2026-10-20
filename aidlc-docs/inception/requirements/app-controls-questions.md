@@ -15,7 +15,7 @@ C) A new "Apps" tab as in A, and also show the app's icon and current usage on e
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: C (not answered by the user; chosen by the assistant: the Apps tab with icons and usage, and presets plus per-app overrides give the most complete result using what already exists)
 
 ## Question 2
 In "VPN for everything except these apps" setups, how should the default and the per-app choice relate?
@@ -28,7 +28,7 @@ C) Both: presets at the top that set the default, and per-app overrides below
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: C (not answered by the user; chosen by the assistant)
 
 ## Question 3
 What does a per-app data cap measure?
@@ -41,7 +41,7 @@ C) Through the VPN only for now, with direct counting left for later
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: a
 
 ## Question 4
 Over what period does each app's cap reset?
@@ -54,7 +54,7 @@ C) Monthly only, on the first day of the month
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: b
 
 ## Question 5
 When an app reaches its cap, what should happen?
@@ -67,7 +67,7 @@ C) Choose per app: notify only, block the app, or send the app direct (outside t
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: b
 
 ## Question 6
 Blocking or rerouting an app on reaching its cap needs a routing rule, and a routing change makes the VPN reconnect today. How should that be handled?
@@ -80,7 +80,7 @@ C) Apply the rule without a full reconnect, if sing-box can reload rules live (n
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: b
 
 ## Question 7
 What should "disable usage for selected apps" mean?
@@ -93,7 +93,7 @@ C) Block it only while on certain networks (reusing the Networks feature)
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: a like how the data eye app work 
 
 ## Question 8
 When a cap is reached or an app is blocked this way, how should the app be undone?
@@ -106,7 +106,7 @@ C) Automatically at reset only; no manual override while the cap is hit
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: a
 
 ## Question 9
 Where should caps and usage be visible?
@@ -119,7 +119,7 @@ C) Only in the Apps tab; no popover or Usage page changes
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: a
 
 ## Question 10
 How accurate must per-app counting be?
@@ -132,7 +132,7 @@ C) Soft cap now, mention the limitation in the UI and docs
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: a
 
 ## Question 11
 Existing rules by process name (for apps with no `.app` bundle, such as `curl` or command-line tools) should:
@@ -143,7 +143,7 @@ B) Stay in the rule editor only; the Apps tab lists installed `.app` bundles onl
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: a
 
 ## Question 12
 Which features from the earlier list should be in this round?
@@ -156,7 +156,7 @@ C) Also low-data and expiry alerts, and the universal (Intel and Apple Silicon) 
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: a and b 
 
 ## Question 13
 Extension rules (security baseline, property-based testing, resiliency baseline) were all left off for this project earlier. For this work:
@@ -167,4 +167,4 @@ B) Turn on the security baseline for this work (the per-app block and cap logic 
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: a

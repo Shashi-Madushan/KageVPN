@@ -35,3 +35,14 @@
 
 ## Carry-over (done before AI-DLC was followed)
 - IPv6 allow/block setting implemented in working tree (settings.rs, config.rs, RoutingPage.svelte, api.ts, test) - uncommitted; passes cargo test and real sing-box check.
+
+## Round 2: per-app controls (branch feature/app-picker-and-usage-limits)
+- **Current Stage**: INCEPTION - Requirements Analysis (awaiting approval)
+- [x] Workspace Detection (resumed)
+- [x] Reverse Engineering (reused)
+- [x] Requirements Analysis (awaiting approval): inception/requirements/app-controls-requirements.md
+- [ ] User Stories (skip: single-developer app, requirements are specific)
+- [ ] Workflow Planning
+- [ ] Application Design (likely skipped: extends existing components)
+- [ ] Construction: functional design, code generation, build and test
+Extensions unchanged: Security Baseline, Property-Based Testing, Resiliency Baseline all No.

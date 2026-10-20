@@ -127,3 +127,11 @@
 **Context**: INCEPTION - Requirements Analysis (Standard depth, brownfield)
 
 ---
+
+## Requirements answers received
+**Timestamp**: 2026-10-20T14:30:00Z
+**User Input**: "i answerd them some qustions are not answerd you choos what best for them"
+**AI Response**: Read the answers. Q1 and Q2 were empty; chose C for both and recorded that in the file. Q7 answer "a like how the data eye app work" read as a plain per-app block switch. Checked for contradictions: none. Wrote inception/requirements/app-controls-requirements.md and asked for approval.
+**Context**: INCEPTION - Requirements Analysis
+
+---
