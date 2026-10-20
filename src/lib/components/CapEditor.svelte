@@ -50,6 +50,7 @@
 </script>
 
 <div class="editor">
+	<strong class="title">{status ? 'Data cap' : 'Set a data cap'} for {name}</strong>
 	{#if status}
 		<div class="usage" class:warn={barTone(status.state) === 'warn'} class:over={barTone(status.state) === 'over'} class:off={barTone(status.state) === 'off'}>
 			<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.min(100, Math.round(status.percent))} aria-label="{name} data used">
@@ -122,6 +123,9 @@
 		gap: 10px;
 		padding: 10px 12px 12px 50px;
 		background: color-mix(in srgb, var(--hairline) 50%, transparent);
+	}
+	.title {
+		font-size: 13px;
 	}
 	.usage {
 		display: grid;

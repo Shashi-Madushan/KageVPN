@@ -3,12 +3,15 @@
 		options,
 		value,
 		disabled = false,
+		soft = false,
 		label,
 		onchange
 	}: {
 		options: { value: T; label: string }[];
 		value: T;
 		disabled?: boolean;
+		/** The marked option is inherited, not chosen: shown quietly instead of with the accent. */
+		soft?: boolean;
 		label: string;
 		onchange: (value: T) => void;
 	} = $props();
@@ -21,6 +24,7 @@
 			role="radio"
 			aria-checked={value === option.value}
 			class:active={value === option.value}
+			class:soft={soft && value === option.value}
 			{disabled}
 			onclick={() => onchange(option.value)}
 		>
@@ -57,6 +61,11 @@
 		box-shadow:
 			inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent),
 			0 1px 3px rgb(0 0 0 / 0.15);
+	}
+	button.active.soft {
+		background: color-mix(in srgb, var(--fg) 10%, transparent);
+		font-weight: 500;
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 22%, transparent);
 	}
 	button:not(.active):not(:disabled):hover {
 		color: var(--fg);

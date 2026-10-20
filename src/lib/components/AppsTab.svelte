@@ -63,6 +63,9 @@
 
 	const installedPaths = $derived(new Set(apps.map((a) => a.path)));
 	const blocked = $derived(blockedApps(draft.rules));
+	/** What an app without a rule does: the routing default. */
+	const defaultAction = $derived<RouteAction>(draft.mode === 'direct' ? 'direct' : draft.mode === 'rule' ? draft.finalAction : 'proxy');
+	const actionName = (action: RouteAction) => ({ proxy: 'the VPN', direct: 'direct', block: 'blocked' })[action];
 	const others = $derived(otherAppRules(draft.rules, installedPaths));
 	const missingCaps = $derived(caps.list.filter((c) => !c.installed));
 
@@ -129,24 +132,24 @@
 					<span class="what">
 						<span class="name" title={a.path}>{a.name}</span>
 						<small>
-							{#if choice?.origin === 'cap'}Blocked by a data cap{:else if choice}Your choice{:else}Follows the default ({draft.mode === 'rule' && draft.finalAction === 'direct' ? 'direct' : draft.mode === 'direct' ? 'idle' : 'VPN'}){/if}
+							{#if choice?.origin === 'cap'}Blocked by its data cap{:else if choice}Rule: {choice.action === 'proxy' ? 'always use the VPN' : choice.action === 'direct' ? 'always go direct' : 'blocked'}{:else}No rule, follows the default ({actionName(defaultAction)}){/if}
 							{#if used && !cap}· {formatBytes(used)} this period{/if}
 						</small>
 						{#if cap}
-							<span class="capline {barTone(cap.state)}">
+							<button type="button" class="capline {barTone(cap.state)}" title="Edit the data cap" onclick={() => (capOpen = capOpen === a.path ? null : a.path)}>
 								<span class="capbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.min(100, Math.round(cap.percent))} aria-label="{a.name} data cap used"><i style="width:{Math.max(cap.percent > 0 ? 3 : 0, Math.min(100, cap.percent))}%"></i></span>
-								<small>{formatBytes(cap.used)} of {formatBytes(cap.limitBytes)} {periodSpan(cap.period)}</small>
-							</span>
+								<small>{formatBytes(cap.used)} of {formatBytes(cap.limitBytes)} {periodSpan(cap.period)} · {Math.round(cap.percent)}%</small>
+							</button>
 						{/if}
 					</span>
-					<Segmented {options} value={(choice?.action ?? '') as RouteAction} label="What {a.name} does" disabled={choice?.origin === 'cap'} onchange={(v) => choose('app', a.path, v)} />
+					<Segmented {options} value={choice?.action ?? defaultAction} soft={!choice} label="What {a.name} does" disabled={choice?.origin === 'cap'} onchange={(v) => choose('app', a.path, v)} />
 					{#if choice?.origin === 'manual'}
 						<button type="button" class="reset" onclick={() => choose('app', a.path, null)} aria-label="Use the default for {a.name}" title="Use the default">↺</button>
 					{:else}
 						<span class="reset-gap"></span>
 					{/if}
-					<button type="button" class="capbtn {cap ? barTone(cap.state) : ''}" class:set={cap} aria-expanded={capOpen === a.path} aria-label="Data cap for {a.name}" onclick={() => (capOpen = capOpen === a.path ? null : a.path)}>
-						{#if cap}{Math.round(cap.percent)}%{:else}Cap{/if}
+					<button type="button" class="capbtn {cap ? barTone(cap.state) : ''}" class:set={cap} aria-expanded={capOpen === a.path} aria-label="{cap ? 'Edit' : 'Set'} the data cap for {a.name}" onclick={() => (capOpen = capOpen === a.path ? null : a.path)}>
+						{cap ? 'Edit cap' : 'Set cap'}
 					</button>
 				</div>
 				{#if capOpen === a.path}
@@ -286,7 +289,7 @@
 	}
 	.capbtn {
 		flex: none;
-		width: 64px;
+		width: 80px;
 		padding: 3px 0;
 		border-radius: 999px;
 		border: 1px solid var(--hairline);
@@ -300,6 +303,13 @@
 		border-color: var(--fg-muted);
 	}
 	.capline {
+		border: 0;
+		background: none;
+		padding: 0;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
 		display: flex;
 		align-items: center;
 		gap: 8px;
