@@ -50,3 +50,5 @@ Extensions unchanged: Security Baseline, Property-Based Testing, Resiliency Base
 - [x] U1 Apps tab: code generation done (awaiting approval); manual checks in construction/u1-apps-tab/code/summary.md
 - [x] U2 per-app caps: functional design approved, code generation done (awaiting approval); manual checks in construction/u2-per-app-caps/code/summary.md
 - [x] U3 caps UI: code generation done (awaiting approval); manual checks in construction/u3-caps-ui/code/summary.md
+- [x] U4 plan alerts: code generation done (awaiting approval)
+- [ ] Build and Test (round 2): instructions and summary to refresh

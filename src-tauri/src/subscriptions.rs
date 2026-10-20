@@ -15,8 +15,7 @@ use crate::store::Store;
 
 const MAX_BODY_BYTES: usize = 5 * 1024 * 1024;
 const SCHEDULER_TICK: Duration = Duration::from_secs(30 * 60);
-/// A subscription ending within this long counts as "expires soon".
-const SOON_SECS: u64 = 3 * 24 * 3600;
+const DAY_SECS: u64 = 24 * 3600;
 /// After a failed refresh the first retry comes this long after; each further failure doubles it.
 const RETRY_BASE_SECS: u64 = 30 * 60;
 
@@ -34,10 +33,28 @@ pub struct RefreshSummary {
     pub skipped_reason: Option<String>,
 }
 
+/// How close a subscription's end is, from the first heads-up to the end itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Expiry {
+    /// 7 days or less left.
+    Week,
+    /// 3 days or less.
     Soon,
+    /// 1 day or less.
+    LastDay,
     Expired,
+}
+
+impl Expiry {
+    /// The number stored in `notified_stage`; higher is later.
+    fn rank(self) -> u8 {
+        match self {
+            Expiry::Week => 1,
+            Expiry::Soon => 2,
+            Expiry::LastDay => 3,
+            Expiry::Expired => 4,
+        }
+    }
 }
 
 /// Which expiry notice is due now, if any. `announced` is the `(date, stage)` last shown, so each
@@ -47,14 +64,29 @@ pub fn due_expiry_notice(expire: u64, now: u64, announced: (u64, u8)) -> Option<
         return None;
     }
     let stage = if expire <= now {
-        2
-    } else if expire - now <= SOON_SECS {
-        1
+        Some(Expiry::Expired)
+    } else if expire - now <= DAY_SECS {
+        Some(Expiry::LastDay)
+    } else if expire - now <= 3 * DAY_SECS {
+        Some(Expiry::Soon)
+    } else if expire - now <= 7 * DAY_SECS {
+        Some(Expiry::Week)
     } else {
-        0
-    };
+        None
+    }?;
+    // Only the latest stage reached is announced, so a plan first seen with 2 days left says so once.
     let seen = if announced.0 == expire { announced.1 } else { 0 };
-    (stage > seen).then_some(if stage == 2 { Expiry::Expired } else { Expiry::Soon })
+    (stage.rank() > seen).then_some(stage)
+}
+
+/// Applies the expiry warning that is due for a subscription's stored figures, if any, and
+/// remembers it so it is not shown twice.
+pub fn expiry_pass(subscription: &mut Subscription, now: u64) -> Option<Notice> {
+    let expire = subscription.user_info.as_ref()?.expire;
+    let stage = due_expiry_notice(expire, now, (subscription.notified_expire, subscription.notified_stage))?;
+    subscription.notified_expire = expire;
+    subscription.notified_stage = stage.rank();
+    Some(Notice::Expiry { name: subscription.name.clone(), expire, stage })
 }
 
 pub fn validate_url(url: &str) -> Result<()> {
@@ -276,7 +308,7 @@ impl Notice {
     pub fn message(&self, now: u64) -> String {
         match self {
             Notice::Expiry { name, stage: Expiry::Expired, .. } => format!("{name} has expired."),
-            Notice::Expiry { name, expire, stage: Expiry::Soon } => format!("{name} expires in {}.", days_left(*expire, now)),
+            Notice::Expiry { name, expire, .. } => format!("{name} expires in {}.", days_left(*expire, now)),
             Notice::Data { name, stage: DataStage::Low, left } => format!("{name}: 90% of your data is used, {} left.", format_bytes(*left)),
             Notice::Data { name, stage: DataStage::UsedUp, .. } => format!("{name}: your data allowance is used up."),
         }
@@ -340,12 +372,8 @@ fn record_refresh(store: &mut Store, id: &str, outcome: Result<Fetched>, now: u6
             current.failures = 0;
             current.user_info = user_info;
             let mut notices = Vec::new();
+            notices.extend(expiry_pass(&mut current, now));
             if let Some(info) = current.user_info.clone() {
-                if let Some(stage) = due_expiry_notice(info.expire, now, (current.notified_expire, current.notified_stage)) {
-                    current.notified_expire = info.expire;
-                    current.notified_stage = if stage == Expiry::Expired { 2 } else { 1 };
-                    notices.push(Notice::Expiry { name: current.name.clone(), expire: info.expire, stage });
-                }
                 let (due, stage) = due_data_notice(&info, current.notified_quota);
                 current.notified_quota = stage;
                 if let Some(stage) = due {
@@ -374,9 +402,33 @@ fn days_left(expire: u64, now: u64) -> String {
     }
 }
 
+/// Expiry is a matter of time, not of a download: check the stored dates on every scheduler tick,
+/// so the warning still comes when refreshes are failing or far apart.
+fn check_expiry(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let now = now_secs();
+    let notices: Vec<Notice> = {
+        let mut store = state.store.lock().unwrap();
+        let all: Vec<Subscription> = store.subscriptions().to_vec();
+        let mut out = Vec::new();
+        for mut subscription in all {
+            if let Some(notice) = expiry_pass(&mut subscription, now) {
+                if store.update_subscription(subscription).is_ok() {
+                    out.push(notice);
+                }
+            }
+        }
+        out
+    };
+    for notice in notices {
+        notify::send(app, "Subscription", &notice.message(now));
+    }
+}
+
 pub fn spawn_scheduler(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
+            check_expiry(&app);
             let due: Vec<String> = {
                 let state = app.state::<AppState>();
                 let store = state.store.lock().unwrap();
