@@ -69,8 +69,10 @@
 	const rows = $derived.by(() => {
 		const q = query.trim().toLowerCase();
 		const hits = q ? apps.filter((a) => a.name.toLowerCase().includes(q)) : apps;
-		const rank = (a: InstalledApp) => (appChoice(draft.rules, 'app', a.path) ? 0 : 1);
-		return [...hits].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+		// Capped apps first (closest to their limit on top), then apps with a choice, then the rest.
+		const rank = (a: InstalledApp) => (caps.byPath(a.path) ? 0 : appChoice(draft.rules, 'app', a.path) ? 1 : 2);
+		const percent = (a: InstalledApp) => caps.byPath(a.path)?.percent ?? 0;
+		return [...hits].sort((a, b) => rank(a) - rank(b) || percent(b) - percent(a) || a.name.localeCompare(b.name));
 	});
 
 	function choose(kind: AppKind, value: string, action: RouteAction | null) {
