@@ -135,3 +135,11 @@
 **Context**: INCEPTION - Requirements Analysis
 
 ---
+
+## Requirements approved; Workflow Planning
+**Timestamp**: 2026-10-20T14:50:00Z
+**User Input**: "Requirements approved, continue to workflow planning."
+**AI Response**: Read settings.rs, usage/collector.rs, usage/quota.rs and config.rs to size the work; found usage is recorded per process name (not per app) and that caps need usage recording on. Wrote inception/plans/app-controls-execution-plan.md (4 units, functional design for U2 only) and asked for approval.
+**Context**: INCEPTION - Workflow Planning
+
+---
