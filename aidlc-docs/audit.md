@@ -151,3 +151,11 @@
 **Context**: CONSTRUCTION - U1 Code Generation, Part 1 (planning)
 
 ---
+
+## U1 Code Generation Part 2 complete
+**Timestamp**: 2026-10-20T16:00:00Z
+**User Input**: "U1 plan approved, generate the code."
+**AI Response**: Implemented all 9 steps: rule origin, self-block validation, app_icon command, appRules.ts, AppsTab.svelte, docs and changelog. cargo test 321 passed, clippy clean, svelte-check 0 errors, vite build ok, script tests 16 passed. Not run in the live app.
+**Context**: CONSTRUCTION - U1 Code Generation Part 2
+
+---

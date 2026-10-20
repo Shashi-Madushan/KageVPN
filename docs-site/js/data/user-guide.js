@@ -194,6 +194,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
     { id: "built-in-rules", label: "Ready-made Lists" },
     { id: "list-sources", label: "List Sources & Downloads" },
     { id: "custom-rules", label: "Your Own Rules" },
+    { id: "app-rules", label: "Choosing by App" },
     { id: "dns-resolution-rules", label: "Route Precedence" }
   ],
   contentHtml: `

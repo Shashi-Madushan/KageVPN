@@ -46,3 +46,5 @@
 - [ ] Application Design (likely skipped: extends existing components)
 - [ ] Construction: functional design, code generation, build and test
 Extensions unchanged: Security Baseline, Property-Based Testing, Resiliency Baseline all No.
+
+- [x] U1 Apps tab: code generation done (awaiting approval); manual checks in construction/u1-apps-tab/code/summary.md
