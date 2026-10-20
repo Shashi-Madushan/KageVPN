@@ -191,3 +191,11 @@
 **Context**: CONSTRUCTION - U2 Code Generation Part 2
 
 ---
+
+## U2 approved; U3 Code Generation Part 1
+**Timestamp**: 2026-10-20T18:30:00Z
+**User Input**: "Continue to the next stage, U3 code generation plan."
+**AI Response**: Read usage/commands.rs, app.svelte.ts, usage.svelte.ts, HomePage banners and RoutingPage draft handling. Found a U2 gap (usage_set_settings overwrites appCaps with whatever the Usage page sends) and a Routing page sync problem after a cap block; both are step 1 and step 6 of the plan. Wrote construction/plans/u3-caps-ui-code-generation-plan.md (9 steps) and asked for approval.
+**Context**: CONSTRUCTION - U3 Code Generation, Part 1 (planning)
+
+---
