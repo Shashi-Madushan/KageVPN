@@ -125,7 +125,9 @@
 				{@const choice = appChoice(draft.rules, 'app', a.path)}
 				{@const used = usage?.get(a.name.toLowerCase())}
 				{@const cap = caps.byPath(a.path)}
-				<div class="row" use:visible={a.path}>
+				<!-- A click anywhere on the row (not on one of its buttons) opens the cap editor; keyboard users have the Set cap button. -->
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<div class="row clickable" class:open={capOpen === a.path} use:visible={a.path} onclick={(e) => !(e.target as HTMLElement).closest('button, input, a') && (capOpen = capOpen === a.path ? null : a.path)}>
 					<span class="icon" aria-hidden="true">
 						{#if icons[a.path]}<img src={icons[a.path]} alt="" />{:else}{a.name.charAt(0).toUpperCase()}{/if}
 					</span>
@@ -239,6 +241,13 @@
 		align-items: center;
 		gap: 10px;
 		padding: 8px 12px;
+	}
+	.row.clickable {
+		cursor: pointer;
+	}
+	.row.clickable:hover,
+	.row.open {
+		background: color-mix(in srgb, var(--fg) 5%, transparent);
 	}
 	.row + .row {
 		border-top: 1px solid var(--hairline);
