@@ -49,9 +49,22 @@
 			background 0.15s,
 			color 0.15s;
 	}
+	/* The chosen option has to stand out in both themes: an accent tint and ring, not just a slightly lighter grey. */
 	button.active {
-		background: var(--surface-strong);
+		background: color-mix(in srgb, var(--accent) 24%, var(--surface-strong));
 		color: var(--fg);
-		box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+		font-weight: 600;
+		box-shadow:
+			inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent),
+			0 1px 3px rgb(0 0 0 / 0.15);
+	}
+	button:not(.active):not(:disabled):hover {
+		color: var(--fg);
+	}
+	button:disabled {
+		opacity: 0.55;
+	}
+	button.active:disabled {
+		opacity: 0.8;
 	}
 </style>
