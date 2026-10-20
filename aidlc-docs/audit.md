@@ -159,3 +159,11 @@
 **Context**: CONSTRUCTION - U1 Code Generation Part 2
 
 ---
+
+## U2 Functional Design started
+**Timestamp**: 2026-10-20T16:20:00Z
+**User Input**: "Continue to the next stage, U2 functional design."
+**AI Response**: Read collector.rs, store.rs, quota.rs, notify.rs and clash.rs. Found: connections carry the app bundle path; usage_dim is keyed by process name and wiped by retention or Clear details; notifications have no buttons. Wrote construction/plans/u2-per-app-caps-functional-design-plan.md with 10 questions and stopped for answers.
+**Context**: CONSTRUCTION - U2 Functional Design, step 1
+
+---
