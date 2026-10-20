@@ -1,0 +1,17 @@
+# U2 business rules
+
+1. **Periods.** Day starts at local midnight; week on Monday at local midnight; month on the 1st at local midnight. The period end is the next start.
+2. **What is counted.** The byte change of each live connection whose app bundle is a capped app, taken on the existing 2-second connection poll, up plus down, through the VPN only. Direct traffic and traffic while the VPN is off are not counted. Figures are approximate: bytes of connections that open and close between two polls are missed. The UI says "approximate".
+3. **Recording off or paused.** If app recording is off or usage is paused, nothing is counted and no alert or offer is raised. Cap rows show "not counting" with a button to turn recording on.
+4. **Rollover.** When the current period start differs from the tally's, the tally restarts at zero with `alertLevel = 0` and `offer = none`. If a cap rule exists for the app it is removed (rule 9).
+5. **Alerts.** Level is 100 when used is at least the limit, 80 when used is at least 80 percent of it. A notification is sent once per period each time the level rises above `alertLevel`, naming the app: "Slack used 80% of its 2 GB daily cap" and "Slack reached its 2 GB daily cap". Reaching 100 directly sends only the 100 alert.
+6. **Offer.** When level becomes 100 and `atLimit` is `offerBlock`, `offer = pending`. The Apps row and a Home banner show **Block now** and **Not now**. With `atLimit = notify` there is never an offer.
+7. **Block now.** Allowed only when `offer = pending`. Adds the cap rule on top of the rule list, sets `offer = taken`, switches routing to Rules mode if needed (the previous default is kept as the "everything else" action, as the Apps tab does), and reconnects if the VPN is on. Refused for this app and the engine (same refusal as manual blocks).
+8. **Not now.** Sets `offer = dismissed` for the rest of the period; the row still shows over cap.
+9. **Lifting.** A cap rule is removed on: period rollover, the Unblock button, removing the cap, or lowering `atLimit` to `notify`. If the VPN is on, it reconnects once. A rollover that happens while the VPN is off or the app is closed is applied at the next start or connect, before the configuration is built, so no extra reconnect is needed.
+10. **Unblock early.** Unblocking sets `offer = dismissed` so the same period does not offer again.
+11. **Editing a cap.** Changing the limit keeps the tally and re-evaluates the level (a higher limit lowers it; the alert level never goes down inside the period, so no duplicate alerts). Changing the period restarts the tally. Changing `atLimit` to `notify` lifts an active cap block. Removing a cap deletes its tally and lifts its block.
+12. **Limits.** 1 MB to 10 TB, any number of apps, installed apps only. Caps cannot be set for this app or the engine.
+13. **Cap rules and the routing page.** Cap rules are managed only by the cap commands. `set_routing` keeps the stored cap rules and ignores cap rules in the incoming list, so a stale draft in the Routing page can never remove or recreate one. The Apps tab shows them read-only as "blocked by a data cap".
+14. **Uninstalled apps.** A cap whose bundle no longer exists is kept and shown as "not installed" with a Remove button; it counts nothing.
+15. **Failure.** If the usage database is unavailable, counting and caps stop quietly and the rows show "not counting"; a failed reconnect after Block now or rollover reports the error through the existing error path and leaves the rule in place.

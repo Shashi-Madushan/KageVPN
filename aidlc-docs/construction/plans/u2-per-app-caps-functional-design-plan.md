@@ -9,12 +9,12 @@ Covers FR2.1 to FR2.7 (and the unblock side of FR3.2). Technology-agnostic busin
 - A routing change (block or unblock) reconnects the VPN today.
 
 ## Steps
-- [ ] 1. Answer the questions below.
-- [ ] 2. Check the answers for contradictions or vague wording; ask follow-ups if needed.
-- [ ] 3. Write `aidlc-docs/construction/u2-per-app-caps/functional-design/domain-entities.md` (cap, period, tally, cap state).
-- [ ] 4. Write `business-rules.md` (period boundaries, counting, thresholds, when a block is offered, when it is lifted, edge cases).
-- [ ] 5. Write `business-logic-model.md` (the poll-to-alert flow, Block now, Unblock, period reset, settings changes).
-- [ ] 6. Write `frontend-components.md` (cap editor on the Apps row, banner, states; the API each uses).
+- [x] 1. Answer the questions below.
+- [x] 2. Check the answers for contradictions or vague wording; ask follow-ups if needed.
+- [x] 3. Write `aidlc-docs/construction/u2-per-app-caps/functional-design/domain-entities.md` (cap, period, tally, cap state).
+- [x] 4. Write `business-rules.md` (period boundaries, counting, thresholds, when a block is offered, when it is lifted, edge cases).
+- [x] 5. Write `business-logic-model.md` (the poll-to-alert flow, Block now, Unblock, period reset, settings changes).
+- [x] 6. Write `frontend-components.md` (cap editor on the Apps row, banner, states; the API each uses).
 - [ ] 7. Present for approval.
 
 ## Proposed design in short (so the questions make sense)
@@ -31,7 +31,7 @@ B) Reuse the existing usage detail rows and match them to the app by name (no ne
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: a dedicated tally is exact and survives Clear details)
 
 ## Question 2
 Programs without an app bundle (command-line tools such as `curl`, processes shown only by name) cannot be identified by bundle path. Can they have a cap?
@@ -42,7 +42,7 @@ B) Yes, also for process names, set from the Other app rules list
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: caps are for installed apps only)
 
 ## Question 3
 When does each period start?
@@ -53,7 +53,7 @@ B) Daily at local midnight, weekly on Sunday, monthly on the same billing-cycle 
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: calendar boundaries are the simplest to explain)
 
 ## Question 4
 If you change an app's limit or period after some usage was counted, what happens to the tally?
@@ -64,7 +64,7 @@ B) Restart the count from zero as if the cap were just created
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: keep what was counted)
 
 ## Question 5
 When a period ends while an app is blocked by its cap, the block is lifted. How should that reconnect be handled?
@@ -77,7 +77,7 @@ C) Ask first with a banner, like Block now
 
 D) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: lift the block and reconnect automatically)
 
 ## Question 6
 If the VPN is off when a period ends, or the app is quit, what should happen to a cap block?
@@ -88,7 +88,7 @@ B) Stay blocked until the user clicks Unblock
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: lift the block before the VPN comes up)
 
 ## Question 7
 The 80 percent and 100 percent alerts: what should the wording and the number of repeats be?
@@ -99,7 +99,7 @@ B) Same, and also repeat the 100 percent one each time the app is opened while o
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: one alert per level per period)
 
 ## Question 8
 What if usage recording is off or paused (so no bytes are counted)?
@@ -110,7 +110,7 @@ B) Counting for caps always runs from the poll even if the usage history is off 
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: respect the privacy choice: no counting while recording is off)
 
 ## Question 9
 How many apps may have a cap, and what limits are allowed?
@@ -121,7 +121,7 @@ B) At most 20 apps, same limits
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: no artificial limit on the number of apps)
 
 ## Question 10
 The tally misses bytes of connections that opened and closed between two polls (up to a few seconds of traffic, and short downloads that finish fast). Is that acceptable, with a note in the UI?
@@ -132,4 +132,4 @@ B) No, improve it: also read the final byte counts when a connection disappears 
 
 C) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A (not answered by the user; chosen by the assistant as recommended: approximate, stated in the UI)

@@ -167,3 +167,11 @@
 **Context**: CONSTRUCTION - U2 Functional Design, step 1
 
 ---
+
+## U2 Functional Design answers
+**Timestamp**: 2026-10-20T16:50:00Z
+**User Input**: "can you use recomanded use them"
+**AI Response**: All ten answers were blank; recorded the recommended choice (A for every question) in the plan file and wrote domain-entities.md, business-rules.md, business-logic-model.md and frontend-components.md under construction/u2-per-app-caps/functional-design/. Added a rule that set_routing keeps cap rules (cap rules are managed only by cap commands) to avoid stale-draft conflicts.
+**Context**: CONSTRUCTION - U2 Functional Design, artifacts generated, awaiting approval
+
+---
