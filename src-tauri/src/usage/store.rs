@@ -2,6 +2,7 @@ use std::path::Path;
 
 use rusqlite::{params, Connection};
 
+use super::caps::{read_tally, Tally};
 use crate::error::Result;
 
 const SCHEMA: &str = "
@@ -22,6 +23,11 @@ CREATE TABLE IF NOT EXISTS usage_dim (
 );
 CREATE TABLE IF NOT EXISTS latency (
     profile_id TEXT NOT NULL, ts INTEGER NOT NULL, ms INTEGER
+);
+CREATE TABLE IF NOT EXISTS app_cap_tally (
+    path TEXT PRIMARY KEY, period_start INTEGER NOT NULL,
+    up INTEGER NOT NULL DEFAULT 0, down INTEGER NOT NULL DEFAULT 0,
+    alert_level INTEGER NOT NULL DEFAULT 0, offer TEXT NOT NULL DEFAULT 'none'
 );
 CREATE INDEX IF NOT EXISTS idx_latency ON latency (profile_id, ts);
 CREATE INDEX IF NOT EXISTS idx_dim_key ON usage_dim (kind, key);
@@ -93,6 +99,29 @@ impl Db {
         self.conn.execute("DELETE FROM usage_minute WHERE ts < ?1", params![cutoff])?;
         let detail_cutoff = now - i64::from(detail_retention_days) * 24 * 3600;
         self.conn.execute("DELETE FROM usage_dim WHERE ts_hour < ?1", params![detail_cutoff])?;
+        Ok(())
+    }
+
+    pub fn tally(&self, path: &str) -> Result<Option<Tally>> {
+        let mut statement = self
+            .conn
+            .prepare("SELECT path, period_start, up, down, alert_level, offer FROM app_cap_tally WHERE path = ?1")?;
+        let mut rows = statement.query_map(params![path], read_tally)?;
+        Ok(rows.next().transpose()?)
+    }
+
+    pub fn save_tally(&self, tally: &Tally) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO app_cap_tally (path, period_start, up, down, alert_level, offer) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(path) DO UPDATE SET period_start = excluded.period_start, up = excluded.up, down = excluded.down,
+               alert_level = excluded.alert_level, offer = excluded.offer",
+            params![tally.path, tally.period_start, tally.up as i64, tally.down as i64, i64::from(tally.alert_level), tally.offer.as_str()],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_tally(&self, path: &str) -> Result<()> {
+        self.conn.execute("DELETE FROM app_cap_tally WHERE path = ?1", params![path])?;
         Ok(())
     }
 

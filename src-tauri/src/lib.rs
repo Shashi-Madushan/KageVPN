@@ -96,6 +96,7 @@ pub fn run() {
             core::commands::spawn_background_check(app.handle().clone());
             app_update::spawn_background_check(app.handle().clone());
             usage::collector::spawn_maintenance(app.handle().clone());
+            usage::caps::rollover_all(app.handle());
             subscriptions::spawn_scheduler(app.handle().clone());
             reliability::apply_hotkey(app.handle());
             network_watch::spawn(app.handle().clone());
@@ -174,6 +175,12 @@ pub fn run() {
             usage::commands::usage_quota,
             usage::commands::usage_reset,
             usage::commands::usage_clear_details,
+            usage::caps::caps_list,
+            usage::caps::cap_set,
+            usage::caps::cap_remove,
+            usage::caps::cap_block,
+            usage::caps::cap_not_now,
+            usage::caps::cap_unblock,
             usage::commands::latency_history,
             commands::delete_profile,
             commands::select_profile,

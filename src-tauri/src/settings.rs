@@ -166,6 +166,35 @@ pub enum QuotaAction {
     Disconnect,
 }
 
+/// How often an app's data cap starts over.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CapPeriod {
+    #[default]
+    Day,
+    Week,
+    Month,
+}
+
+/// What a cap does when the app reaches it: only tell the user, or also offer to block the app.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AtLimit {
+    #[default]
+    Notify,
+    OfferBlock,
+}
+
+/// A data cap for one installed app, identified by its bundle path.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AppCap {
+    pub path: String,
+    pub limit_bytes: u64,
+    pub period: CapPeriod,
+    pub at_limit: AtLimit,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct UsageSettings {
@@ -178,6 +207,7 @@ pub struct UsageSettings {
     pub quota_action: QuotaAction,
     pub alert_cycle: i64,
     pub alert_level: u8,
+    pub app_caps: Vec<AppCap>,
 }
 
 impl Default for UsageSettings {
@@ -192,6 +222,7 @@ impl Default for UsageSettings {
             quota_action: QuotaAction::Notify,
             alert_cycle: 0,
             alert_level: 0,
+            app_caps: Vec::new(),
         }
     }
 }

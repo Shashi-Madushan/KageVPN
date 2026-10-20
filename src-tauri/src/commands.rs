@@ -397,7 +397,11 @@ pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSettings) -> Result<()> {
+pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: RoutingSettings) -> Result<()> {
+    // Blocks put in place by a data cap are managed only by the cap commands: a stale draft can
+    // neither remove nor recreate one.
+    let stored = state.store.lock().unwrap().routing();
+    settings.rules = crate::usage::caps::keep_cap_rules(&stored.rules, settings.rules);
     crate::config::validate_dns(&settings.dns)?;
     crate::config::validate_rules(&settings.rules)?;
     crate::rulesets::validate_providers(&settings.custom_providers)?;

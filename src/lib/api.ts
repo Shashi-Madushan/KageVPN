@@ -222,6 +222,37 @@ export interface ReliabilitySettings {
 	proxyPassword: string;
 }
 
+export type CapPeriod = 'day' | 'week' | 'month';
+export type AtLimit = 'notify' | 'offerBlock';
+export type CapState = 'ok' | 'warn80' | 'over' | 'blocked' | 'dismissed' | 'notCounting';
+
+/** A data cap for one installed app, by its bundle path. */
+export interface AppCap {
+	path: string;
+	limitBytes: number;
+	period: CapPeriod;
+	atLimit: AtLimit;
+}
+
+/** A cap with what the app has used this period. `offer` is `pending` while Block now is on offer. */
+export interface CapStatus {
+	path: string;
+	name: string;
+	installed: boolean;
+	limitBytes: number;
+	period: CapPeriod;
+	atLimit: AtLimit;
+	used: number;
+	up: number;
+	down: number;
+	percent: number;
+	level: number;
+	state: CapState;
+	offer: 'none' | 'pending' | 'taken' | 'dismissed';
+	periodStart: number;
+	periodEnd: number;
+}
+
 export interface UsageSettings {
 	paused: boolean;
 	recordApps: boolean;
@@ -232,6 +263,7 @@ export interface UsageSettings {
 	quotaAction: 'notify' | 'disconnect';
 	alertCycle: number;
 	alertLevel: number;
+	appCaps: AppCap[];
 }
 
 export type Bucket = 'hour' | 'day' | 'week' | 'month';
@@ -623,4 +655,14 @@ export const appUpdateApi = {
 	settings: () => invoke<AppUpdateSettings>('app_update_settings'),
 	setPolicy: (policy: UpdatePolicy) => invoke<void>('set_app_update_policy', { policy }),
 	restart: (force: boolean) => invoke<void>('app_restart', { force })
+};
+
+export const capsApi = {
+	list: () => invoke<CapStatus[]>('caps_list'),
+	set: (cap: AppCap) => invoke<void>('cap_set', { cap }),
+	remove: (path: string) => invoke<void>('cap_remove', { path }),
+	/** Blocks the app now; only allowed while its offer is pending. Reconnects the VPN once. */
+	block: (path: string) => invoke<void>('cap_block', { path }),
+	notNow: (path: string) => invoke<void>('cap_not_now', { path }),
+	unblock: (path: string) => invoke<void>('cap_unblock', { path })
 };
