@@ -175,3 +175,11 @@
 **Context**: CONSTRUCTION - U2 Functional Design, artifacts generated, awaiting approval
 
 ---
+
+## U2 Functional design approved; U2 Code Generation Part 1
+**Timestamp**: 2026-10-20T17:15:00Z
+**User Input**: "Continue to the next stage, U2 code generation plan."
+**AI Response**: Read session.rs connect path, reliability.rs restart, store and usage settings. Wrote construction/plans/u2-per-app-caps-code-generation-plan.md (10 steps) and asked for approval.
+**Context**: CONSTRUCTION - U2 Code Generation, Part 1 (planning)
+
+---
