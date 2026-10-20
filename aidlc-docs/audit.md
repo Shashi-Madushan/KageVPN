@@ -231,3 +231,11 @@
 **Context**: CONSTRUCTION - Build and Test
 
 ---
+
+## Change request: move per-app controls to their own sidebar page
+**Timestamp**: 2026-10-20T21:30:00Z
+**User Input**: "can we add that app data cping and etc to the sidebar as a new nav section rather that than a tab in a routing sections , plan this , cus  the data caping etc is not related to routeing ruls right"
+**AI Response**: Read Sidebar.svelte, +page.svelte and the key handler. Wrote inception/plans/apps-page-restructure-plan.md with five questions (page contents, placement, how changes apply, shortcuts, the old tab) and a proposed 8-step plan. No code changed.
+**Context**: INCEPTION - Workflow Planning for a change request (front-end only)
+
+---
