@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-20", label: "20 Oct 2026" },
     { id: "oct-19", label: "19 Oct 2026" },
     { id: "oct-16", label: "16 Oct 2026" },
     { id: "oct-15", label: "15 Oct 2026" },
@@ -25,6 +26,13 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-20">20 October 2026</h2>
+      <ul>
+        <li><strong>Improved:</strong> <strong>Connections</strong> (Apps tab) is redesigned. Columns are wide enough that numbers no longer get cut off, each app has an initial and a connection count, and a thin bar shows how busy it is compared with the others. Click a column heading to sort.</li>
+        <li><strong>Fixed:</strong> Speeds under 1 KB could show as long raw numbers such as <code>896.0519740&hellip;</code>. They are now rounded, and an idle app shows a dash.</li>
+        <li><strong>Improved:</strong> Checking for and downloading app updates goes through the VPN while it is connected, so a network that blocks GitHub no longer stops updates. It falls back to a direct request if that fails. When no release has been published yet, the message now says so.</li>
+      </ul>
+
       <h2 id="oct-19">19 October 2026</h2>
       <ul>
         <li><strong>New:</strong> A <strong>setup guide</strong> replaces the welcome tour. It walks through downloading the engine, adding a server or subscription (paste a link right in the guide) and choosing the connection mode, then explains the mascot, the menu-bar popover and the usage pages. Run it again any time from Settings, or from Home when no server has been added yet.</li>

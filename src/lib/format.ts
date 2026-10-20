@@ -12,16 +12,20 @@ export function formatDuration(totalSeconds: number): string {
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 
 export function formatBytes(bytes: number): string {
-	let value = bytes;
+	let value = Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
 	let unit = 0;
 	while (value >= 1024 && unit < UNITS.length - 1) {
 		value /= 1024;
 		unit++;
 	}
-	return `${unit === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${UNITS[unit]}`;
+	return `${unit === 0 ? Math.round(value) : value.toFixed(value < 10 ? 1 : 0)} ${UNITS[unit]}`;
 }
 
+/** A speed with a unit, always rounded, never a raw float. */
 export const formatRate = (bytesPerSecond: number) => `${formatBytes(bytesPerSecond)}/s`;
+
+/** Like `formatRate`, but a dash when nothing is moving, for tables where idle rows should look quiet. */
+export const formatRateOrDash = (bytesPerSecond: number) => (Number.isFinite(bytesPerSecond) && bytesPerSecond >= 1 ? formatRate(bytesPerSecond) : '—');
 
 type LatencyTone = 'ok' | 'warn' | 'bad' | 'idle';
 

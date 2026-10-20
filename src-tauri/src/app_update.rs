@@ -45,22 +45,39 @@ fn configured() -> Option<(&'static str, &'static str)> {
 }
 
 fn failure(e: tauri_plugin_updater::Error) -> AppError {
-    AppError::Launch(format!("update check failed: {e}"))
+    match e {
+        // The feed answered with nothing usable: no release has been published yet.
+        tauri_plugin_updater::Error::ReleaseNotFound => {
+            AppError::Launch("update check failed: no published release was found at the update address yet".into())
+        }
+        e => AppError::Launch(format!("update check failed: {e}")),
+    }
 }
 
 fn build_updater<R: Runtime>(app: &AppHandle<R>, feed: &str, key: &str) -> Result<Updater> {
-    let feed = feed.parse().map_err(|_| AppError::Invalid("the update feed address is not valid".into()))?;
-    app.updater_builder()
-        .endpoints(vec![feed])
-        .map_err(failure)?
-        .pubkey(key)
-        .timeout(CHECK_TIMEOUT)
-        .build()
-        .map_err(failure)
+    build_updater_via(app, feed, key, None)
 }
 
+/// With a `proxy` the check and the download both go through it (the updater hands the proxy to
+/// the `Update` it finds).
+fn build_updater_via<R: Runtime>(app: &AppHandle<R>, feed: &str, key: &str, proxy: Option<&str>) -> Result<Updater> {
+    let feed = feed.parse().map_err(|_| AppError::Invalid("the update feed address is not valid".into()))?;
+    let mut builder = app.updater_builder().endpoints(vec![feed]).map_err(failure)?.pubkey(key).timeout(CHECK_TIMEOUT);
+    if let Some(proxy) = proxy.and_then(|p| p.parse().ok()) {
+        builder = builder.proxy(proxy);
+    }
+    builder.build().map_err(failure)
+}
+
+/// Checks through the tunnel while connected, so a network that blocks GitHub does not matter,
+/// and falls back to a direct request when that fails.
 async fn check_for_update(app: &AppHandle) -> Result<Option<Update>> {
     let (feed, key) = configured().ok_or_else(|| AppError::Invalid("app updates are not set up in this build".into()))?;
+    if let Some(proxy) = crate::session::tunnel_proxy(app) {
+        if let Ok(found) = build_updater_via(app, feed, key, Some(&proxy))?.check().await {
+            return Ok(found);
+        }
+    }
     build_updater(app, feed, key)?.check().await.map_err(failure)
 }
 
