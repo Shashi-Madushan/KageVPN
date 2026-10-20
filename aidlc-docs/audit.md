@@ -119,3 +119,11 @@
 **Context**: CONSTRUCTION - condensed single unit
 
 ---
+
+## Per-app controls: request
+**Timestamp**: 2026-10-20T14:10:00Z
+**User Input**: "lets crete a new branch and start the remaing fetures , use ai dlc , and  Per-app picker for bypass and proxy rules. and datausage caping or disable usage for selected apps like feture also"
+**AI Response**: Created branch feature/app-picker-and-usage-limits from dev (after fast-forwarding dev to main). Existing AI-DLC project resumed; reverse engineering artifacts reused. Found that an app picker, per-app routing rules and a global data cap already exist. Wrote inception/requirements/app-controls-questions.md (13 questions) and stopped at the requirements gate.
+**Context**: INCEPTION - Requirements Analysis (Standard depth, brownfield)
+
+---
