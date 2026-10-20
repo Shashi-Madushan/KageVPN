@@ -34,7 +34,7 @@
 		profiles: 'Servers',
 		usage: 'Data usage',
 		routing: 'Routing',
-		apps: 'Apps',
+		apps: 'App controls',
 		connections: 'Connections',
 		diagnostics: 'Diagnostics',
 		core: 'Engine',

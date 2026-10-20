@@ -196,11 +196,28 @@
 					{#if !app.info.updatesConfigured}
 						Update checks are off because this build has no update feed (set APP_UPDATE_FEED in app_config.rs).
 					{:else}
-						{appUpdate.checkedMessage ?? 'Updates are checked once a day.'}
+						{appUpdate.restartPending
+							? `Version ${appUpdate.restartPending} is installed. Restart to start using it.${app.locked ? ' This will disconnect the VPN.' : ''}`
+							: appUpdate.installing
+								? 'Downloading the update. It installs when the download finishes; see the downloads menu for progress.'
+								: appUpdate.available
+									? (appUpdate.failure ?? `Version ${appUpdate.available.version} is available.`)
+									: (appUpdate.checkedMessage ?? 'Updates are checked once a day.')}
 					{/if}
 				</small>
 			</span>
-			<button class="btn" disabled={!app.info.updatesConfigured || appUpdate.checking} onclick={() => appUpdate.check()}>{appUpdate.checking ? 'Checking…' : 'Check now'}</button>
+			<span class="update-actions">
+				{#if appUpdate.restartPending}
+					<button class="btn primary" onclick={() => appUpdate.restart()}>Restart now</button>
+				{:else if appUpdate.installing}
+					<button class="btn" disabled>Downloading…</button>
+				{:else}
+					{#if appUpdate.available}
+						<button class="btn primary" onclick={() => appUpdate.install()}>{appUpdate.failure ? 'Try again' : 'Download now'}</button>
+					{/if}
+					<button class="btn" disabled={!app.info.updatesConfigured || appUpdate.checking} onclick={() => appUpdate.check()}>{appUpdate.checking ? 'Checking…' : 'Check now'}</button>
+				{/if}
+			</span>
 		</div>
 			<div class="restore">
 				<span><strong>When an update is available</strong><small>Automatic installs download in the background. Restarting is always your choice.</small></span>
@@ -285,5 +302,10 @@
 		background: var(--surface);
 		color: var(--danger);
 		font-weight: 600;
+	}
+	.update-actions {
+		display: flex;
+		gap: 8px;
+		flex: none;
 	}
 </style>

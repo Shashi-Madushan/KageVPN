@@ -2,14 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { pageForKey, pageOrder, shortcutFor } from '../../src/lib/pages.ts';
 
-test('the Apps page sits right after Routing', () => {
-	assert.equal(pageOrder.indexOf('apps'), pageOrder.indexOf('routing') + 1);
+test('the Apps section (app controls, then Connections) follows Protection', () => {
+	assert.equal(pageOrder.indexOf('apps'), pageOrder.indexOf('diagnostics') + 1);
+	assert.equal(pageOrder.indexOf('connections'), pageOrder.indexOf('apps') + 1);
 	assert.equal(new Set(pageOrder).size, pageOrder.length, 'no page twice');
 });
 
 test('Cmd+1 to Cmd+9 follow the sidebar order and the tenth page has no number', () => {
 	assert.equal(shortcutFor('home'), 1);
-	assert.equal(shortcutFor('apps'), 5);
+	assert.equal(shortcutFor('apps'), 6);
+	assert.equal(shortcutFor('connections'), 7);
 	assert.equal(shortcutFor('logs'), 9);
 	assert.equal(shortcutFor('settings'), null);
 	for (let digit = 1; digit <= 9; digit++) assert.equal(shortcutFor(pageForKey(String(digit))), digit);

@@ -25,9 +25,14 @@
 			title: 'Protection',
 			items: [
 				{ page: 'routing', label: 'Routing', icon: 'routing' },
-				{ page: 'apps', label: 'Apps', icon: 'apps' },
-				{ page: 'connections', label: 'Connections', icon: 'connections' },
 				{ page: 'diagnostics', label: 'Diagnostics', icon: 'diagnostics' }
+			]
+		},
+		{
+			title: 'Apps',
+			items: [
+				{ page: 'apps', label: 'App controls', icon: 'apps' },
+				{ page: 'connections', label: 'Connections', icon: 'connections' }
 			]
 		},
 		{
