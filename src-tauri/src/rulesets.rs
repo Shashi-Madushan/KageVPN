@@ -397,7 +397,7 @@ pub fn remove(dir: &Path, tag: Option<&str>) -> Result<()> {
 /// Plain words for a notification about lists that were left out.
 pub fn skipped_message(tags: &[String]) -> String {
     format!(
-        "{} could not be downloaded, so {} not applied. Kage VPN tries again the next time you connect.",
+        "{} could not be downloaded, so {} not applied. Kage tries again the next time you connect.",
         tags.join(", "),
         if tags.len() == 1 { "it is" } else { "they are" }
     )

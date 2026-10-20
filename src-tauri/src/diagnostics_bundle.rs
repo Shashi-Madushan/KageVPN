@@ -82,7 +82,7 @@ pub fn summary(material: &Material) -> String {
 pub fn build(material: &Material) -> Result<Vec<u8>> {
     let config = material.config.as_deref().map(|c| clean_config(c, material)).unwrap_or_else(|| "[no configuration yet]".into());
     let files: [(&str, String); 5] = [
-        ("README.txt", "Kage VPN diagnostics. Server addresses, passwords, keys, user IDs, subscription links and your home folder are replaced with placeholders. Nothing was sent anywhere; this file only exists on your Mac.\n".into()),
+        ("README.txt", "Kage diagnostics. Server addresses, passwords, keys, user IDs, subscription links and your home folder are replaced with placeholders. Nothing was sent anywhere; this file only exists on your Mac.\n".into()),
         ("summary.txt", summary(material)),
         ("app.log", clean(&material.app_log, material)),
         ("sing-box.log", clean(&tail(&material.singbox_log, LOG_TAIL_LINES), material)),
