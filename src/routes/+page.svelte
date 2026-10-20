@@ -24,7 +24,9 @@
 	import ProfilesPage from '$lib/components/ProfilesPage.svelte';
 	import RoutingPage from '$lib/components/RoutingPage.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
-	import Sidebar, { pageOrder, type Page } from '$lib/components/Sidebar.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
+	import AppsPage from '$lib/components/AppsPage.svelte';
+	import { pageForKey, type Page } from '$lib/pages';
 	import UsagePage from '$lib/components/UsagePage.svelte';
 
 	const titles: Record<Page, string> = {
@@ -32,6 +34,7 @@
 		profiles: 'Servers',
 		usage: 'Data usage',
 		routing: 'Routing',
+		apps: 'Apps',
 		connections: 'Connections',
 		diagnostics: 'Diagnostics',
 		core: 'Engine',
@@ -44,6 +47,7 @@
 		profiles: 'Choose, import and test your servers',
 		usage: '',
 		routing: 'Decide which traffic goes through the VPN',
+		apps: 'Choose how each app uses the VPN, and set data limits',
 		connections: 'Live connections passing through the tunnel',
 		diagnostics: 'Speed, leak and connectivity checks',
 		core: 'The sing-box engine that powers the tunnel',
@@ -55,10 +59,10 @@
 
 	function onkeydown(e: KeyboardEvent) {
 		if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-		const i = Number(e.key) - 1;
-		if (Number.isInteger(i) && i >= 0 && i < pageOrder.length) {
+		const next = pageForKey(e.key);
+		if (next) {
 			e.preventDefault();
-			page = pageOrder[i];
+			page = next;
 		}
 	}
 
@@ -129,7 +133,9 @@
 			{:else if page === 'usage'}
 				<UsagePage onnavigate={(p) => (page = p)} />
 			{:else if page === 'routing'}
-				<RoutingPage />
+				<RoutingPage onnavigate={(p) => (page = p)} />
+			{:else if page === 'apps'}
+				<AppsPage />
 			{:else if page === 'connections'}
 				<ConnectionsPage />
 			{:else if page === 'diagnostics'}

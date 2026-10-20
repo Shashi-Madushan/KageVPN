@@ -3,14 +3,16 @@
 	import Icon, { type IconName } from './Icon.svelte';
 	import AppPicker, { appLabel } from './AppPicker.svelte';
 	import RuleSources from './RuleSources.svelte';
-	import AppsTab from './AppsTab.svelte';
-	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, Rule, RuleKind, RuleSetKind } from '$lib/api';
-	import { mergeCapRules } from '$lib/appRules';
+	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
+	import { reconcileDraft } from '$lib/appRules';
+	import type { Page } from '$lib/pages';
 	import { app } from '$lib/app.svelte';
 	import { CATEGORIES, COUNTRIES, describeList, findEntry } from '$lib/ruleCatalog';
 	import { ruleLists } from '$lib/ruleLists.svelte';
 
-	type Tab = 'rules' | 'apps' | 'lists' | 'test';
+	type Tab = 'rules' | 'lists' | 'test';
+
+	let { onnavigate }: { onnavigate?: (page: Page) => void } = $props();
 
 	let draft = $state<RoutingSettings | null>(null);
 	let tab = $state<Tab>('rules');
@@ -34,17 +36,9 @@
 
 	$effect(() => {
 		if (!app.routing) return;
-		const stored = JSON.stringify($state.snapshot(app.routing));
-		if (!draft) {
-			draft = structuredClone($state.snapshot(app.routing));
-			synced = stored;
-		} else if (stored !== synced) {
-			// Something else changed the settings (a data cap blocked an app). An unedited draft follows;
-			// an edited one only takes the stored cap blocks, so the user's edits stay.
-			if (JSON.stringify($state.snapshot(draft)) === synced) draft = structuredClone($state.snapshot(app.routing));
-			else draft.rules = mergeCapRules($state.snapshot(draft.rules) as Rule[], $state.snapshot(app.routing).rules);
-			synced = stored;
-		}
+		const next = reconcileDraft(draft ? ($state.snapshot(draft) as RoutingSettings) : null, $state.snapshot(app.routing) as RoutingSettings, synced);
+		synced = next.synced;
+		if (next.changed) draft = next.draft;
 	});
 
 	$effect(() => {
@@ -86,7 +80,6 @@
 	];
 	const tabs = $derived([
 		{ id: 'rules' as Tab, label: 'Your rules', count: draft?.rules.length ?? 0 },
-		{ id: 'apps' as Tab, label: 'Apps', count: null },
 		{ id: 'lists' as Tab, label: 'Ready-made lists', count: draft?.ruleSets.length ?? 0 },
 		{ id: 'test' as Tab, label: 'Try a website', count: null }
 	]);
@@ -258,11 +251,15 @@
 					{/each}
 				</div>
 
-				{#if tab === 'apps'}
-					<AppsTab {draft} />
-				{:else if tab === 'rules'}
+				{#if tab === 'rules'}
 					<div class="panel" role="tabpanel">
 						<p class="lead">Rules are checked from top to bottom. The first one that matches decides.</p>
+						{#if onnavigate}
+							<p class="lead">
+								Choices for whole apps and their data limits are on the
+								<button type="button" class="link" onclick={() => onnavigate('apps')}>Apps</button> page.
+							</p>
+						{/if}
 
 						{#if draft.rules.length === 0}
 							<div class="starter">
@@ -825,6 +822,15 @@
 		border-left-color: var(--danger);
 	}
 
+	.link {
+		border: 0;
+		background: none;
+		padding: 0;
+		color: var(--accent);
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+	}
 	.savebar {
 		position: sticky;
 		bottom: 0;

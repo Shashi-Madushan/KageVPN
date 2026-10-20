@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activePreset, appChoice, applyPreset, blockedApps, mergeCapRules, otherAppRules, setAppChoice } from '../../src/lib/appRules.ts';
+import { activePreset, appChoice, applyPreset, blockedApps, mergeCapRules, otherAppRules, reconcileDraft, setAppChoice } from '../../src/lib/appRules.ts';
 
 const slack = '/Applications/Slack.app';
 const rule = (value, action, extra = {}) => ({ id: value + action, enabled: true, kind: 'app', value, action, ...extra });
@@ -63,4 +63,28 @@ test('a stale draft takes the stored cap blocks and keeps the users edits', () =
 	const draft = [rule('/a.app', 'direct'), rule('/old.app', 'block', { origin: 'cap' })];
 	const merged = mergeCapRules(draft, stored);
 	assert.deepEqual(merged.map((r) => [r.value, r.action]), [[slack, 'block'], ['/a.app', 'direct']]);
+});
+
+test('a page copy follows the stored settings until the user edits it', () => {
+	const stored = { mode: 'rule', finalAction: 'proxy', rules: [rule('/a.app', 'direct')] };
+	const first = reconcileDraft(null, stored, '');
+	assert.equal(first.changed, true);
+	assert.deepEqual(first.draft, stored);
+	assert.notEqual(first.draft, stored, 'a copy, not the stored object');
+
+	const same = reconcileDraft(first.draft, stored, first.synced);
+	assert.equal(same.changed, false);
+
+	// Something else changes the stored settings while the copy is unedited: the copy follows.
+	const changedStored = { ...stored, mode: 'global' };
+	const followed = reconcileDraft(first.draft, changedStored, first.synced);
+	assert.equal(followed.draft.mode, 'global');
+
+	// The user edited the copy: it keeps the edit and takes only the stored cap blocks.
+	const edited = { ...first.draft, rules: [rule('/b.app', 'block')] };
+	const withCap = { ...stored, rules: [rule(slack, 'block', { origin: 'cap' }), rule('/a.app', 'direct')] };
+	const merged = reconcileDraft(edited, withCap, first.synced);
+	assert.deepEqual(merged.draft.rules.map((r) => r.value), [slack, '/b.app']);
+	assert.equal(merged.draft.mode, 'rule');
+	assert.equal(merged.synced, JSON.stringify(withCap));
 });

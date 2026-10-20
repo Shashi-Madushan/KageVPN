@@ -77,14 +77,14 @@ C) Other (please describe after [Answer]: tag below)
 ## Proposed plan (assuming A for questions 1, 3 and 5, and A for 2)
 
 ### Steps
-- [ ] 1. **Page and navigation**: add `'apps'` to `Page` and `pageOrder`, an icon (`apps`, a four-square grid) in `Icon.svelte`, an entry in `Sidebar.svelte`, titles and subtitles in `+page.svelte` ("Apps", "Choose how each app uses the VPN, and set data limits"), and the page switch. Home banners and other `onnavigate` links keep working (the Block now card can link to the page).
-- [ ] 2. **AppsPage**: new `AppsPage.svelte` holding what `AppsTab.svelte` holds today. It owns a draft of the routing settings (cloned from `app.routing`, resynced with the same unedited-vs-edited rule the Routing page uses) and a floating "Save changes" bar like the Routing page's. Extract the draft sync into a small shared helper so both pages use one implementation (`src/lib/routingDraft.svelte.ts`).
-- [ ] 3. **Routing page**: remove the Apps tab and `AppsTab` import; keep the rule editor's app picker (rules by app still work there); add the pointer line from question 5.
-- [ ] 4. **Rename and tidy**: `AppsTab.svelte` becomes `AppsPage.svelte`; its panel styles become page styles; the "Other app rules" list links to the Routing page's rule editor (`onnavigate('routing')`).
-- [ ] 5. **Shortcuts**: apply the choice for question 4 in `pageOrder` and the key handler; update the shortcut text in Settings and the user guide if they list numbers.
-- [ ] 6. **Docs**: the user guide section "Choosing by App" and "Data Caps for Apps" move to a new "Apps page" section; the changelog entry for 20 Oct is reworded (it is not released yet); AI-DLC state and audit updated.
-- [ ] 7. **Tests**: a script test for the page order and shortcut mapping (extract the mapping to a pure function in `Sidebar.svelte`'s module script or a small `.ts`), and the existing 26 script tests and 344 Rust tests stay green. No backend change is needed.
-- [ ] 8. **Verify**: `svelte-check`, `vite build`, `npm run test:scripts`, `cargo test --lib -- --test-threads=4`, `cargo clippy`.
+- [x] 1. **Page and navigation**: add `'apps'` to `Page` and `pageOrder`, an icon (`apps`, a four-square grid) in `Icon.svelte`, an entry in `Sidebar.svelte`, titles and subtitles in `+page.svelte` ("Apps", "Choose how each app uses the VPN, and set data limits"), and the page switch. Home banners and other `onnavigate` links keep working (the Block now card can link to the page).
+- [x] 2. **AppsPage**: new `AppsPage.svelte` holding what `AppsTab.svelte` holds today. It owns a draft of the routing settings (cloned from `app.routing`, resynced with the same unedited-vs-edited rule the Routing page uses) and a floating "Save changes" bar like the Routing page's. Extract the draft sync into a small shared helper so both pages use one implementation (`src/lib/routingDraft.svelte.ts`).
+- [x] 3. **Routing page**: remove the Apps tab and `AppsTab` import; keep the rule editor's app picker (rules by app still work there); add the pointer line from question 5.
+- [x] 4. **Rename and tidy**: `AppsTab.svelte` becomes `AppsPage.svelte`; its panel styles become page styles; the "Other app rules" list links to the Routing page's rule editor (`onnavigate('routing')`).
+- [x] 5. **Shortcuts**: apply the choice for question 4 in `pageOrder` and the key handler; update the shortcut text in Settings and the user guide if they list numbers.
+- [x] 6. **Docs**: the user guide section "Choosing by App" and "Data Caps for Apps" move to a new "Apps page" section; the changelog entry for 20 Oct is reworded (it is not released yet); AI-DLC state and audit updated.
+- [x] 7. **Tests**: a script test for the page order and shortcut mapping (extract the mapping to a pure function in `Sidebar.svelte`'s module script or a small `.ts`), and the existing 26 script tests and 344 Rust tests stay green. No backend change is needed.
+- [x] 8. **Verify**: `svelte-check`, `vite build`, `npm run test:scripts`, `cargo test --lib -- --test-threads=4`, `cargo clippy`.
 
 ### Scope and effort
 Front-end only, about 4 files changed and 2 added, no new commands, no data migration (rules and caps are stored exactly as now). Small to medium.
@@ -93,3 +93,11 @@ Front-end only, about 4 files changed and 2 added, no new commands, no data migr
 - The draft logic exists in two pages unless it is shared (step 2 shares it).
 - If both pages are open in turn with unsaved edits in one, the other page resyncs from stored settings; unsaved edits on the page being left are kept only while the app runs (same as today when switching tabs).
 - Existing screenshots in `docs/` and `docs-site` that show the Routing tabs may need replacing; I cannot capture screenshots here.
+
+## Result
+Built with the recommended answers (A, A, A, A, A). Differences from the plan text:
+- Save on the new page behaves like the Routing page's Save does today: it stores the choices and they apply the next time you connect (the plan said "reconnects once"; the existing behaviour is "Routing saved. Reconnect to apply it", and the page uses the same).
+- Data caps and Block now/Unblock apply at once and reconnect, as before; only the VPN/Direct/Block choices wait for Save.
+- `AppsTab.svelte` was kept as the page body (renaming it would only move lines); `AppsPage.svelte` owns the draft and the Save bar.
+- Page order, key mapping and the draft reconcile logic are pure modules (`pages.ts`, `appRules.ts`) with tests.
+- Cmd+1 to 9 follow sidebar order, so Connections is now 6 and the tenth page (Settings) has no number.

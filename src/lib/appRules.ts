@@ -68,3 +68,20 @@ export function activePreset(settings: RoutingSettings): Preset | null {
 export function mergeCapRules(draftRules: Rule[], storedRules: Rule[]): Rule[] {
 	return [...storedRules.filter((r) => originOf(r) === 'cap'), ...draftRules.filter((r) => originOf(r) !== 'cap')];
 }
+
+/**
+ * Keeps a page's editable copy of the routing settings in step with the stored ones. An unedited
+ * copy follows the stored settings; an edited one keeps the user's edits and only takes the stored
+ * cap blocks. `synced` is the stored settings, as text, the last time they were copied in.
+ */
+export function reconcileDraft(
+	draft: RoutingSettings | null,
+	stored: RoutingSettings,
+	synced: string
+): { draft: RoutingSettings; synced: string; changed: boolean } {
+	const storedText = JSON.stringify(stored);
+	if (!draft) return { draft: structuredClone(stored), synced: storedText, changed: true };
+	if (storedText === synced) return { draft, synced, changed: false };
+	if (JSON.stringify(draft) === synced) return { draft: structuredClone(stored), synced: storedText, changed: true };
+	return { draft: { ...draft, rules: mergeCapRules(draft.rules, stored.rules) }, synced: storedText, changed: true };
+}

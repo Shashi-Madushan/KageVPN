@@ -1,11 +1,11 @@
 <script lang="ts" module>
-	export type Page = 'home' | 'profiles' | 'usage' | 'routing' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings';
-
-	export const pageOrder: Page[] = ['home', 'profiles', 'usage', 'routing', 'connections', 'diagnostics', 'core', 'logs', 'settings'];
+	export type { Page } from '$lib/pages';
+	export { pageOrder } from '$lib/pages';
 </script>
 
 <script lang="ts">
 	import Icon, { type IconName } from './Icon.svelte';
+	import { shortcutFor, type Page } from '$lib/pages';
 
 	let { page, badges = {}, onselect }: { page: Page; badges?: Partial<Record<Page, string>>; onselect: (page: Page) => void } = $props();
 
@@ -25,6 +25,7 @@
 			title: 'Protection',
 			items: [
 				{ page: 'routing', label: 'Routing', icon: 'routing' },
+				{ page: 'apps', label: 'Apps', icon: 'apps' },
 				{ page: 'connections', label: 'Connections', icon: 'connections' },
 				{ page: 'diagnostics', label: 'Diagnostics', icon: 'diagnostics' }
 			]
@@ -55,7 +56,7 @@
 		<div class="section-group">
 			<span class="section-title">{section.title}</span>
 			{#each section.items as item (item.page)}
-				<button class:active={page === item.page} title="{item.label} (⌘{pageOrder.indexOf(item.page) + 1})" aria-label={item.label} aria-current={page === item.page ? 'page' : undefined} onclick={() => onselect(item.page)}>
+				<button class:active={page === item.page} title={shortcutFor(item.page) ? `${item.label} (⌘${shortcutFor(item.page)})` : item.label} aria-label={item.label} aria-current={page === item.page ? 'page' : undefined} onclick={() => onselect(item.page)}>
 					<Icon name={item.icon} />
 					<span>{item.label}</span>
 					{#if badges[item.page]}<em>{badges[item.page]}</em>{/if}

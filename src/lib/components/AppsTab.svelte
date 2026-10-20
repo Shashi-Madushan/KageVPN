@@ -5,11 +5,12 @@
 	import { caps } from '$lib/caps.svelte';
 	import { barTone } from '$lib/capView';
 	import { formatBytes } from '$lib/format';
+	import type { Page } from '$lib/pages';
 	import { installedApps } from './AppPicker.svelte';
 	import CapEditor from './CapEditor.svelte';
 	import Segmented from './Segmented.svelte';
 
-	let { draft }: { draft: RoutingSettings } = $props();
+	let { draft, onnavigate }: { draft: RoutingSettings; onnavigate?: (page: Page) => void } = $props();
 
 	const PAGE = 80;
 	const options: { value: RouteAction; label: string }[] = [
@@ -92,7 +93,7 @@
 </script>
 
 <div class="panel" role="tabpanel">
-	<p class="lead">Choose, app by app, what goes through the VPN. Changes apply when you press Save changes.</p>
+	<p class="lead">Choose, app by app, whether it uses the VPN, goes direct or is blocked, and set data limits. Changes to the choices apply when you press Save changes; data caps apply at once.</p>
 
 	<div class="presets" role="radiogroup" aria-label="Default for apps">
 		{#each presets as p (p.id)}
@@ -164,7 +165,10 @@
 
 	{#if others.length || missingCaps.length}
 		<h4>Other app rules</h4>
-		<p class="lead">Rules for programs without an app icon, or apps that are no longer installed. Edit them under Your rules.</p>
+		<p class="lead">
+			Rules for programs without an app icon, or apps that are no longer installed. Edit them under
+			{#if onnavigate}<button type="button" class="link" onclick={() => onnavigate('routing')}>Routing, Your rules</button>{:else}Routing, Your rules{/if}.
+		</p>
 		<div class="list">
 			{#each others as r (r.id)}
 				<div class="row">
@@ -349,6 +353,15 @@
 		min-height: 24px;
 		padding: 2px 10px;
 		font-size: 12px;
+	}
+	.link {
+		border: 0;
+		background: none;
+		padding: 0;
+		color: var(--accent);
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
 	}
 	.empty {
 		color: var(--fg-muted);
