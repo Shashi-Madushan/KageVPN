@@ -4,6 +4,7 @@
 	import { caps } from '$lib/caps.svelte';
 	import { barTone, canBlock, limitError, periodSpan, periodWord, resetText, splitBytes, toBytes, type LimitUnit } from '$lib/capView';
 	import { formatBytes } from '$lib/format';
+	import CapBar from './CapBar.svelte';
 	import Segmented from './Segmented.svelte';
 
 	let { path, name, onclose }: { path: string; name: string; onclose: () => void } = $props();
@@ -53,9 +54,7 @@
 	<strong class="title">{status ? 'Data cap' : 'Set a data cap'} for {name}</strong>
 	{#if status}
 		<div class="usage" class:warn={barTone(status.state) === 'warn'} class:over={barTone(status.state) === 'over'} class:off={barTone(status.state) === 'off'}>
-			<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.min(100, Math.round(status.percent))} aria-label="{name} data used">
-				<i style="width:{Math.min(100, status.percent)}%"></i>
-			</div>
+			<CapBar percent={status.percent} tone={barTone(status.state)} label="{name} data used" height={8} />
 			<small>
 				{formatBytes(status.used)} of {formatBytes(status.limitBytes)} {periodSpan(status.period)}, {resetText(status.periodEnd, status.period)}. Counted through the VPN, approximate.
 			</small>
@@ -130,28 +129,6 @@
 	.usage {
 		display: grid;
 		gap: 4px;
-	}
-	.bar {
-		height: 8px;
-		border-radius: 4px;
-		background: color-mix(in srgb, var(--fg) 16%, transparent);
-		overflow: hidden;
-	}
-	.bar i {
-		display: block;
-		height: 100%;
-		background: var(--accent);
-		transition: width 0.4s ease;
-	}
-	.usage.warn .bar i {
-		background: var(--warn);
-	}
-	.usage.over .bar i {
-		background: var(--danger);
-	}
-	.usage.off .bar i {
-		background: var(--fg-muted);
-		opacity: 0.5;
 	}
 	small {
 		color: var(--fg-muted);

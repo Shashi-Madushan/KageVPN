@@ -7,6 +7,8 @@
 	import { formatBytes } from '$lib/format';
 	import type { Page } from '$lib/pages';
 	import { installedApps } from './AppPicker.svelte';
+	import AppIcon from './AppIcon.svelte';
+	import CapBar from './CapBar.svelte';
 	import CapEditor from './CapEditor.svelte';
 	import Segmented from './Segmented.svelte';
 
@@ -22,7 +24,6 @@
 	let loading = $state(true);
 	let query = $state('');
 	let limit = $state(PAGE);
-	let icons = $state<Record<string, string | null>>({});
 	/** The app whose cap editor is open. */
 	let capOpen = $state<string | null>(null);
 
@@ -47,19 +48,6 @@
 			usage = null;
 		}
 	});
-
-	/** Loads an icon when its row scrolls into view. */
-	function visible(node: HTMLElement, path: string) {
-		const observer = new IntersectionObserver((entries) => {
-			if (!entries.some((e) => e.isIntersecting)) return;
-			observer.disconnect();
-			if (path in icons) return;
-			icons[path] = null;
-			api.appIcon(path).then((url) => (icons[path] = url)).catch(() => {});
-		});
-		observer.observe(node);
-		return { destroy: () => observer.disconnect() };
-	}
 
 	const installedPaths = $derived(new Set(apps.map((a) => a.path)));
 	const blocked = $derived(blockedApps(draft.rules));
@@ -127,10 +115,8 @@
 				{@const cap = caps.byPath(a.path)}
 				<!-- A click anywhere on the row (not on one of its buttons) opens the cap editor; keyboard users have the Set cap button. -->
 				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<div class="row clickable" class:open={capOpen === a.path} use:visible={a.path} onclick={(e) => !(e.target as HTMLElement).closest('button, input, a') && (capOpen = capOpen === a.path ? null : a.path)}>
-					<span class="icon" aria-hidden="true">
-						{#if icons[a.path]}<img src={icons[a.path]} alt="" />{:else}{a.name.charAt(0).toUpperCase()}{/if}
-					</span>
+				<div class="row clickable" class:open={capOpen === a.path} onclick={(e) => !(e.target as HTMLElement).closest('button, input, a') && (capOpen = capOpen === a.path ? null : a.path)}>
+					<AppIcon path={a.path} name={a.name} />
 					<span class="what">
 						<span class="name" title={a.path}>{a.name}</span>
 						<small>
@@ -139,7 +125,7 @@
 						</small>
 						{#if cap}
 							<button type="button" class="capline {barTone(cap.state)}" title="Edit the data cap" onclick={() => (capOpen = capOpen === a.path ? null : a.path)}>
-								<span class="capbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.min(100, Math.round(cap.percent))} aria-label="{a.name} data cap used"><i style="width:{Math.max(cap.percent > 0 ? 3 : 0, Math.min(100, cap.percent))}%"></i></span>
+								<span class="capbar"><CapBar percent={cap.percent} tone={barTone(cap.state)} label="{a.name} data cap used" /></span>
 								<small>{formatBytes(cap.used)} of {formatBytes(cap.limitBytes)} {periodSpan(cap.period)} · {Math.round(cap.percent)}%</small>
 							</button>
 						{/if}
@@ -173,7 +159,7 @@
 		<div class="list">
 			{#each others as r (r.id)}
 				<div class="row">
-					<span class="icon" aria-hidden="true">{labelOf(r.kind as AppKind, r.value).charAt(0).toUpperCase()}</span>
+					<AppIcon path={r.kind === 'app' ? r.value : ''} name={labelOf(r.kind as AppKind, r.value)} />
 					<span class="what">
 						<span class="name">{labelOf(r.kind as AppKind, r.value)}</span>
 						<small>{r.kind === 'processName' ? 'Process' : 'Not installed'} · {options.find((o) => o.value === r.action)?.label}{r.enabled ? '' : ' (off)'}</small>
@@ -182,7 +168,7 @@
 			{/each}
 			{#each missingCaps as c (c.path)}
 				<div class="row">
-					<span class="icon" aria-hidden="true">{c.name.charAt(0).toUpperCase()}</span>
+					<AppIcon path={c.path} name={c.name} />
 					<span class="what">
 						<span class="name">{c.name}</span>
 						<small>Data cap · not installed</small>
@@ -252,24 +238,6 @@
 	.row + .row {
 		border-top: 1px solid var(--hairline);
 	}
-	.icon {
-		flex: none;
-		display: grid;
-		place-items: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 7px;
-		background: var(--hairline);
-		color: var(--fg-muted);
-		font-size: 13px;
-		font-weight: 700;
-		overflow: hidden;
-	}
-	.icon img {
-		width: 100%;
-		height: 100%;
-		object-fit: contain;
-	}
 	.what {
 		flex: 1;
 		min-width: 0;
@@ -326,27 +294,8 @@
 	}
 	.capbar {
 		flex: 0 1 140px;
-		height: 6px;
 		min-width: 60px;
-		border-radius: 3px;
-		background: color-mix(in srgb, var(--fg) 16%, transparent);
-		overflow: hidden;
-	}
-	.capbar i {
 		display: block;
-		height: 100%;
-		border-radius: 3px;
-		background: var(--accent);
-		transition: width 0.4s ease;
-	}
-	.capline.warn .capbar i {
-		background: var(--warn);
-	}
-	.capline.over .capbar i {
-		background: var(--danger);
-	}
-	.capline.off .capbar i {
-		background: var(--fg-muted);
 	}
 	.capbtn.set {
 		color: var(--fg);
