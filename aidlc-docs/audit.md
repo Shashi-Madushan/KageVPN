@@ -207,3 +207,11 @@
 **Context**: CONSTRUCTION - U3 Code Generation Part 2
 
 ---
+
+## U3 approved; U4 Code Generation Part 1
+**Timestamp**: 2026-10-20T19:40:00Z
+**User Input**: "Continue to the next stage, U4 code generation plan."
+**AI Response**: Read subscriptions.rs, settings.rs, format.ts and the tray page. Found that the 90 percent data warning, a 3-day expiry warning and the popover plan line already exist, so U4 reduces to 7/3/1-day expiry stages, an expiry check on the scheduler tick (independent of refresh), and the popover low flag at 7 days. Wrote construction/plans/u4-plan-alerts-code-generation-plan.md (5 steps) and asked for approval.
+**Context**: CONSTRUCTION - U4 Code Generation, Part 1 (planning)
+
+---
