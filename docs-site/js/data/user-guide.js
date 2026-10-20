@@ -195,6 +195,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
     { id: "list-sources", label: "List Sources & Downloads" },
     { id: "custom-rules", label: "Your Own Rules" },
     { id: "app-rules", label: "Choosing by App" },
+    { id: "app-caps", label: "Data Caps for Apps" },
     { id: "dns-resolution-rules", label: "Route Precedence" }
   ],
   contentHtml: `
@@ -253,6 +254,17 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
       <h2 id="app-rules">Choosing by App</h2>
       <p>
         The <strong>Apps</strong> tab lists the apps installed on your Mac. Next to each one, choose <em>VPN</em>, <em>Direct</em> or <em>Block</em>, or press the reset arrow to follow the default again. Two buttons at the top set that default: <em>VPN for everything except&hellip;</em> (all traffic uses the VPN, and you pick the exceptions) or <em>VPN only for&hellip;</em> (nothing uses the VPN until you pick an app). Blocked apps are listed above the search box with an <em>Unblock</em> button, and each row shows how much data the app used through the VPN this billing period when app tracking is on. Programs without an app icon, and rules for apps you have since removed, appear at the bottom and are edited under <strong>Your rules</strong>. This app and its engine cannot be blocked, because the VPN itself needs the network. Changes apply when you press <strong>Save changes</strong>.
+      </p>
+
+      <h2 id="app-caps">Data Caps for Apps</h2>
+      <p>
+        Open <strong>Routing</strong>, then <strong>Apps</strong>, and press <strong>Cap</strong> next to an app to give it its own data limit. Choose the size (in MB or GB), how often it starts over (<em>Day</em>, <em>Week</em> or <em>Month</em>, always from midnight, from Monday for weeks and the 1st for months) and what happens at the limit: <em>Tell me</em> or <em>Offer to block</em>. You get a notification at 80% and again at 100%.
+      </p>
+      <p>
+        With <em>Offer to block</em>, a card on Home and the app's row show <strong>Block now</strong> and <strong>Not now</strong> at 100%. Block now stops the app using the network until the period ends and reconnects the VPN once; it is lifted by itself when the period starts over (with a notification), or any time with <strong>Unblock</strong>. Nothing is blocked unless you press Block now.
+      </p>
+      <p>
+        Caps count only what the app sends through the VPN, taken from the connection list every few seconds, so figures are approximate: very short connections can be missed. Counting needs <em>app usage</em> to be on (Settings, Usage); the cap editor offers to turn it on. Clearing your usage history does not change a cap. Kage VPN and its engine cannot be capped.
       </p>
 
       <h2 id="dns-resolution-rules">Route Precedence</h2>

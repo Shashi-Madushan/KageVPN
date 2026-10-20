@@ -259,3 +259,22 @@ fn old_usage_settings_load_without_caps_and_caps_round_trip() {
     let back: crate::settings::UsageSettings = serde_json::from_str(&text).unwrap();
     assert_eq!(back.app_caps, settings.app_caps);
 }
+
+#[test]
+fn saving_usage_settings_keeps_the_stored_caps_and_resets_the_alert_when_the_quota_changes() {
+    use crate::usage::commands::merge_usage_settings;
+    let mut current = crate::settings::UsageSettings::default();
+    current.app_caps.push(cap(GB, AtLimit::Notify));
+    current.quota_bytes = Some(100);
+    current.alert_level = 80;
+
+    // A page that loaded before the cap existed sends none, and a wrong cycle day.
+    let sent = crate::settings::UsageSettings { quota_bytes: Some(200), alert_level: 80, cycle_day: 99, ..Default::default() };
+    let saved = merge_usage_settings(&current, sent);
+    assert_eq!(saved.app_caps, current.app_caps);
+    assert_eq!((saved.alert_level, saved.cycle_day), (0, 31));
+
+    let mut same = current.clone();
+    same.app_caps.clear();
+    assert_eq!(merge_usage_settings(&current, same).alert_level, 80, "an unchanged quota keeps its alert");
+}

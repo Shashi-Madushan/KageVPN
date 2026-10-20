@@ -118,6 +118,15 @@ class AppStore {
 		this.auto = snap.auto;
 	}
 
+	/** Re-reads the routing settings, for when something other than the Routing page changed them (a data cap). */
+	async reloadRouting() {
+		try {
+			this.routing = (await api.snapshot()).routing;
+		} catch {
+			// The next change or restart reads it again.
+		}
+	}
+
 	private applyStatus(next: Status) {
 		const previous = this.status.state;
 		this.status = next;

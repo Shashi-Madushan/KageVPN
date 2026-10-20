@@ -47,15 +47,23 @@ pub fn usage_get_settings(state: State<AppState>) -> UsageSettings {
     state.store.lock().unwrap().usage_settings()
 }
 
-#[tauri::command]
-pub fn usage_set_settings(state: State<AppState>, settings: UsageSettings) -> Result<()> {
-    let mut store = state.store.lock().unwrap();
+/// What gets stored when the Usage page saves: the new settings, with the alert reset when the
+/// cap changes. App data caps are managed only by the cap commands, so the stored ones are kept
+/// whatever the page sends.
+pub fn merge_usage_settings(current: &UsageSettings, settings: UsageSettings) -> UsageSettings {
     let mut next = settings;
-    let current = store.usage_settings();
     if next.quota_bytes != current.quota_bytes || next.cycle_day != current.cycle_day {
         next.alert_level = 0;
     }
     next.cycle_day = next.cycle_day.clamp(1, 31);
+    next.app_caps = current.app_caps.clone();
+    next
+}
+
+#[tauri::command]
+pub fn usage_set_settings(state: State<AppState>, settings: UsageSettings) -> Result<()> {
+    let mut store = state.store.lock().unwrap();
+    let next = merge_usage_settings(&store.usage_settings(), settings);
     store.set_usage_settings(next)
 }
 

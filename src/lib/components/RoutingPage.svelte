@@ -4,7 +4,8 @@
 	import AppPicker, { appLabel } from './AppPicker.svelte';
 	import RuleSources from './RuleSources.svelte';
 	import AppsTab from './AppsTab.svelte';
-	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
+	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, Rule, RuleKind, RuleSetKind } from '$lib/api';
+	import { mergeCapRules } from '$lib/appRules';
 	import { app } from '$lib/app.svelte';
 	import { CATEGORIES, COUNTRIES, describeList, findEntry } from '$lib/ruleCatalog';
 	import { ruleLists } from '$lib/ruleLists.svelte';
@@ -28,8 +29,22 @@
 
 	let probe = $state('');
 
+	/** The settings last copied into the draft, as text, to tell the user's edits from a change made behind the page. */
+	let synced = '';
+
 	$effect(() => {
-		if (app.routing && !draft) draft = structuredClone($state.snapshot(app.routing));
+		if (!app.routing) return;
+		const stored = JSON.stringify($state.snapshot(app.routing));
+		if (!draft) {
+			draft = structuredClone($state.snapshot(app.routing));
+			synced = stored;
+		} else if (stored !== synced) {
+			// Something else changed the settings (a data cap blocked an app). An unedited draft follows;
+			// an edited one only takes the stored cap blocks, so the user's edits stay.
+			if (JSON.stringify($state.snapshot(draft)) === synced) draft = structuredClone($state.snapshot(app.routing));
+			else draft.rules = mergeCapRules($state.snapshot(draft.rules) as Rule[], $state.snapshot(app.routing).rules);
+			synced = stored;
+		}
 	});
 
 	$effect(() => {

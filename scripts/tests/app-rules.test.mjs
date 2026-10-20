@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activePreset, appChoice, applyPreset, blockedApps, otherAppRules, setAppChoice } from '../../src/lib/appRules.ts';
+import { activePreset, appChoice, applyPreset, blockedApps, mergeCapRules, otherAppRules, setAppChoice } from '../../src/lib/appRules.ts';
 
 const slack = '/Applications/Slack.app';
 const rule = (value, action, extra = {}) => ({ id: value + action, enabled: true, kind: 'app', value, action, ...extra });
@@ -56,4 +56,11 @@ test('presets set the default and keep per-app rules', () => {
 	assert.equal(activePreset(applyPreset(settings, 'except')), 'except');
 	assert.equal(activePreset(settings), null);
 	assert.equal(settings.mode, 'global', 'the input is not changed');
+});
+
+test('a stale draft takes the stored cap blocks and keeps the users edits', () => {
+	const stored = [rule(slack, 'block', { origin: 'cap' }), rule('/a.app', 'proxy')];
+	const draft = [rule('/a.app', 'direct'), rule('/old.app', 'block', { origin: 'cap' })];
+	const merged = mergeCapRules(draft, stored);
+	assert.deepEqual(merged.map((r) => [r.value, r.action]), [[slack, 'block'], ['/a.app', 'direct']]);
 });
