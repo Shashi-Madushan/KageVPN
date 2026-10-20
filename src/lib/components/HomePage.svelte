@@ -44,10 +44,14 @@
 
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const statusText = $derived(
-		app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
+		app.disconnecting ? 'Disconnecting…' : app.status.blocked && app.reliability.killSwitch ? 'Blocked' : app.tunnelDown ? 'No Internet' : app.verifying ? 'Verifying…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not Connected'
 	);
 	const headline = $derived(
-		app.tunnelDown
+		app.disconnecting
+			? 'Disconnecting…'
+			: app.status.blocked && app.reliability.killSwitch
+			? 'Internet blocked by the kill switch'
+			: app.tunnelDown
 			? 'Connected, but no internet'
 			: app.verifying
 				? 'Checking your connection…'
@@ -142,12 +146,15 @@
 		<!-- Connection -->
 		<section class="hero card" class:on={app.connected}>
 			<div class="card-header">
-				<div class="status-pill {app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">
+				<div class="status-pill {app.disconnecting ? 'connecting' : app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">
 					<span class="dot"></span>
 					<strong>{statusText}</strong>
 					{#if elapsed}<span class="elapsed tabular">{elapsed}</span>{/if}
 				</div>
 				<div class="chips">
+					{#if app.connected && app.status.mode === 'proxy' && app.status.proxyPort}
+						<span class="chip mono" title={app.reliability.proxyAuth ? 'Point apps at this address (SOCKS5 or HTTP). Login: user kage, password in Settings' : 'Point apps at this address (SOCKS5 or HTTP)'}>127.0.0.1:{app.status.proxyPort}</span>
+					{/if}
 					{#if app.reliability.killSwitch}
 						<span class="chip" title="Kill switch is armed"><Icon name="shield" size={12} /> Kill switch</span>
 					{/if}
@@ -159,7 +166,7 @@
 
 			<div class="power-center">
 				<MascotButton size={150} />
-				<h2 class="headline {app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">{headline}</h2>
+				<h2 class="headline {app.disconnecting ? 'connecting' : app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">{headline}</h2>
 				<div class="ip-row">
 					{#if app.connected}
 						{#if app.exitIp}
@@ -170,7 +177,7 @@
 					{:else}
 						<span class="ready-sub">{app.profiles.length ? (isConnecting ? 'Establishing secure tunnel…' : 'Tap to connect') : 'Add a server to connect'}</span>
 						{#if app.profiles.length && !isConnecting}<PingButton />{/if}
-						{#if !app.profiles.length}<button class="linkbtn" onclick={() => onboarding.show()}>New here? Take the quick tour</button>{/if}
+						{#if !app.profiles.length}<button class="linkbtn" onclick={() => onboarding.show()}>New here? Run the quick setup</button>{/if}
 					{/if}
 				</div>
 			</div>

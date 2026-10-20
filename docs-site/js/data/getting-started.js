@@ -274,7 +274,7 @@ window.DOCS_PAGES["getting-started/first-run"] = {
         <li><strong>Servers:</strong> Comprehensive node organizer, latency pings, and subscription manager.</li>
         <li><strong>Routing:</strong> Rule-based traffic routing editor with direct GeoIP / GeoSite bypasses.</li>
         <li><strong>Connections:</strong> An <em>Apps</em> view showing which apps are sending and receiving data right now (with live speeds), and a <em>Connections</em> view with every open socket, powered by sing-box's Clash API.</li>
-        <li><strong>Diagnostics:</strong> One-click DNS and IPv6 leak diagnostics and latency graphs.</li>
+        <li><strong>Diagnostics:</strong> One-click comparison of the tunnel with your normal route, DNS resolver check and latency graphs.</li>
         <li><strong>Data usage:</strong> This month's total, a day-by-day chart and what used the data.</li>
         <li><strong>Settings:</strong> Kill switch, reliability, data limit, usage privacy and app updates.</li>
       </ul>

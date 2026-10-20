@@ -73,8 +73,12 @@ impl DownloadProvider for CoreProvider {
                         mode: Mode::Proxy,
                         routing: &routing,
                         log_path: &state.paths.log_file(),
-                        cache_path: &state.paths.cache_file(),
+                        log_level: crate::settings::LogLevel::default(),
+                        mixed_port: config::DEFAULT_MIXED_PORT,
+                        clash_port: config::DEFAULT_CLASH_PORT,
+                        rule_sets_dir: &state.paths.rule_sets_dir(),
                         secret: "check",
+                        proxy_password: None,
                     })
                     .ok()
                 })
@@ -87,7 +91,7 @@ impl DownloadProvider for CoreProvider {
         let mut store = state.store.lock().unwrap();
         let mut settings = store.core_settings_for(spec.id);
         if self.activation == Activation::Now || idle {
-            settings.managed_version = Some(release.version.clone());
+            settings.activate(Some(release.version.clone()));
             settings.pending_version = None;
         } else {
             settings.pending_version = Some(release.version.clone());

@@ -1,15 +1,10 @@
 {
   "name": "kage-vpn",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0",
   "description": "Kage VPN, a macOS menu bar manager for sing-box",
   "homepage": "https://shashi-madushan.github.io/KageVPN/",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Shashi-Madushan/KageVPN.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Shashi-Madushan/KageVPN/issues"
-  },
+  "repository": { "type": "git", "url": "https://github.com/Shashi-Madushan/KageVPN.git" },
+  "bugs": { "url": "https://github.com/Shashi-Madushan/KageVPN/issues" },
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -30,6 +25,9 @@
     "@tauri-apps/plugin-clipboard-manager": "^2.4.1",
     "@tauri-apps/plugin-deep-link": "^2.6.1",
     "@tauri-apps/plugin-opener": "^2"
+  },
+  "overrides": {
+    "cookie": "^0.7.2"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.10",

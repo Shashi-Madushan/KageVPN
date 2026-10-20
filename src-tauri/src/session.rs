@@ -1,5 +1,5 @@
 use std::sync::atomic::Ordering;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -16,11 +16,14 @@ use crate::{applog, clash, core, crashlog, net, notify, reliability, runner, tra
 
 const READY_ATTEMPTS: u32 = 60;
 const STOP_ATTEMPTS: u32 = 40;
+/// A port still busy within this long of the app stopping sing-box is most likely that same
+/// process finishing up, so the next connect waits for it instead of failing.
+const PORT_WAIT_WINDOW: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 const DROP_GRACE: Duration = Duration::from_millis(1500);
-const MAX_RESOLVED_IPS: usize = 64;
+const CANCEL_POLL: Duration = Duration::from_millis(100);
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum State {
     Disconnected,
@@ -45,11 +48,22 @@ pub struct Status {
     /// Why the last attempt to connect failed, described for people.
     #[serde(default)]
     pub failure: Option<ErrorInfo>,
+    /// The port of the local proxy while connected; people point apps at it in Proxy Only mode.
+    #[serde(default)]
+    pub proxy_port: Option<u16>,
+    /// The kill switch is blocking traffic outside the tunnel (while reconnecting, or when the
+    /// tunnel is down). Set from the root helper's marker; see `reliability::spawn_block_watch`.
+    #[serde(default)]
+    pub blocked: bool,
+    /// A stop was asked for and sing-box has not exited yet. The state stays `Connected` until it
+    /// has, so this is what lets the screens show "Disconnecting…" instead of an unresponsive button.
+    #[serde(default)]
+    pub disconnecting: bool,
 }
 
 impl Status {
     pub fn disconnected(mode: Mode) -> Self {
-        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None }
+        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None, proxy_port: None, blocked: false, disconnecting: false }
     }
 }
 
@@ -75,33 +89,189 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
                 s.state = State::Connected;
                 s.since = Some(now_secs());
                 s.health = Health::Verifying;
+                s.proxy_port = Some(config::mixed_port());
             });
             applog::info(format!("connect: up, supervisor pid {pid}"));
             watch(app.clone(), pid);
             traffic::spawn(app.clone(), pid, secret);
             spawn_connection_poll(app.clone(), pid);
             health::spawn_monitor(app.clone(), pid);
+            if mode == Mode::Tun && state.store.lock().unwrap().reliability().kill_switch {
+                spawn_allow_list_refresh(app.clone(), pid);
+            }
+            // Cancelled in the last moments, after the final checkpoint: take it down the usual way.
+            if state.cancel_connect.swap(false, Ordering::SeqCst) {
+                let _ = disconnect(app).await;
+                return Err(AppError::Cancelled);
+            }
             Ok(())
+        }
+        Err(error) if error.is_cancelled() => {
+            applog::info("connect: cancelled by the user");
+            *state.clash_secret.lock().unwrap() = None;
+            note_stop(&state);
+            let _ = runner::request_stop(&state.paths);
+            update(app, |s| *s = Status::disconnected(mode));
+            Err(error)
         }
         Err(error) => {
             applog::warn(format!("connect: failed: {error}"));
             *state.clash_secret.lock().unwrap() = None;
-            let _ = runner::request_stop(&state.paths);
+            note_stop(&state);
+            let _ = end_run(app, mode, Ending::Failed);
             update(app, |s| *s = Status { error: Some(error.to_string()), failure: Some(error.info()), ..Status::disconnected(mode) });
             Err(error)
         }
     }
 }
 
-pub async fn disconnect(app: &AppHandle) -> Result<()> {
+/// What a request to disconnect should do right now.
+#[derive(Debug, PartialEq, Eq)]
+enum Plan {
+    /// The connection is still starting: tell it to stop at its next step.
+    Cancel,
+    /// Stop the running connection.
+    Stop(u32),
+    /// A stop is already under way: wait for it instead of starting a second one.
+    WaitForStop,
+    Nothing,
+}
+
+fn disconnect_plan(state: State, pid: Option<u32>, disconnecting: bool) -> Plan {
+    match (state, pid) {
+        (State::Connecting, _) => Plan::Cancel,
+        (State::Connected, Some(_)) if disconnecting => Plan::WaitForStop,
+        (_, Some(pid)) => Plan::Stop(pid),
+        (_, None) => Plan::Nothing,
+    }
+}
+
+/// Runs `work` until it finishes or the user cancels the connection, whichever comes first, so a
+/// slow step (a port wait, a list download, a lookup) never makes the Cancel button feel dead.
+async fn until_cancelled<T>(cancel: &std::sync::atomic::AtomicBool, work: impl std::future::Future<Output = T>) -> Result<T> {
+    tokio::select! {
+        value = work => Ok(value),
+        () = async { while !cancel.load(Ordering::SeqCst) { sleep(CANCEL_POLL).await } } => Err(AppError::Cancelled),
+    }
+}
+
+/// Notes that sing-box was just asked to stop, so the next connect can wait for its port.
+fn note_stop(state: &AppState) {
+    *state.stop_requested_at.lock().unwrap() = Some(Instant::now());
+}
+
+/// Ends the connection if the user cancelled it; called between the steps of starting one.
+fn check_cancelled(app: &AppHandle) -> Result<()> {
+    if app.state::<AppState>().cancel_connect.load(Ordering::SeqCst) {
+        return Err(AppError::Cancelled);
+    }
+    Ok(())
+}
+
+/// Passes the tunnel's health on to the kill switch: a verified tunnel takes down a block that
+/// was held while it came up, a dead one puts the block up even though sing-box is still running.
+pub fn signal_tunnel(app: &AppHandle, healthy: bool) {
     let state = app.state::<AppState>();
-    let Some(pid) = *state.pid.lock().unwrap() else {
-        return Ok(());
+    let kill_switch = state.store.lock().unwrap().reliability().kill_switch;
+    let mode = state.status.lock().unwrap().mode;
+    if !kill_switch || mode != Mode::Tun {
+        return;
+    }
+    let _ = if healthy { runner::signal_ready(&state.paths) } else { runner::signal_block(&state.paths) };
+}
+
+/// Keeps the kill switch's list of server addresses fresh while connected, so a server name that
+/// starts resolving elsewhere is already allowed when the block has to go up.
+fn spawn_allow_list_refresh(app: AppHandle, pid: u32) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            sleep(crate::allowlist::REFRESH_EVERY).await;
+            let state = app.state::<AppState>();
+            if *state.pid.lock().unwrap() != Some(pid) {
+                return;
+            }
+            crate::allowlist::refresh(&state.paths, None, !state.blocked.load(Ordering::SeqCst)).await;
+        }
+    });
+}
+
+/// Why a run is being ended, which decides whether the kill-switch block stays up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ending {
+    /// The user disconnected, cancelled or quit: traffic is released.
+    UserStop,
+    /// A connect attempt failed.
+    Failed,
+    /// The tunnel is being restarted because it died or stopped carrying traffic.
+    Restart,
+}
+
+/// Whether ending a run should keep the kill-switch block up. A failed first connect releases
+/// it, so a wrong password or a bad config never cuts the user off; a failed *reconnect* and a
+/// restart keep it, because the user was connected a moment ago and expects no leaks.
+pub fn holds_block(ending: Ending, kill_switch: bool, mode: Mode, reconnecting: bool) -> bool {
+    kill_switch
+        && mode == Mode::Tun
+        && match ending {
+            Ending::UserStop => false,
+            Ending::Failed => reconnecting,
+            Ending::Restart => true,
+        }
+}
+
+fn end_run(app: &AppHandle, mode: Mode, ending: Ending) -> Result<()> {
+    let state = app.state::<AppState>();
+    let kill_switch = state.store.lock().unwrap().reliability().kill_switch;
+    if holds_block(ending, kill_switch, mode, state.reconnecting.load(Ordering::SeqCst)) {
+        runner::request_down(&state.paths)
+    } else {
+        runner::request_stop(&state.paths)
+    }
+}
+
+pub async fn disconnect(app: &AppHandle) -> Result<()> {
+    stop_with(app, Ending::UserStop).await
+}
+
+/// Ends the connection for a restart: the kill-switch block, if on, stays up until the next run.
+pub async fn disconnect_for_restart(app: &AppHandle) -> Result<()> {
+    stop_with(app, Ending::Restart).await
+}
+
+async fn stop_with(app: &AppHandle, ending: Ending) -> Result<()> {
+    let state = app.state::<AppState>();
+    let (connection, disconnecting) = {
+        let status = state.status.lock().unwrap();
+        (status.state, status.disconnecting)
+    };
+    let running = *state.pid.lock().unwrap();
+    let pid = match disconnect_plan(connection, running, disconnecting) {
+        Plan::Nothing => return Ok(()),
+        Plan::Cancel => {
+            applog::info("disconnect: cancelling a connection that is still starting");
+            state.cancel_connect.store(true, Ordering::SeqCst);
+            return Ok(());
+        }
+        Plan::WaitForStop => {
+            // A reconnect or a second click lands here: it has to see the connection gone, not
+            // return while the first stop is still waiting for sing-box.
+            for _ in 0..STOP_ATTEMPTS {
+                if state.status.lock().unwrap().state == State::Disconnected {
+                    break;
+                }
+                sleep(POLL_INTERVAL).await;
+            }
+            return Ok(());
+        }
+        Plan::Stop(pid) => pid,
     };
 
     applog::info(format!("disconnect: stopping supervisor pid {pid}"));
     state.stopping.store(true, Ordering::SeqCst);
-    runner::request_stop(&state.paths)?;
+    note_stop(&state);
+    let mode = state.status.lock().unwrap().mode;
+    end_run(app, mode, ending)?;
+    update(app, |s| s.disconnecting = true);
     for _ in 0..STOP_ATTEMPTS {
         if !runner::is_alive(pid) {
             break;
@@ -124,7 +294,8 @@ pub async fn tunnel_lost(app: &AppHandle, pid: u32) {
     let reason = "The tunnel stopped answering while sing-box was still running.";
     crashlog::record(&state.paths.data_dir(), "tunnel lost", reason, &format!("auto-reconnect: {reconnect}\nlast error: {}", state.logs.last_error().unwrap_or_default()));
     notify::send(app, "VPN tunnel dropped", &format!("{reason} {}", if reconnect { "Reconnecting…" } else { "It was disconnected." }));
-    let _ = disconnect(app).await;
+    // With a reconnect coming, the kill-switch block stays up in between.
+    let _ = if reconnect { disconnect_for_restart(app).await } else { disconnect(app).await };
     if reconnect {
         reliability::spawn_reconnect(app.clone());
     }
@@ -137,6 +308,7 @@ fn begin(app: &AppHandle, mode: Mode) -> Result<()> {
         return Err(AppError::Busy);
     }
     state.stopping.store(false, Ordering::SeqCst);
+    state.cancel_connect.store(false, Ordering::SeqCst);
     *status = Status { state: State::Connecting, ..Status::disconnected(mode) };
     let _ = app.emit("status", status.clone());
     Ok(())
@@ -156,22 +328,30 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         (spec, settings)
     };
     let (binary, _) = core::resolve(paths, spec, &core_settings)?;
-    if net::proxy_port_open().await {
-        return Err(AppError::Launch(format!(
-            "port {} is already in use, is another sing-box running?",
-            config::MIXED_PORT
-        )));
+    check_cancelled(app)?;
+    // A sing-box this app stopped a moment ago can take a few seconds to let go of its port, so
+    // that one is waited for. Any other program holding a port is moved around.
+    let just_stopped = state.stop_requested_at.lock().unwrap().is_some_and(|at| at.elapsed() < PORT_WAIT_WINDOW);
+    let ports = until_cancelled(&state.cancel_connect, net::choose_ports(just_stopped)).await??;
+    if !ports.is_default() {
+        applog::warn(format!("default ports are busy: using proxy port {} and controller port {}", ports.mixed, ports.clash));
+        notify::send(app, "Using another local port", &format!("Port {} was busy, so the local proxy listens on {}.", config::DEFAULT_MIXED_PORT, ports.mixed));
     }
+    config::set_ports(ports.mixed, ports.clash);
+    // With the kill switch holding a block, DNS is blocked too: names cannot be looked up and the
+    // downloads would only time out, so those steps use what is already known and on disk.
+    let behind_block = state.blocked.load(Ordering::SeqCst);
     if !state.store.lock().unwrap().auto().enabled {
         let active = state.store.lock().unwrap().active_profile().cloned();
         if let Some(profile) = active {
-            health::preflight(&profile).await?;
+            until_cancelled(&state.cancel_connect, health::preflight(&profile, behind_block)).await??;
         }
     }
+    check_cancelled(app)?;
     state.logs.clear();
     paths.reset_runtime_files()?;
 
-    let (profiles, active_id, auto_group, auto, routing, reliability) = {
+    let (profiles, active_id, auto_group, auto, routing, reliability, log_level) = {
         let store = state.store.lock().unwrap();
         let auto = store.auto();
         (
@@ -181,8 +361,18 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
             auto.enabled,
             store.routing(),
             store.reliability(),
+            store.settings().log_level,
         )
     };
+    let proxy_password = Some(reliability.proxy_password.clone()).filter(|p| reliability.proxy_auth && !p.is_empty());
+    config::set_proxy_password(proxy_password.clone());
+    if behind_block {
+        applog::info("connect: the kill switch is blocking, so rule lists are not downloaded now");
+    } else {
+        until_cancelled(&state.cancel_connect, prepare_rule_sets(app, &routing)).await?;
+    }
+    check_cancelled(app)?;
+
     let candidates: Vec<Profile> = match (&auto_group, auto) {
         (Some(group), true) => profiles.iter().filter(|p| p.group.as_deref() == Some(group.as_str())).cloned().collect(),
         _ => profiles.clone(),
@@ -196,18 +386,24 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         mode,
         routing: &routing,
         log_path: &paths.log_file(),
-        cache_path: &paths.cache_file(),
+        log_level,
+        mixed_port: ports.mixed,
+        clash_port: ports.clash,
+        rule_sets_dir: &paths.rule_sets_dir(),
         secret,
+        proxy_password: proxy_password.as_deref(),
     })?;
     crate::fsutil::write_private_atomic(&paths.config_file(), &serde_json::to_vec_pretty(&config)?)?;
     crate::singbox::check(&binary, &paths.config_file())?;
 
     let kill_switch_ips = if reliability.kill_switch && mode == Mode::Tun {
-        Some(resolve_servers(nodes).await)
+        let targets = nodes.iter().map(|p| (p.server.clone(), p.port)).collect();
+        Some(until_cancelled(&state.cancel_connect, crate::allowlist::refresh(paths, Some(targets), !behind_block)).await?)
     } else {
         None
     };
-    let pid = runner::start(paths, &binary, mode, kill_switch_ips).await?;
+    check_cancelled(app)?;
+    let pid = runner::start(paths, &binary, mode, kill_switch_ips, &state.cancel_connect).await?;
     wait_until_ready(app, pid).await?;
 
     if !auto {
@@ -215,27 +411,75 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
             let _ = clash::select_profile(app, id).await;
         }
     }
+    check_cancelled(app)?;
     Ok(pid)
 }
 
-async fn resolve_servers(profiles: &[Profile]) -> String {
-    let mut ips: Vec<String> = Vec::new();
-    for profile in profiles {
-        if let Ok(addresses) = tokio::net::lookup_host((profile.server.as_str(), profile.port)).await {
-            ips.extend(addresses.map(|a| a.ip().to_string()));
-        }
-        if ips.len() >= MAX_RESOLVED_IPS {
-            break;
-        }
+/// Makes sure the country and category lists the routing uses are on disk. A list that is missing
+/// is fetched now (a connection cannot use it otherwise); one that is merely old is refreshed in
+/// the background. A list that cannot be fetched is left out and the user is told, but it never
+/// stops the connection.
+async fn prepare_rule_sets(app: &AppHandle, routing: &crate::settings::RoutingSettings) {
+    let dir = app.state::<AppState>().paths.rule_sets_dir();
+    let (missing, _) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(routing), crate::rulesets::MAX_AGE);
+    // A list that just failed is not waited for again: reconnect attempts follow each other fast.
+    let missing = crate::rulesets::skip_recent_failures(missing);
+    if missing.is_empty() {
+        return;
     }
-    ips.sort();
-    ips.dedup();
-    ips.join(",")
+    applog::info(format!("downloading {} rule list(s) before connecting", missing.len()));
+    // No tunnel yet, so this is a direct download; lists that fail here are tried again through the
+    // tunnel once it is verified (see `refresh_rule_sets`).
+    let fetch = crate::rulesets::Fetch { provider: crate::rulesets::provider_of(routing), proxy: None };
+    let failed = crate::rulesets::fetch_all(&dir, missing, &fetch).await;
+    for (item, error) in &failed {
+        applog::warn(format!("rule list {} left out: {error}", item.tag));
+    }
+    if !failed.is_empty() {
+        let tags: Vec<String> = failed.into_iter().map(|(item, _)| item.tag).collect();
+        notify::send(app, "Some lists were left out", &crate::rulesets::skipped_message(&tags));
+    }
+}
+
+/// The tunnel's local proxy, when connected: downloads made through it do not depend on the
+/// local network letting GitHub through.
+pub fn tunnel_proxy(app: &AppHandle) -> Option<String> {
+    let connected = app.state::<AppState>().status.lock().unwrap().state == State::Connected;
+    connected.then(config::proxy_url)
+}
+
+/// Once the tunnel is verified: fetches the lists that were left out before connecting, and
+/// refreshes old ones, through the tunnel. A list that was missing cannot apply until the next
+/// connect, so the user is told.
+pub fn spawn_rule_set_refresh(app: AppHandle, pid: u32) {
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        if *state.pid.lock().unwrap() != Some(pid) {
+            return;
+        }
+        let routing = state.store.lock().unwrap().routing();
+        let dir = state.paths.rule_sets_dir();
+        let (missing, stale) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(&routing), crate::rulesets::MAX_AGE);
+        if missing.is_empty() && stale.is_empty() {
+            return;
+        }
+        let Some(proxy) = tunnel_proxy(&app) else { return };
+        let fetch = crate::rulesets::Fetch { provider: crate::rulesets::provider_of(&routing), proxy: Some(proxy) };
+        let mut items = missing.clone();
+        items.extend(stale);
+        applog::info(format!("rule lists: fetching {} through the tunnel", items.len()));
+        let failed = crate::rulesets::fetch_all(&dir, items, &fetch).await;
+        let arrived: Vec<String> = missing.iter().filter(|m| failed.iter().all(|(f, _)| f.tag != m.tag)).map(|m| m.tag.clone()).collect();
+        if !arrived.is_empty() {
+            notify::send(&app, "Rule lists downloaded", &format!("{} downloaded through the tunnel. Reconnect to apply {}.", arrived.join(", "), if arrived.len() == 1 { "it" } else { "them" }));
+        }
+    });
 }
 
 async fn wait_until_ready(app: &AppHandle, pid: u32) -> Result<()> {
     let state = app.state::<AppState>();
     for _ in 0..READY_ATTEMPTS {
+        check_cancelled(app)?;
         if !runner::is_alive(pid) {
             let reason = state.logs.last_error().unwrap_or_else(|| "sing-box exited unexpectedly".into());
             return Err(AppError::Launch(reason));
@@ -299,6 +543,11 @@ fn finish(app: &AppHandle, pid: u32) {
     let mode = state.store.lock().unwrap().mode();
     update(app, |s| *s = Status { error, failure, ..Status::disconnected(mode) });
     traffic::reset(app);
+    if state.store.lock().unwrap().settings().clear_logs {
+        state.logs.clear();
+        crate::logs::erase_files(&state.paths.log_file());
+        applog::info("clear logs on disconnect: sing-box log files emptied");
+    }
 
     if !stopped_by_user {
         notify::send(app, "VPN stopped unexpectedly", &reason);
@@ -321,9 +570,20 @@ pub(crate) fn update(app: &AppHandle, change: impl FnOnce(&mut Status)) {
     let state = app.state::<AppState>();
     let mut status = state.status.lock().unwrap();
     change(&mut status);
+    status.blocked = state.blocked.load(Ordering::SeqCst);
+    // Timers must not be napped while a tunnel is up; the health and reconnect logic runs on them.
+    if status.state == State::Connected {
+        crate::appnap::hold();
+    } else {
+        crate::appnap::release();
+    }
     let _ = app.emit("status", status.clone());
 }
 
 fn now_secs() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
+
+#[cfg(test)]
+#[path = "tests/session.rs"]
+mod tests;

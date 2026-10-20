@@ -53,8 +53,9 @@ impl AppPaths {
         self.data_dir.join("usage.db")
     }
 
-    pub fn cache_file(&self) -> PathBuf {
-        self.data_dir.join("cache.db")
+    /// Where the country and category lists live, one `.srs` file per list.
+    pub fn rule_sets_dir(&self) -> PathBuf {
+        self.data_dir.join("rule-sets")
     }
 
     pub fn config_file(&self) -> PathBuf {
@@ -72,6 +73,31 @@ impl AppPaths {
 
     pub fn stop_file(&self) -> PathBuf {
         self.data_dir.join("stop")
+    }
+
+    /// Like `stop_file`, but the root helper keeps the kill-switch block up; see `runner/helper.sh`.
+    pub fn down_file(&self) -> PathBuf {
+        self.data_dir.join("down")
+    }
+
+    /// The server addresses the kill switch lets through, refreshed by the app; see `allowlist`.
+    pub fn allow_file(&self) -> PathBuf {
+        self.data_dir.join("allow")
+    }
+
+    /// Written by the app once a run is verified: the root helper then takes the kill-switch block down.
+    pub fn ready_file(&self) -> PathBuf {
+        self.data_dir.join("ready")
+    }
+
+    /// Written by the app when the tunnel stops carrying traffic: the helper puts the block up.
+    pub fn block_file(&self) -> PathBuf {
+        self.data_dir.join("block")
+    }
+
+    /// Exists while the root helper holds a kill-switch block; read by the app to tell the user.
+    pub fn blocked_file(&self) -> PathBuf {
+        self.data_dir.join("blocked")
     }
 
     pub fn helper_script(&self) -> PathBuf {

@@ -1,12 +1,18 @@
+mod allowlist;
 mod app_config;
 mod applog;
 mod app_update;
+mod appnap;
+mod apps;
+mod backup;
 mod clash;
 mod commands;
 mod config;
 mod core;
 mod crashlog;
+mod device;
 mod diagnostics;
+mod diagnostics_bundle;
 mod downloads;
 mod error;
 mod feedback;
@@ -15,10 +21,13 @@ mod health;
 mod logs;
 mod net;
 mod network_watch;
+mod networks;
 mod notify;
 mod paths;
 mod profile;
 mod reliability;
+mod repair;
+mod rulesets;
 mod runner;
 mod sampler;
 mod session;
@@ -90,6 +99,7 @@ pub fn run() {
             subscriptions::spawn_scheduler(app.handle().clone());
             reliability::apply_hotkey(app.handle());
             network_watch::spawn(app.handle().clone());
+            reliability::spawn_block_watch(app.handle().clone());
             sampler::spawn(app.handle().clone());
             register_deep_links(app.handle());
 
@@ -130,12 +140,24 @@ pub fn run() {
             commands::test_all,
             commands::set_routing,
             commands::set_reliability,
+            networks::set_network_settings,
+            networks::current_network,
             commands::restore_network,
+            commands::unblock_internet,
+            commands::rule_providers,
+            commands::rule_sets_status,
+            commands::download_rule_sets,
+            commands::delete_rule_sets,
             commands::root_service_installed,
             commands::install_root_service,
             commands::uninstall_root_service,
             commands::add_subscription,
+            commands::edit_subscription,
             commands::refresh_subscription,
+            commands::installed_apps,
+            commands::delete_profiles,
+            backup::export_backup,
+            backup::restore_backup,
             commands::remove_subscription,
             commands::run_diagnostics,
             commands::run_speed_test,
@@ -175,6 +197,10 @@ pub fn run() {
             core::commands::core_check,
             core::commands::core_use,
             core::commands::core_remove,
+            repair::repair_service,
+            diagnostics_bundle::diagnostics_export,
+            core::commands::core_rollback,
+            core::commands::core_remove_old,
             core::commands::set_core_channel,
             core::commands::core_set_active,
             core::commands::set_core_update_policy,
@@ -193,6 +219,7 @@ pub fn run() {
         tauri::RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
         tauri::RunEvent::ExitRequested { code, .. } => applog::info(format!("exit requested (code {code:?})")),
         tauri::RunEvent::Exit => {
+            appnap::release();
             if let Some(state) = app.try_state::<AppState>() {
                 applog::clean_exit(&state.paths.data_dir());
             }
@@ -211,7 +238,9 @@ fn auto_connect(app: &tauri::AppHandle) {
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             if let Err(error) = session::connect(&app).await {
-                notify::send(&app, "Connection failed", &error.to_string());
+                if !error.is_cancelled() {
+                    notify::send(&app, "Connection failed", &error.to_string());
+                }
             }
         });
     }
@@ -234,14 +263,18 @@ fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
         "connect" => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
+                reliability::user_took_over(&app);
                 if let Err(error) = session::connect(&app).await {
-                    notify::send(&app, "Connection failed", &error.to_string());
+                    if !error.is_cancelled() {
+                        notify::send(&app, "Connection failed", &error.to_string());
+                    }
                 }
             });
         }
         "disconnect" => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
+                reliability::user_took_over(&app);
                 let _ = session::disconnect(&app).await;
             });
         }
@@ -258,7 +291,19 @@ fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
 
 /// Tells the user when the saved servers could not be read and were set aside.
 fn warn_if_data_was_recovered(app: &tauri::AppHandle) {
-    let recovered = app.state::<AppState>().store.lock().unwrap().take_recovery();
+    let state = app.state::<AppState>();
+    let (recovered, unreadable) = {
+        let mut store = state.store.lock().unwrap();
+        (store.take_recovery(), store.unreadable_count())
+    };
+    if unreadable > 0 {
+        applog::warn(format!("{unreadable} saved server(s) use something this version does not know and are kept untouched"));
+        notify::send(
+            app,
+            "Some servers are hidden",
+            &format!("{unreadable} saved server{} use something this version does not understand. They are kept safe and return when you update.", if unreadable == 1 { "" } else { "s" }),
+        );
+    }
     if let Some(path) = recovered {
         notify::send(
             app,

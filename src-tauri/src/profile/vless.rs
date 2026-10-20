@@ -210,7 +210,9 @@ pub fn to_link(profile: &Profile) -> String {
 /// `pcs` is a certificate hash while sing-box pins public keys, so this value is a
 /// placeholder: the first connection reports the server's real key to trust.
 fn hex_to_base64(hex: &str) -> Option<String> {
-    if !hex.len().is_multiple_of(2) {
+    // Only ASCII hex digits get past this check, so the two-byte slices below always fall on
+    // character boundaries; slicing arbitrary text here used to panic and end the whole app.
+    if !hex.len().is_multiple_of(2) || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
     }
     let bytes: Option<Vec<u8>> = (0..hex.len())

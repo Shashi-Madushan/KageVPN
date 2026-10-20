@@ -38,3 +38,21 @@ fn read_returns_entries_and_clear_removes_them() {
     assert_eq!(read(&dir), "");
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn trimming_a_big_log_with_non_ascii_text_does_not_crash() {
+    // The midpoint of this file falls inside a three-byte character. Cutting there used to panic,
+    // and the crash log is written exactly when something else has already gone wrong.
+    let dir = std::env::temp_dir().join(format!("kage-crash-utf8-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let big = format!("==== old entry\n{}\n\n", "€".repeat(70_000));
+    assert!(big.len() as u64 > MAX_BYTES && (big.len() / 2) % 3 != 0);
+    fs::write(dir.join(FILE), &big).unwrap();
+
+    record(&dir, "exit", "fresh", "details");
+
+    let text = fs::read_to_string(dir.join(FILE)).unwrap();
+    assert!(text.contains("fresh"));
+    assert!((text.len() as u64) < MAX_BYTES);
+    let _ = fs::remove_dir_all(&dir);
+}

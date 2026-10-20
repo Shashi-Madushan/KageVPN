@@ -9,7 +9,7 @@ use crate::error::{AppError, Result};
 use crate::logs::LogLine;
 use crate::profile::{parse_many, to_link, Profile, ProfileView};
 use crate::session::{self, State as ConnState, Status};
-use crate::settings::{AutoSettings, ReliabilitySettings, RoutingSettings, Subscription};
+use crate::settings::{AutoSettings, NetworkSettings, ReliabilitySettings, RoutingSettings, Subscription};
 use crate::state::AppState;
 use crate::store::Settings;
 use crate::subscriptions::{self, RefreshSummary};
@@ -32,6 +32,7 @@ pub struct Snapshot {
     subscriptions: Vec<Subscription>,
     routing: RoutingSettings,
     reliability: ReliabilitySettings,
+    networks: NetworkSettings,
     hotkey: &'static str,
 }
 
@@ -91,6 +92,7 @@ pub fn snapshot(app: AppHandle, state: State<AppState>) -> Snapshot {
         subscriptions: store.subscriptions().to_vec(),
         routing: store.routing(),
         reliability: store.reliability(),
+        networks: store.networks(),
         hotkey: reliability::hotkey_label(),
     }
 }
@@ -132,6 +134,12 @@ pub fn duplicate_profile(state: State<AppState>, id: String) -> Result<Profile> 
     copy.subscription_id = None;
     store.add(copy.clone())?;
     Ok(copy)
+}
+
+/// Removes several servers with one save, such as every server a test found unreachable.
+#[tauri::command]
+pub fn delete_profiles(state: State<AppState>, ids: Vec<String>) -> Result<usize> {
+    state.store.lock().unwrap().remove_many(&ids)
 }
 
 #[tauri::command]
@@ -215,11 +223,17 @@ pub fn clear_logs(state: State<AppState>) {
 
 #[tauri::command]
 pub async fn connect(app: AppHandle) -> Result<()> {
-    session::connect(&app).await
+    reliability::user_took_over(&app);
+    match session::connect(&app).await {
+        // The user pressed disconnect while it was starting; that is what they asked for.
+        Err(error) if error.is_cancelled() => Ok(()),
+        other => other,
+    }
 }
 
 #[tauri::command]
 pub async fn disconnect(app: AppHandle) -> Result<()> {
+    reliability::user_took_over(&app);
     session::disconnect(&app).await
 }
 
@@ -246,6 +260,10 @@ pub async fn test_all(app: AppHandle) -> Result<Vec<NodeLatency>> {
         .map(|p| (p.id.clone(), p.server.clone(), p.port))
         .collect();
     let connected = state.status.lock().unwrap().state == ConnState::Connected;
+    // While connected, servers in the running config are measured through the tunnel. The others
+    // (added since connecting, or past the config's limit) are measured directly; asking the engine
+    // about a server it does not have would report them all as dead.
+    let in_tunnel = if connected { clash::known_tags(&app).await.unwrap_or_default() } else { Default::default() };
 
     let mut results = Vec::new();
     for batch in targets.chunks(BATCH) {
@@ -254,8 +272,9 @@ pub async fn test_all(app: AppHandle) -> Result<Vec<NodeLatency>> {
             .cloned()
             .map(|(id, server, port)| {
                 let app = app.clone();
+                let through_tunnel = in_tunnel.contains(&crate::config::node_tag(&id));
                 tauri::async_runtime::spawn(async move {
-                    let ms = if connected {
+                    let ms = if through_tunnel {
                         clash::node_delay(&app, &id).await.ok()
                     } else {
                         net::tcp_latency(&server, port).await.ok()
@@ -308,6 +327,68 @@ pub fn update_settings(app: AppHandle, state: State<AppState>, settings: Setting
     Ok(())
 }
 
+/// The list sources that come with the app. Custom ones are part of the routing settings.
+#[tauri::command]
+pub fn rule_providers() -> Vec<crate::settings::RuleProvider> {
+    crate::rulesets::builtin_providers()
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleSetsStatus {
+    /// The source the files on disk came from, when known.
+    downloaded_from: Option<String>,
+    lists: Vec<crate::rulesets::ListStatus>,
+    /// Whether downloads go through the tunnel right now.
+    through_tunnel: bool,
+}
+
+#[tauri::command]
+pub fn rule_sets_status(app: AppHandle, state: State<AppState>) -> RuleSetsStatus {
+    let dir = state.paths.rule_sets_dir();
+    let routing = state.store.lock().unwrap().routing();
+    RuleSetsStatus {
+        downloaded_from: crate::rulesets::downloaded_from(&dir),
+        lists: crate::rulesets::status(&dir, &routing),
+        through_tunnel: crate::session::tunnel_proxy(&app).is_some(),
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListResult {
+    tag: String,
+    error: Option<String>,
+}
+
+/// Downloads the saved routing's lists now (one when `tag` is given), through the tunnel when it
+/// is up. Ignores the retry pause, since the user asked.
+#[tauri::command]
+pub async fn download_rule_sets(app: AppHandle, state: State<'_, AppState>, tag: Option<String>) -> Result<Vec<ListResult>> {
+    let dir = state.paths.rule_sets_dir();
+    let routing = state.store.lock().unwrap().routing();
+    let provider = crate::rulesets::provider_of(&routing);
+    let items: Vec<_> = crate::rulesets::enabled_lists(&routing).into_iter().filter(|i| tag.as_deref().is_none_or(|t| t == i.tag)).collect();
+    let fetch = crate::rulesets::Fetch { provider: provider.clone(), proxy: crate::session::tunnel_proxy(&app) };
+    let failed = crate::rulesets::fetch_all(&dir, items.clone(), &fetch).await;
+    if tag.is_none() && failed.is_empty() {
+        crate::rulesets::remember_provider(&dir, &provider.id);
+    }
+    Ok(items
+        .into_iter()
+        .map(|item| {
+            let error = failed.iter().find(|(f, _)| f.tag == item.tag).map(|(_, e)| e.to_string());
+            ListResult { tag: item.tag, error }
+        })
+        .collect())
+}
+
+/// Deletes the downloaded file of one list, or of all of them. They are fetched again when needed.
+#[tauri::command]
+pub fn delete_rule_sets(state: State<AppState>, tag: Option<String>) -> Result<()> {
+    crate::rulesets::remove(&state.paths.rule_sets_dir(), tag.as_deref())
+}
+
 #[tauri::command]
 pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
     let autolaunch = app.autolaunch();
@@ -316,8 +397,32 @@ pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn set_routing(state: State<AppState>, settings: RoutingSettings) -> Result<()> {
-    state.store.lock().unwrap().set_routing(settings)
+pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSettings) -> Result<()> {
+    crate::config::validate_dns(&settings.dns)?;
+    crate::rulesets::validate_providers(&settings.custom_providers)?;
+    let dir = state.paths.rule_sets_dir();
+    let provider = crate::rulesets::provider_of(&settings);
+    // Files from another source are replaced (the old ones stay until the new ones arrive).
+    let changed_source = crate::rulesets::downloaded_from(&dir).is_some_and(|id| id != provider.id);
+    let (mut missing, _) = crate::rulesets::plan(&dir, &crate::rulesets::wanted(&settings), crate::rulesets::MAX_AGE);
+    if changed_source {
+        missing = crate::rulesets::wanted(&settings);
+    }
+    state.store.lock().unwrap().set_routing(settings)?;
+    // Fetch new lists now, so connecting later does not wait for them and a failure shows up here.
+    if !missing.is_empty() {
+        let fetch = crate::rulesets::Fetch { provider: provider.clone(), proxy: crate::session::tunnel_proxy(&app) };
+        tauri::async_runtime::spawn(async move {
+            let failed = crate::rulesets::fetch_all(&dir, missing, &fetch).await;
+            if failed.is_empty() {
+                crate::rulesets::remember_provider(&dir, &provider.id);
+            } else {
+                let tags: Vec<String> = failed.into_iter().map(|(item, _)| item.tag).collect();
+                notify::send(&app, "Some lists could not be downloaded", &crate::rulesets::skipped_message(&tags));
+            }
+        });
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -339,7 +444,7 @@ pub async fn install_root_service(state: State<'_, AppState>) -> Result<()> {
         (store.active_core(), store.core_settings())
     };
     let (binary, _) = crate::core::resolve(&state.paths, spec, &settings)?;
-    crate::runner::daemon::install(&state.paths, &binary).await
+    crate::runner::daemon::install(&state.paths, &binary, None).await
 }
 
 #[tauri::command]
@@ -348,18 +453,35 @@ pub async fn uninstall_root_service() -> Result<()> {
 }
 
 #[tauri::command]
-pub async fn restore_network() -> Result<()> {
-    reliability::restore_network().await
+pub async fn restore_network(state: State<'_, AppState>) -> Result<()> {
+    reliability::restore_network().await?;
+    // The helper's marker would otherwise keep saying "blocked" until its next release.
+    let _ = std::fs::remove_file(state.paths.blocked_file());
+    Ok(())
+}
+
+/// Ends a kill-switch block without a password and stops any reconnect that would raise it again.
+#[tauri::command]
+pub async fn unblock_internet(app: AppHandle) -> Result<()> {
+    reliability::unblock(&app).await
 }
 
 #[tauri::command]
-pub async fn add_subscription(app: AppHandle, name: String, url: String) -> Result<RefreshSummary> {
+pub async fn add_subscription(
+    app: AppHandle,
+    name: String,
+    url: String,
+    user_agent: Option<String>,
+    send_device_id: Option<bool>,
+) -> Result<RefreshSummary> {
     subscriptions::validate_url(&url)?;
     let name = name.trim();
     let subscription = Subscription {
         id: uuid::Uuid::new_v4().to_string(),
         name: if name.is_empty() { "Subscription".into() } else { name.to_string() },
         url: url.trim().to_string(),
+        user_agent: subscriptions::clean_user_agent(user_agent.as_deref())?,
+        send_device_id: send_device_id.unwrap_or(false),
         ..Subscription::default()
     };
     let id = subscription.id.clone();
@@ -372,6 +494,45 @@ pub async fn add_subscription(app: AppHandle, name: String, url: String) -> Resu
             Err(error)
         }
     }
+}
+
+/// Changes a subscription's name, link or request options. The caller refreshes it afterwards.
+#[tauri::command]
+pub fn edit_subscription(
+    state: State<AppState>,
+    id: String,
+    name: String,
+    url: String,
+    user_agent: Option<String>,
+    send_device_id: bool,
+) -> Result<()> {
+    subscriptions::validate_url(&url)?;
+    let user_agent = subscriptions::clean_user_agent(user_agent.as_deref())?;
+    let mut store = state.store.lock().unwrap();
+    let mut subscription = store
+        .subscriptions()
+        .iter()
+        .find(|s| s.id == id)
+        .cloned()
+        .ok_or_else(|| AppError::Invalid("subscription not found".into()))?;
+    let name = name.trim();
+    if !name.is_empty() {
+        subscription.name = name.to_string();
+    }
+    if subscription.url != url.trim() {
+        subscription.url = url.trim().to_string();
+        // A new link is a fresh start: no back-off from the old one's failures.
+        subscription.failures = 0;
+        subscription.last_error = None;
+    }
+    subscription.user_agent = user_agent;
+    subscription.send_device_id = send_device_id;
+    store.update_subscription(subscription)
+}
+
+#[tauri::command]
+pub async fn installed_apps() -> Result<Vec<crate::apps::InstalledApp>> {
+    crate::apps::list().await
 }
 
 #[tauri::command]

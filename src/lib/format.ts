@@ -1,4 +1,4 @@
-import type { ImportSummary } from './api';
+import type { ImportSummary, UserInfo } from './api';
 import type { Latency } from './app.svelte';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -12,16 +12,20 @@ export function formatDuration(totalSeconds: number): string {
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 
 export function formatBytes(bytes: number): string {
-	let value = bytes;
+	let value = Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
 	let unit = 0;
 	while (value >= 1024 && unit < UNITS.length - 1) {
 		value /= 1024;
 		unit++;
 	}
-	return `${unit === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${UNITS[unit]}`;
+	return `${unit === 0 ? Math.round(value) : value.toFixed(value < 10 ? 1 : 0)} ${UNITS[unit]}`;
 }
 
+/** A speed with a unit, always rounded, never a raw float. */
 export const formatRate = (bytesPerSecond: number) => `${formatBytes(bytesPerSecond)}/s`;
+
+/** Like `formatRate`, but a dash when nothing is moving, for tables where idle rows should look quiet. */
+export const formatRateOrDash = (bytesPerSecond: number) => (Number.isFinite(bytesPerSecond) && bytesPerSecond >= 1 ? formatRate(bytesPerSecond) : '—');
 
 type LatencyTone = 'ok' | 'warn' | 'bad' | 'idle';
 
@@ -100,14 +104,40 @@ export function profileFlag(name: string, server: string = ''): string {
 	return '🌐';
 }
 
+/** " (why)" for the first reason a link was skipped, or nothing. Long reasons are cut short. */
+export function skippedReason(reason: string | null | undefined): string {
+	if (!reason) return '';
+	return ` (${reason.length > 90 ? reason.slice(0, 89) + '…' : reason})`;
+}
+
 /** One-line result of an import, covering duplicates and unreadable links. */
 export function importMessage(summary: ImportSummary): string {
 	const parts: string[] = [];
 	if (summary.added) parts.push(`Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}`);
 	if (summary.duplicates) parts.push(summary.added ? `${summary.duplicates} already saved` : 'Already imported');
-	if (summary.failed.length) parts.push(`${summary.failed.length} skipped`);
+	if (summary.failed.length) parts.push(`${summary.failed.length} skipped${skippedReason(summary.failed[0])}`);
 	return (parts.join(', ') || 'Nothing to import') + '.';
 }
 
 /** Drops a leading emoji flag from a name, since the flag is shown separately. */
 export const stripFlag = (name: string) => name.replace(/^\p{RI}{2}\s*/u, '');
+
+/**
+ * A provider's plan in a few words, such as "Plan: 12.4 GB left · 9 days left", from the figures
+ * its subscription reports. `total` 0 means unlimited data. `low` is set near the end of either.
+ */
+export function planSummary(info: UserInfo, nowSeconds: number): { text: string; low: boolean } | null {
+	const parts: string[] = [];
+	let low = false;
+	if (info.total > 0) {
+		const left = Math.max(0, info.total - info.upload - info.download);
+		parts.push(left > 0 ? `${formatBytes(left)} left` : 'no data left');
+		low = left <= info.total * 0.1;
+	}
+	if (info.expire > 0) {
+		const days = Math.ceil((info.expire - nowSeconds) / 86400);
+		parts.push(days <= 0 ? 'expired' : days === 1 ? '1 day left' : `${days} days left`);
+		low ||= days <= 3;
+	}
+	return parts.length ? { text: `Plan: ${parts.join(' · ')}`, low } : null;
+}

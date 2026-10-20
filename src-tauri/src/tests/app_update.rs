@@ -129,3 +129,12 @@ fn an_unreachable_feed_is_an_error_not_a_crash() {
     assert!(runtime().block_on(updater.check()).is_err());
     assert!(build_updater(app.handle(), "not a url", TEST_KEY.trim()).is_err());
 }
+
+#[test]
+fn the_updater_can_be_pointed_at_the_tunnel_proxy() {
+    let app = mock_app();
+    // A dead proxy must make the check fail (so it really is used), and a bad proxy string is ignored.
+    let via = build_updater_via(app.handle(), "http://127.0.0.1:1/latest.json", TEST_KEY.trim(), Some("http://127.0.0.1:1")).unwrap();
+    assert!(runtime().block_on(via.check()).is_err());
+    assert!(build_updater_via(app.handle(), "http://127.0.0.1:1/latest.json", TEST_KEY.trim(), Some("not a url")).is_ok());
+}

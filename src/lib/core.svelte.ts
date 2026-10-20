@@ -120,6 +120,28 @@ class CoreStore {
 		if (app.connected) app.notify('Reconnect to use the selected core.', 'info');
 	}
 
+	/** The version a rollback would switch to, or null when there is none. */
+	rollbackTarget = $derived.by(() => {
+		const settings = this.status?.settings;
+		const installed = this.status?.installed.map((i) => i.version) ?? [];
+		if (!settings) return null;
+		return (
+			[settings.goodVersion, settings.previousVersion].find((v) => v && v !== settings.managedVersion && installed.includes(v)) ?? null
+		);
+	});
+
+	async rollback() {
+		const version = await this.run(() => coreApi.rollback());
+		await this.refresh();
+		if (version) app.notify(`Went back to ${version}. Connect to use it.`, 'info');
+	}
+
+	async removeOld() {
+		const removed = await this.run(() => coreApi.removeOld());
+		await this.refresh();
+		if (removed) app.notify(removed.length ? `Removed ${removed.length} old version${removed.length === 1 ? '' : 's'}.` : 'No old versions to remove.', 'info');
+	}
+
 	async remove(version: string) {
 		await this.run(() => coreApi.remove(version));
 		await this.refresh();

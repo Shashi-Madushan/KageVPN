@@ -15,6 +15,8 @@
 	import MiniSpark from './MiniSpark.svelte';
 	import ProfileDialog from './ProfileDialog.svelte';
 	import QrDialog from './QrDialog.svelte';
+	import SubscriptionForm from './SubscriptionForm.svelte';
+	import type { SubscriptionOptions } from '$lib/api';
 
 	let importing = $state(false);
 	let importText = $state('');
@@ -42,11 +44,11 @@
 	let sortBy = $state<'default' | 'latency' | 'name'>('default');
 	let deleteTarget = $state<Profile | null>(null);
 	let deleteSubTarget = $state<Subscription | null>(null);
-	let subName = $state('');
-	let subUrl = $state('');
 	let subError = $state<string | null>(null);
 	let subBusy = $state(false);
 	let showSubForm = $state(false);
+	let editingSub = $state<string | null>(null);
+	let confirmPrune = $state(false);
 
 	$effect(() => {
 		if (onboarding.addServerRequested) {
@@ -113,16 +115,41 @@
 		importing = true;
 	}
 
-	async function addSubscription() {
+	async function addSubscription(name: string, url: string, options: SubscriptionOptions) {
 		subBusy = true;
-		subError = await app.addSubscription(subName, subUrl);
+		subError = await app.addSubscription(name, url, options);
 		subBusy = false;
-		if (!subError) {
-			subName = '';
-			subUrl = '';
-			showSubForm = false;
-		}
+		if (!subError) showSubForm = false;
 	}
+
+	async function saveSubscription(id: string, name: string, url: string, options: SubscriptionOptions) {
+		subBusy = true;
+		subError = await app.editSubscription(id, name, url, options);
+		subBusy = false;
+		if (!subError) editingSub = null;
+	}
+
+	function openSubForm(id: string | null) {
+		subError = null;
+		editingSub = id;
+		showSubForm = id === null;
+	}
+
+	/** Servers the last test could not reach. The one carrying the live connection is never offered. */
+	const unreachable = $derived(
+		app.profiles.filter((p) => {
+			const l = app.latency[p.id];
+			return l && 'failed' in l && !(app.locked && p.id === app.activeId);
+		})
+	);
+	const unreachableFromSubs = $derived(unreachable.filter((p) => p.subscriptionId).length);
+	const pruneMessage = $derived(
+		`${unreachable.length} server${unreachable.length === 1 ? '' : 's'} did not answer the last test and will be removed.` +
+			(unreachableFromSubs
+				? ` ${unreachableFromSubs} came from a subscription and will come back when it refreshes, if the provider still lists them.`
+				: '') +
+			' A server can fail a test on a network that blocks it, so check that you are on your usual network first.'
+	);
 
 	function ago(seconds: number): string {
 		if (!seconds) return 'never';
@@ -133,11 +160,15 @@
 		return `${Math.round(diff / 86400)} d ago`;
 	}
 
+	/** The provider's figures. `total` 0 means unlimited data, which can still have an end date. */
 	function quota(sub: Subscription) {
 		const info = sub.userInfo;
-		if (!info || !info.total) return null;
+		if (!info || (!info.total && !info.expire)) return null;
 		const used = info.upload + info.download;
-		return { used, total: info.total, percent: Math.min(100, (used / info.total) * 100), expire: info.expire };
+		const percent = info.total ? Math.min(100, (used / info.total) * 100) : null;
+		const data = info.total ? `${formatBytes(used)} of ${formatBytes(info.total)}` : `${formatBytes(used)} used · unlimited data`;
+		const expiry = info.expire ? ` · ${info.expire * 1000 < Date.now() ? 'expired' : 'expires'} ${new Date(info.expire * 1000).toLocaleDateString()}` : '';
+		return { percent, text: data + expiry, low: percent !== null && percent >= 90 };
 	}
 
 	function commitRename(id: string, event: Event) {
@@ -147,6 +178,9 @@
 </script>
 
 <HeaderActions>
+	{#if unreachable.length && !testing}
+		<button class="btn danger" onclick={() => (confirmPrune = true)}>Remove {unreachable.length} unreachable…</button>
+	{/if}
 	<button class="btn" disabled={app.profiles.length === 0 || testing} onclick={() => app.testAll()}>{testing ? 'Testing…' : 'Test all'}</button>
 	<button class="btn primary" onclick={openImport}>Add server</button>
 </HeaderActions>
@@ -158,7 +192,7 @@
 			<p>Paste a server link (VLESS, Trojan, Shadowsocks or Hysteria2) to get started, or add a subscription from your provider.</p>
 			<div class="empty-actions">
 				<button class="btn primary" onclick={openImport}>Add server</button>
-				<button class="btn" onclick={() => (showSubForm = true)}>Add subscription</button>
+				<button class="btn" onclick={() => openSubForm(null)}>Add subscription</button>
 			</div>
 		</div>
 	{:else}
@@ -292,36 +326,42 @@
 		<div class="group">
 			{#each app.subscriptions as sub (sub.id)}
 				{@const q = quota(sub)}
-				<div class="item sub-row">
-					<div class="sub-top">
-						<span class="grow">
-							<strong>{sub.name}</strong>
-							<span class="sub">{app.profiles.filter((p) => p.subscriptionId === sub.id).length} servers · updated {ago(sub.lastUpdated)}</span>
-						</span>
-						<button class="btn small" onclick={() => app.refreshSubscription(sub.id)}>Refresh</button>
-						<button class="btn small danger" onclick={() => (deleteSubTarget = sub)}>Remove</button>
-					</div>
-					{#if sub.lastError}<span class="error">{sub.lastError}</span>{/if}
-					{#if q}
-						<div class="quota">
-							<div class="meter"><div style:width="{q.percent}%"></div></div>
-							<span class="sub">{formatBytes(q.used)} of {formatBytes(q.total)}{q.expire ? ` · expires ${new Date(q.expire * 1000).toLocaleDateString()}` : ''}</span>
+				{#if editingSub === sub.id}
+					<SubscriptionForm
+						subscription={sub}
+						busy={subBusy}
+						error={subError}
+						submitLabel="Save and refresh"
+						onsubmit={(name, url, options) => saveSubscription(sub.id, name, url, options)}
+						oncancel={() => (editingSub = null)}
+					/>
+				{:else}
+					<div class="item sub-row">
+						<div class="sub-top">
+							<span class="grow">
+								<strong>{sub.name}</strong>
+								<span class="sub">{app.profiles.filter((p) => p.subscriptionId === sub.id).length} servers · updated {ago(sub.lastUpdated)}</span>
+							</span>
+							<button class="btn small" onclick={() => app.refreshSubscription(sub.id)}>Refresh</button>
+							<button class="btn small" onclick={() => openSubForm(sub.id)}>Edit</button>
+							<button class="btn small danger" onclick={() => (deleteSubTarget = sub)}>Remove</button>
 						</div>
-					{/if}
-				</div>
+						{#if sub.lastError}<span class="error">{sub.lastError}</span>{/if}
+						{#if q}
+							<div class="quota">
+								{#if q.percent !== null}<div class="meter" class:low={q.low}><div style:width="{q.percent}%"></div></div>{/if}
+								<span class="sub">{q.text}</span>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			{/each}
 			{#if showSubForm}
-				<form class="item sub-form" onsubmit={(e) => (e.preventDefault(), addSubscription())}>
-					<input class="input name" placeholder="Name (optional)" bind:value={subName} aria-label="Subscription name" />
-					<input class="input url mono" placeholder="https://…/subscription" bind:value={subUrl} aria-label="Subscription URL" spellcheck="false" use:focusOnMount />
-					<button class="btn primary" disabled={!subUrl.trim() || subBusy}>{subBusy ? 'Adding…' : 'Add'}</button>
-					<button type="button" class="btn" onclick={() => ((showSubForm = false), (subError = null))}>Cancel</button>
-				</form>
-				{#if subError}<div class="item"><span class="error">{subError}</span></div>{/if}
+				<SubscriptionForm busy={subBusy} error={subError} submitLabel="Add" onsubmit={addSubscription} oncancel={() => ((showSubForm = false), (subError = null))} />
 			{:else}
 				<div class="item">
-					<button class="linkbtn" onclick={() => (showSubForm = true)}>+ Add subscription…</button>
-					{#if app.subscriptions.length === 0}<span class="sub">Get a list of servers from a URL and keep it up to date.</span>{/if}
+					<button class="linkbtn" onclick={() => openSubForm(null)}>+ Add subscription…</button>
+					{#if app.subscriptions.length === 0}<span class="sub">Get a list of servers from a URL and keep it up to date. Share links, Clash and sing-box lists all work.</span>{/if}
 				</div>
 			{/if}
 		</div>
@@ -343,6 +383,15 @@
 	confirmLabel="Remove"
 	onconfirm={() => (deleteSubTarget && app.removeSubscription(deleteSubTarget.id), (deleteSubTarget = null))}
 	onclose={() => (deleteSubTarget = null)}
+/>
+
+<ConfirmDialog
+	open={confirmPrune}
+	title="Remove unreachable servers?"
+	message={pruneMessage}
+	confirmLabel="Remove"
+	onconfirm={() => ((confirmPrune = false), app.removeProfiles(unreachable.map((p) => p.id)))}
+	onclose={() => (confirmPrune = false)}
 />
 
 <ImportDialog bind:open={importing} initial={importText} onmanual={async () => (editing = await api.newProfile(protocols.list[0]?.id ?? 'vless'))} />
@@ -597,15 +646,8 @@
 		height: 100%;
 		background: var(--accent);
 	}
-	.sub-form {
-		flex-wrap: wrap;
-	}
-	.sub-form .name {
-		width: 150px;
-	}
-	.sub-form .url {
-		flex: 1;
-		min-width: 160px;
+	.meter.low div {
+		background: var(--warn);
 	}
 	@container (max-width: 560px) {
 		.proto,

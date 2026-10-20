@@ -6,7 +6,9 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{run_admin_script, shell_quote, HELPER};
+use std::sync::atomic::AtomicBool;
+
+use super::{run_admin_script, run_admin_script_until, shell_quote, HELPER};
 use crate::error::Result;
 use crate::paths::AppPaths;
 
@@ -29,8 +31,20 @@ pub fn binary_current(binary: &Path) -> bool {
     ours.len() == theirs.len() && ours.modified().ok() == theirs.modified().ok()
 }
 
+/// Whether the installed service runs the same script this version of the app ships. An app update
+/// that changes the script (a fix, a new kill-switch rule) would otherwise never reach a service
+/// installed earlier, and the two would drift apart without anyone noticing.
+pub fn script_current() -> bool {
+    script_matches(Path::new(SCRIPT))
+}
+
+fn script_matches(installed: &Path) -> bool {
+    std::fs::read(installed).is_ok_and(|bytes| bytes == HELPER.as_bytes())
+}
+
 /// Installs (or refreshes) the service for `binary`, starting it with launchd.
-pub async fn install(paths: &AppPaths, binary: &Path) -> Result<()> {
+/// `cancel` ends the password prompt early when the user stops connecting meanwhile.
+pub async fn install(paths: &AppPaths, binary: &Path, cancel: Option<&AtomicBool>) -> Result<()> {
     let plist = plist(paths);
     let commands = [
         "set -e".to_string(),
@@ -44,7 +58,7 @@ pub async fn install(paths: &AppPaths, binary: &Path) -> Result<()> {
         format!("chmod 644 {}", shell_quote(PLIST)),
         format!("launchctl bootstrap system {}", shell_quote(PLIST)),
     ];
-    run_admin_script(&commands.join("; "), INSTALL_PROMPT).await.map(|_| ())
+    run_admin_script_until(&commands.join("; "), INSTALL_PROMPT, cancel).await.map(|_| ())
 }
 
 pub async fn uninstall() -> Result<()> {
@@ -78,6 +92,32 @@ fn xml_escape(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_installed_script_counts_as_current_only_when_it_matches_this_apps_copy() {
+        let dir = std::env::temp_dir().join(format!("kage-script-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let installed = dir.join("daemon.sh");
+        assert!(!script_matches(&installed), "nothing installed");
+        std::fs::write(&installed, HELPER).unwrap();
+        assert!(script_matches(&installed));
+        std::fs::write(&installed, HELPER.replace("anchor=", "anchor2=")).unwrap();
+        assert!(!script_matches(&installed), "an older script is noticed");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_install_command_writes_the_script_byte_for_byte() {
+        // `script_current` relies on the root copy being identical, so the quoting used to write it
+        // must survive apostrophes, quotes and newlines.
+        let dir = std::env::temp_dir().join(format!("kage-script-quote-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("written.sh");
+        let command = format!("printf %s {} > {}", shell_quote(HELPER), shell_quote(&target.display().to_string()));
+        assert!(std::process::Command::new("/bin/sh").args(["-c", &command]).status().unwrap().success());
+        assert_eq!(std::fs::read(&target).unwrap(), HELPER.as_bytes());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn plist_runs_the_root_script_for_this_data_dir_and_keeps_it_alive() {

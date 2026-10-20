@@ -38,6 +38,43 @@ pub struct CoreSettings {
     pub update_policy: UpdatePolicy,
     /// Installed in the background while connected; becomes active on the next connect.
     pub pending_version: Option<String>,
+    /// The managed version that last carried a verified connection; what a rollback goes back to.
+    pub good_version: Option<String>,
+    /// The managed version that was active before the current one.
+    pub previous_version: Option<String>,
+}
+
+impl CoreSettings {
+    /// Makes `version` the active managed engine and remembers the one it replaces.
+    pub fn activate(&mut self, version: Option<String>) {
+        if self.managed_version != version {
+            if self.managed_version.is_some() {
+                self.previous_version = self.managed_version.take();
+            }
+            self.managed_version = version;
+        }
+    }
+
+    /// Records the active managed engine as one that works. Returns whether anything changed.
+    pub fn mark_good(&mut self) -> bool {
+        match &self.managed_version {
+            Some(active) if self.good_version.as_ref() != Some(active) => {
+                self.good_version = Some(active.clone());
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The version a rollback would switch to: the last good one if it is not the active one,
+    /// otherwise the one used before, and only if it is still installed.
+    pub fn rollback_target(&self, installed: &[String]) -> Option<String> {
+        [&self.good_version, &self.previous_version]
+            .into_iter()
+            .flatten()
+            .find(|v| Some(*v) != self.managed_version.as_ref() && installed.contains(v))
+            .cloned()
+    }
 }
 
 impl Default for CoreSettings {
@@ -49,6 +86,8 @@ impl Default for CoreSettings {
             last_check: 0,
             update_policy: UpdatePolicy::Ask,
             pending_version: None,
+            good_version: None,
+            previous_version: None,
         }
     }
 }
@@ -71,7 +110,7 @@ impl Default for CoreSet {
 pub fn apply_pending(settings: &mut CoreSettings, paths: &AppPaths, spec: &CoreSpec) -> bool {
     let Some(version) = settings.pending_version.take() else { return false };
     if managed_binary(paths, spec, &version).is_file() {
-        settings.managed_version = Some(version);
+        settings.activate(Some(version));
     }
     true
 }
@@ -167,6 +206,22 @@ pub fn installed(paths: &AppPaths, spec: &CoreSpec) -> Vec<Installed> {
         .collect();
     found.sort_by(|a, b| b.0.cmp(&a.0));
     found.into_iter().map(|(_, installed)| installed).collect()
+}
+
+/// Removes every installed version except the active one and the rollback target. Returns the
+/// versions removed.
+pub fn remove_old(paths: &AppPaths, spec: &CoreSpec, settings: &CoreSettings) -> Result<Vec<String>> {
+    let versions: Vec<String> = installed(paths, spec).into_iter().map(|i| i.version).collect();
+    let keep = settings.rollback_target(&versions);
+    let mut removed = Vec::new();
+    for version in versions {
+        if settings.managed_version.as_ref() == Some(&version) || keep.as_ref() == Some(&version) {
+            continue;
+        }
+        fs::remove_dir_all(paths.core_dir_for(spec.id).join(&version))?;
+        removed.push(version);
+    }
+    Ok(removed)
 }
 
 pub fn read_manifest(dir: &Path) -> Option<Manifest> {

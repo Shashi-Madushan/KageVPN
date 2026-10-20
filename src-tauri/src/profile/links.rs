@@ -1,7 +1,7 @@
 //! Turns pasted text, subscriptions and the share button into profiles and back, by
 //! looking up the protocol that owns a link's scheme in the registry.
 
-use super::{common::invalid, def, Profile, ProtocolId, REGISTRY};
+use super::{common::invalid, def, formats, Profile, ProtocolId, REGISTRY};
 use crate::error::Result;
 
 /// The protocol whose scheme starts this token. Schemes are case-insensitive.
@@ -15,8 +15,22 @@ fn is_link(token: &str) -> bool {
     protocol_of(token).is_some()
 }
 
+/// Link schemes people meet in subscriptions that this app cannot run yet. Naming them lets the
+/// import say why servers were skipped instead of leaving a mystery.
+const UNSUPPORTED: &[&str] = &["tuic", "hysteria", "ssr", "wireguard", "wg", "socks", "socks4", "socks5", "anytls", "juicity", "mieru", "ssh"];
+
+fn unsupported_scheme(token: &str) -> Option<&'static str> {
+    let (scheme, _) = token.split_once("://")?;
+    UNSUPPORTED.iter().copied().find(|s| s.eq_ignore_ascii_case(scheme))
+}
+
+/// Some files and servers start with a byte order mark, which would hide the first link's scheme.
+fn clean(text: &str) -> &str {
+    text.trim_start_matches('\u{feff}')
+}
+
 pub fn contains_link(text: &str) -> bool {
-    text.split_whitespace().any(is_link)
+    clean(text).split_whitespace().any(is_link)
 }
 
 pub fn parse_link(link: &str) -> Result<Profile> {
@@ -25,12 +39,48 @@ pub fn parse_link(link: &str) -> Result<Profile> {
     def(protocol).parse(link)
 }
 
-/// Parses every supported link in a block of text, returning profiles and the errors.
+/// Splits pasted text into links. They usually sit one per line, but a name after `#` may hold
+/// unencoded spaces (`#My Server`) and some people paste several links on one line, so a link runs
+/// until the next link starts. Words after a link that has no `#` are not part of it.
+fn split_links(text: &str) -> Vec<String> {
+    let mut links = Vec::new();
+    for line in clean(text).lines() {
+        let mut current: Option<String> = None;
+        for token in line.split_whitespace() {
+            if is_link(token) || unsupported_scheme(token).is_some() {
+                links.extend(current.take());
+                current = Some(token.to_string());
+            } else if let Some(link) = current.as_mut().filter(|link| link.contains('#') && !token.contains("://")) {
+                link.push(' ');
+                link.push_str(token);
+            }
+        }
+        links.extend(current);
+    }
+    links
+}
+
+/// Parses every supported link in a block of text, or every server in a sing-box or Clash
+/// configuration file, returning profiles and the reasons any entry was skipped (one per entry).
 pub fn parse_many(text: &str) -> (Vec<Profile>, Vec<String>) {
+    if let Some(found) = formats::extract(text) {
+        let (mut profiles, mut errors) = (Vec::new(), Vec::new());
+        for entry in found {
+            match entry.map(|(name, link)| parse_link(&link).map_err(|error| format!("{name}: {error}"))) {
+                Ok(Ok(profile)) => profiles.push(profile),
+                Ok(Err(reason)) | Err(reason) => errors.push(reason),
+            }
+        }
+        return (profiles, errors);
+    }
     let mut profiles = Vec::new();
     let mut errors = Vec::new();
-    for token in text.split_whitespace().filter(|t| is_link(t)) {
-        match parse_link(token) {
+    for link in split_links(text) {
+        if let Some(scheme) = unsupported_scheme(&link) {
+            errors.push(format!("{scheme}:// links are not supported yet"));
+            continue;
+        }
+        match parse_link(&link) {
             Ok(profile) => profiles.push(profile),
             Err(error) => errors.push(error.to_string()),
         }

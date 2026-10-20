@@ -58,8 +58,12 @@ fn active_core(state: &AppState) -> (&'static CoreSpec, CoreSettings) {
     (store.active_core(), store.core_settings())
 }
 
-#[tauri::command]
-pub fn core_status(state: State<AppState>) -> CoreStatus {
+/// Runs the engine binary twice to read its version, so it must not run on the main thread: a
+/// synchronous command does, and the first launch of a binary after boot can take a second or more
+/// while macOS checks it, freezing the window and the menu bar meanwhile.
+#[tauri::command(async)]
+pub fn core_status(app: AppHandle) -> CoreStatus {
+    let state = app.state::<AppState>();
     let (spec, settings) = active_core(&state);
     let system = super::locate(spec).ok().and_then(|path| super::inspect(spec, &path, Source::System).ok());
     let (active, error) = match resolve(&state.paths, spec, &settings) {
@@ -111,8 +115,31 @@ pub fn core_use(state: State<AppState>, version: Option<String>) -> Result<()> {
     }
     let mut store = state.store.lock().unwrap();
     let mut settings = store.core_settings();
-    settings.managed_version = version;
+    settings.activate(version);
     store.set_core_settings(settings)
+}
+
+/// Switches back to the engine that last worked (or the one used before the current one).
+#[tauri::command]
+pub fn core_rollback(state: State<AppState>) -> Result<String> {
+    if state.status.lock().unwrap().state != Conn::Disconnected {
+        return Err(AppError::Invalid("disconnect before rolling back the engine".into()));
+    }
+    let (spec, settings) = active_core(&state);
+    let installed: Vec<String> = super::installed(&state.paths, spec).into_iter().map(|i| i.version).collect();
+    let target = settings.rollback_target(&installed).ok_or_else(|| AppError::Invalid("there is no earlier version to go back to".into()))?;
+    let mut store = state.store.lock().unwrap();
+    let mut settings = store.core_settings();
+    settings.activate(Some(target.clone()));
+    store.set_core_settings(settings)?;
+    Ok(target)
+}
+
+/// Deletes the engine versions kept on disk, except the active one and the rollback target.
+#[tauri::command]
+pub fn core_remove_old(state: State<AppState>) -> Result<Vec<String>> {
+    let (spec, settings) = active_core(&state);
+    super::remove_old(&state.paths, spec, &settings)
 }
 
 #[tauri::command]

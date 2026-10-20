@@ -5,6 +5,7 @@
 
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -12,6 +13,46 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::error::{AppError, Result};
 use crate::notify;
 use crate::state::AppState;
+
+/// How long a download may go without receiving a byte before it counts as stalled.
+pub const STALL_AFTER: Duration = Duration::from_secs(30);
+/// How often a waiting download looks at the cancel flag.
+const IDLE_POLL: Duration = Duration::from_millis(250);
+
+/// Feeds a response body to `on_chunk` as it arrives.
+///
+/// Ends with an error when `cancelled` says so or when no data arrives for `stall`. Without that a
+/// dropped connection would wait forever, and with it the one-download-at-a-time lock.
+pub async fn read_body(
+    mut response: reqwest::Response,
+    stall: Duration,
+    cancelled: impl Fn() -> bool,
+    mut on_chunk: impl FnMut(&[u8]) -> Result<()>,
+) -> Result<()> {
+    let mut idle = Duration::ZERO;
+    loop {
+        match tokio::time::timeout(IDLE_POLL, response.chunk()).await {
+            Ok(Ok(Some(chunk))) => {
+                idle = Duration::ZERO;
+                if cancelled() {
+                    return Err(AppError::Launch("download cancelled".into()));
+                }
+                on_chunk(&chunk)?;
+            }
+            Ok(Ok(None)) => return Ok(()),
+            Ok(Err(error)) => return Err(error.into()),
+            Err(_) => {
+                if cancelled() {
+                    return Err(AppError::Launch("download cancelled".into()));
+                }
+                idle += IDLE_POLL;
+                if idle >= stall {
+                    return Err(AppError::Launch("the download stalled, check your connection and try again".into()));
+                }
+            }
+        }
+    }
+}
 
 /// What to do once a newer version is found.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

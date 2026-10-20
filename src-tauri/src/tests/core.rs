@@ -105,3 +105,66 @@ fn every_core_spec_is_well_formed() {
     assert!(core_spec("missing").is_none());
     assert_eq!(default_core().id, CORES[0].id);
 }
+
+fn fake_versions(name: &str, versions: &[&str]) -> (AppPaths, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!("sbgui-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let paths = AppPaths::new(dir.clone()).unwrap();
+    for version in versions {
+        let binary = managed_binary(&paths, &SING_BOX, version);
+        std::fs::create_dir_all(binary.parent().unwrap()).unwrap();
+        std::fs::write(&binary, b"x").unwrap();
+    }
+    (paths, dir)
+}
+
+#[test]
+fn activating_a_version_remembers_the_one_it_replaces() {
+    let mut settings = CoreSettings::default();
+    settings.activate(Some("1.12.0".into()));
+    assert_eq!(settings.previous_version, None, "nothing to remember the first time");
+    settings.activate(Some("1.13.0".into()));
+    assert_eq!(settings.previous_version.as_deref(), Some("1.12.0"));
+    settings.activate(Some("1.13.0".into()));
+    assert_eq!(settings.previous_version.as_deref(), Some("1.12.0"), "re-activating the same one changes nothing");
+}
+
+#[test]
+fn good_is_marked_only_for_the_active_managed_version() {
+    let mut settings = CoreSettings::default();
+    assert!(!settings.mark_good(), "a system engine is not managed");
+    settings.activate(Some("1.12.0".into()));
+    assert!(settings.mark_good());
+    assert!(!settings.mark_good(), "already marked");
+    assert_eq!(settings.good_version.as_deref(), Some("1.12.0"));
+}
+
+#[test]
+fn rollback_prefers_the_good_version_and_needs_it_on_disk() {
+    let mut settings = CoreSettings::default();
+    settings.activate(Some("1.12.0".into()));
+    settings.mark_good();
+    settings.activate(Some("1.13.0".into()));
+    let both = vec!["1.12.0".to_string(), "1.13.0".to_string()];
+    assert_eq!(settings.rollback_target(&both).as_deref(), Some("1.12.0"));
+    assert_eq!(settings.rollback_target(&["1.13.0".to_string()]), None, "the target was deleted");
+    // Good is the active one: fall back to the one used before.
+    settings.activate(Some("1.14.0".into()));
+    settings.mark_good();
+    let all = vec!["1.12.0".to_string(), "1.13.0".to_string(), "1.14.0".to_string()];
+    assert_eq!(settings.rollback_target(&all).as_deref(), Some("1.13.0"));
+}
+
+#[test]
+fn removing_old_versions_keeps_the_active_one_and_the_rollback_target() {
+    let (paths, dir) = fake_versions("removeold", &["1.11.0", "1.12.0", "1.13.0"]);
+    let mut settings = CoreSettings::default();
+    settings.activate(Some("1.12.0".into()));
+    settings.mark_good();
+    settings.activate(Some("1.13.0".into()));
+    let removed = remove_old(&paths, &SING_BOX, &settings).unwrap();
+    assert_eq!(removed, vec!["1.11.0".to_string()]);
+    let left: Vec<String> = installed(&paths, &SING_BOX).into_iter().map(|i| i.version).collect();
+    assert_eq!(left, vec!["1.13.0".to_string(), "1.12.0".to_string()]);
+    let _ = std::fs::remove_dir_all(dir);
+}

@@ -5,6 +5,7 @@ use crate::app_config::CoreSpec;
 use crate::error::{AppError, Result};
 
 const MAX_RESULTS: usize = 12;
+const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Deserialize)]
 struct GithubRelease {
@@ -46,6 +47,7 @@ pub fn asset_name(spec: &CoreSpec, version: &str) -> String {
 pub async fn fetch(spec: &CoreSpec, channel: Channel) -> Result<Vec<Release>> {
     let response = reqwest::Client::builder()
         .user_agent(crate::app_config::user_agent())
+        .timeout(TIMEOUT)
         .build()?
         .get(spec.releases_api)
         .header("Accept", "application/vnd.github+json")

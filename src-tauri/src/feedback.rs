@@ -3,7 +3,6 @@
 //! and diagnostics are included only when they opt in. Everything that could identify a server
 //! is redacted before the preview is shown.
 
-use std::process::Command;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -239,17 +238,6 @@ pub async fn send_report(endpoint: &str, token: Option<&str>, report: &Report) -
 
 // ── Commands ────────────────────────────────────────────────────────────────
 
-fn macos_version() -> String {
-    Command::new("sw_vers")
-        .arg("-productVersion")
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| "unknown".into())
-}
-
 fn text_of<T: Serialize>(value: &T) -> String {
     serde_json::to_value(value).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default()
 }
@@ -277,7 +265,7 @@ fn gather(state: &AppState) -> Context {
     Context {
         app: AppRef { name: app_config::APP_NAME.into(), version: app_config::APP_VERSION.into() },
         diagnostics: DiagnosticsInfo {
-            macos: macos_version(),
+            macos: crate::device::macos_version(),
             arch: std::env::consts::ARCH.into(),
             core: CoreRef { id: spec.id.into(), version: core_version },
             mode: text_of(&mode),

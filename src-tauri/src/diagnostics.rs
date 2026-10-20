@@ -6,7 +6,6 @@ use reqwest::{Client, Proxy};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-use crate::config::MIXED_PORT;
 use crate::error::{AppError, Result};
 
 use crate::app_config::urls::{CONNECTION_PROBE as PING_URL, DNS_LEAK as DNS_URL, IP_DETAILS as IP_URL, SPEED_DOWNLOAD as DOWN_URL, SPEED_UPLOAD as UP_URL};
@@ -104,7 +103,7 @@ fn direct_client() -> Result<Client> {
 }
 
 fn tunnel_client(timeout: u64) -> Result<Client> {
-    let proxy = Proxy::all(format!("socks5h://127.0.0.1:{MIXED_PORT}"))?;
+    let proxy = Proxy::all(crate::config::proxy_url())?;
     Ok(Client::builder().proxy(proxy).timeout(Duration::from_secs(timeout)).build()?)
 }
 
@@ -283,7 +282,7 @@ fn latency_stats(samples: &[f64]) -> (f64, f64) {
     let mut sorted = samples.to_vec();
     sorted.sort_by(|a, b| a.total_cmp(b));
     let mid = sorted.len() / 2;
-    let median = if sorted.len() % 2 == 0 { (sorted[mid - 1] + sorted[mid]) / 2.0 } else { sorted[mid] };
+    let median = if sorted.len().is_multiple_of(2) { (sorted[mid - 1] + sorted[mid]) / 2.0 } else { sorted[mid] };
     let jitter = if samples.len() < 2 {
         0.0
     } else {

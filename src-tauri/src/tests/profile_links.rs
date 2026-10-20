@@ -21,9 +21,10 @@ fn one_paste_can_mix_every_protocol() {
 }
 
 #[test]
-fn schemes_are_case_insensitive_and_unknown_ones_are_ignored() {
-    let (profiles, errors) = parse_many("HY2://pw@h.example.com/#up https://example.com wireguard://x");
+fn schemes_are_case_insensitive_and_web_addresses_are_ignored() {
+    let (profiles, errors) = parse_many("HY2://pw@h.example.com/#up https://example.com");
     assert_eq!((profiles.len(), errors.len()), (1, 0));
+    assert_eq!(profiles[0].name, "up", "a web address after a link is not part of its name");
     assert!(contains_link("hello TROJAN://x@y.example.com"));
     assert!(!contains_link("hello world"));
 }
@@ -78,3 +79,117 @@ fn identity_ignores_name_and_group_but_not_the_server_or_credential() {
     assert_ne!(id(&a), id(&other));
 }
 
+
+/// A tiny deterministic generator, so a failure can be replayed without a fuzzing crate.
+struct Rng(u64);
+
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+
+    fn pick<'a>(&mut self, items: &[&'a str]) -> &'a str {
+        items[(self.next() % items.len() as u64) as usize]
+    }
+}
+
+/// Valid links of every protocol, plus some that reach less common branches.
+fn fuzz_seeds() -> Vec<String> {
+    let mut seeds: Vec<String> = crate::profile::REGISTRY.iter().map(|d| d.sample().to_string()).collect();
+    seeds.extend([
+        format!("vless://{ID}@h.example.com:443?encryption=none&security=tls&sni=s.example.com&fp=chrome&alpn=h2%2Chttp%2F1.1&pcs=0123456789ABCDEF&type=ws&path=%2Fws&host=cdn.example.com#demo"),
+        format!("vless://{ID}@[2001:db8::1]:8443?security=reality&pbk=abc&sid=12&flow=xtls-rprx-vision&type=grpc&serviceName=svc#v6"),
+        "ss://2022-blake3-aes-256-gcm:c2VjcmV0@h.example.com:8388#modern".to_string(),
+        "ss://YWVzLTI1Ni1nY206cGFzcw@h.example.com:8388/?plugin=obfs-local#plug".to_string(),
+        "ss://YWVzLTI1Ni1nY206cGFzc0BoLmV4YW1wbGUuY29tOjgzODg#legacy".to_string(),
+        "hysteria2://pw@h.example.com:443?obfs=salamander&obfs-password=x&insecure=1&sni=s.example.com#hy".to_string(),
+        "hysteria2://pw@h.example.com:443,5000-6000?sni=s.example.com#ports".to_string(),
+        "trojan://p%40ss@h.example.com:443?security=tls&type=grpc&serviceName=svc&allowInsecure=1#t".to_string(),
+    ]);
+    seeds
+}
+
+/// One random edit: swap in a troublesome character, insert one, delete one, or cut the text short.
+fn mutate(text: &str, rng: &mut Rng) -> String {
+    const NASTY: [&str; 14] = ["é", "€", "🇩🇪", "я", "日", "\u{0}", "\u{202e}", "%", "%E2%82", "%zz", "@", ":", "#", "[" ];
+    let mut chars: Vec<char> = text.chars().collect();
+    if chars.is_empty() {
+        return String::new();
+    }
+    let at = (rng.next() % chars.len() as u64) as usize;
+    let nasty = rng.pick(&NASTY);
+    match rng.next() % 4 {
+        0 => {
+            chars.splice(at..=at, nasty.chars());
+        }
+        1 => {
+            chars.splice(at..at, nasty.chars());
+        }
+        2 => {
+            chars.remove(at);
+        }
+        _ => chars.truncate(at),
+    }
+    chars.into_iter().collect()
+}
+
+#[test]
+fn no_parser_panics_on_hostile_links() {
+    // A panic ends the whole app (`panic = "abort"`), and links arrive from pasted text,
+    // subscription servers and deep links, so nothing in here may ever panic. Mutating valid
+    // links reaches far deeper into each parser than random text does.
+    let seeds = fuzz_seeds();
+    let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
+    for _ in 0..60_000 {
+        let mut text = seeds[(rng.next() % seeds.len() as u64) as usize].clone();
+        for _ in 0..=(rng.next() % 4) {
+            text = mutate(&text, &mut rng);
+        }
+        let _ = parse_many(&text);
+        let _ = parse_link(&text);
+        let _ = contains_link(&text);
+    }
+}
+
+#[test]
+fn a_name_with_unencoded_spaces_is_kept_whole() {
+    // Many panels write `#My Server 1` without encoding it; the name used to stop at the first space.
+    let text = format!("vless://{ID}@a.example.com:443?security=tls#My Server 1\nvless://{ID}@b.example.com:443?security=tls#Second\r\n");
+    let (profiles, errors) = parse_many(&text);
+    assert!(errors.is_empty(), "{errors:?}");
+    let names: Vec<_> = profiles.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["My Server 1", "Second"]);
+}
+
+#[test]
+fn several_links_on_one_line_still_split_apart() {
+    let text = format!("vless://{ID}@a.example.com:443?security=tls#Frankfurt DE trojan://pw@b.example.com:443#Paris FR");
+    let (profiles, errors) = parse_many(&text);
+    assert!(errors.is_empty(), "{errors:?}");
+    let names: Vec<_> = profiles.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["Frankfurt DE", "Paris FR"]);
+}
+
+#[test]
+fn words_after_a_link_without_a_name_are_not_glued_on() {
+    let (profiles, _) = parse_many(&format!("vless://{ID}@a.example.com:443?security=tls (my main server)"));
+    assert_eq!(profiles[0].name, "a.example.com");
+}
+
+#[test]
+fn a_byte_order_mark_does_not_hide_the_first_link() {
+    let text = format!("\u{feff}vless://{ID}@a.example.com:443?security=tls#First\ntrojan://pw@b.example.com:443#Second");
+    assert!(contains_link(&text));
+    assert_eq!(parse_many(&text).0.len(), 2);
+}
+
+#[test]
+fn links_this_app_cannot_run_are_reported_not_silently_dropped() {
+    let text = format!("tuic://u:p@a.example.com:443?alpn=h3#T\nvless://{ID}@b.example.com:443?security=tls#V\nHYSTERIA://x@c.example.com:1#H\nwireguard://k@d.example.com:51820");
+    let (profiles, errors) = parse_many(&text);
+    assert_eq!(profiles.len(), 1);
+    assert_eq!(errors, ["tuic:// links are not supported yet", "hysteria:// links are not supported yet", "wireguard:// links are not supported yet"]);
+}

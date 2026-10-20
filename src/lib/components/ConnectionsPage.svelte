@@ -1,16 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type LiveConnection } from '$lib/api';
+	import { api, type LiveConnection, type RouteAction, type Rule } from '$lib/api';
 	import { app } from '$lib/app.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import HeaderActions from './HeaderActions.svelte';
-	import { formatBytes, formatRate } from '$lib/format';
+	import { formatBytes, formatRateOrDash } from '$lib/format';
 
 	let rows = $state<LiveConnection[]>([]);
 	let query = $state('');
 	let error = $state<string | null>(null);
 
 	type Tally = { up: number; down: number };
-	type AppRow = { name: string; open: number; rate: Tally; total: Tally; hosts: string[] };
+	/** `target` is the routing rule that would match this app: its bundle, or its process name. */
+	type AppRow = { name: string; open: number; rate: Tally; total: Tally; hosts: string[]; target: Pick<Rule, 'kind' | 'value'> | null };
 
 	let view = $state<'apps' | 'connections'>('apps');
 	let expanded = $state<string | null>(null);
@@ -82,19 +84,57 @@
 			.sort((a, b) => b.down + b.up - (a.down + a.up))
 	);
 
+	type SortKey = 'name' | 'conns' | 'up' | 'down' | 'sent' | 'received';
+	let sortKey = $state<SortKey>('down');
+	let sortDesc = $state(true);
+
+	function sortBy(key: SortKey) {
+		if (sortKey === key) sortDesc = !sortDesc;
+		else {
+			sortKey = key;
+			sortDesc = key !== 'name';
+		}
+	}
+
+	const sortValue = (a: AppRow, key: SortKey): number | string =>
+		({ name: a.name.toLowerCase(), conns: a.open, up: a.rate.up, down: a.rate.down, sent: a.total.up, received: a.total.down })[key];
+
+	const columns: { key: SortKey; label: string; num: boolean }[] = [
+		{ key: 'name', label: 'App', num: false },
+		{ key: 'conns', label: 'Conns', num: true },
+		{ key: 'up', label: '↑ Upload', num: true },
+		{ key: 'down', label: '↓ Download', num: true },
+		{ key: 'sent', label: '↑ Sent', num: true },
+		{ key: 'received', label: '↓ Received', num: true }
+	];
+
 	const apps = $derived.by((): AppRow[] => {
 		const q = query.trim().toLowerCase();
 		const byName = new Map<string, AppRow>();
 		for (const c of rows) {
 			const name = appName(c.process);
 			if (q && !`${name} ${c.host} ${c.destinationIp}`.toLowerCase().includes(q)) continue;
-			const row = byName.get(name) ?? { name, open: 0, rate: rates[name] ?? { up: 0, down: 0 }, total: totals[name] ?? { up: 0, down: 0 }, hosts: [] };
+			const row = byName.get(name) ?? { name, open: 0, rate: rates[name] ?? { up: 0, down: 0 }, total: totals[name] ?? { up: 0, down: 0 }, hosts: [], target: null };
 			row.open++;
+			if (c.appPath) row.target = { kind: 'app', value: c.appPath };
+			else if (!row.target && c.process) row.target = { kind: 'processName', value: c.process };
 			const host = c.host || c.destinationIp;
 			if (host && !row.hosts.includes(host) && row.hosts.length < 8) row.hosts.push(host);
 			byName.set(name, row);
 		}
 		return [...byName.values()].sort((a, b) => b.rate.up + b.rate.down - (a.rate.up + a.rate.down) || b.total.up + b.total.down - (a.total.up + a.total.down));
+	});
+
+	/** The fastest app right now, so each row's activity bar is relative to it. */
+	const peak = $derived(Math.max(1, ...apps.map((a) => a.rate.up + a.rate.down)));
+	const sortedApps = $derived.by(() => {
+		const dir = sortDesc ? -1 : 1;
+		return [...apps].sort((a, b) => {
+			const x = sortValue(a, sortKey);
+			const y = sortValue(b, sortKey);
+			const order = typeof x === 'string' ? x.localeCompare(y as string) : x - (y as number);
+			return order * dir || a.name.localeCompare(b.name);
+		});
 	});
 
 	function age(start: string): string {
@@ -108,6 +148,38 @@
 	async function close(id: string) {
 		await api.closeConnection(id).catch((e) => app.notify(String(e)));
 		load();
+	}
+
+	const actionWords: Record<RouteAction, { short: string; title: string }> = {
+		proxy: { short: 'Through VPN', title: 'Send {app} through the VPN?' },
+		direct: { short: 'Direct', title: 'Send {app} directly, outside the VPN?' },
+		block: { short: 'Block', title: 'Block {app}?' }
+	};
+
+	let routing = $state<{ row: AppRow; action: RouteAction } | null>(null);
+
+	/** The rule that already decides where this app's traffic goes, if any. */
+	function currentRule(row: AppRow) {
+		if (app.routing?.mode !== 'rule' || !row.target) return null;
+		return app.routing.rules.find((r) => r.enabled && r.kind === row.target!.kind && r.value === row.target!.value) ?? null;
+	}
+
+	const routeMessage = $derived.by(() => {
+		if (!routing || !app.routing) return '';
+		const mode = app.routing.mode;
+		const modeNote =
+			mode === 'rule' ? '' : ` Routing switches to Rules mode; everything else still goes ${mode === 'direct' ? 'direct' : 'through the VPN'}.`;
+		const when = app.connected ? ' The VPN reconnects to apply it.' : ' It applies the next time you connect.';
+		return `This adds a rule at the top of your routing rules, so it wins over broader ones.${modeNote}${when}`;
+	});
+
+	async function applyRoute() {
+		if (!routing?.row.target) return;
+		const { row, action } = routing;
+		routing = null;
+		if (!(await app.routeApp(row.target!, action))) return;
+		if (app.connected) await app.restartTunnel();
+		else app.notify(`Rule added for ${row.name}.`, 'info');
 	}
 
 	async function closeAll() {
@@ -137,22 +209,43 @@
 		<div class="card empty">No open connections.</div>
 	{:else if view === 'apps'}
 		<div class="card list apps">
-			<div class="head"><span>App</span><span class="num">Conns</span><span class="num">↑ Sending</span><span class="num">↓ Receiving</span><span class="num">↑ Sent</span><span class="num">↓ Received</span></div>
-			{#each apps as a (a.name)}
-				<button class="row app-row" class:busy={a.rate.up > 20_000} onclick={() => (expanded = expanded === a.name ? null : a.name)} aria-expanded={expanded === a.name}>
-					<span class="app-name" title={a.name}>{a.name}</span>
-					<span class="num tabular">{a.open}</span>
-					<span class="num tabular up">{a.rate.up >= 1 ? formatRate(a.rate.up) : '—'}</span>
-					<span class="num tabular down">{a.rate.down >= 1 ? formatRate(a.rate.down) : '—'}</span>
-					<span class="num tabular">{formatBytes(a.total.up)}</span>
-					<span class="num tabular">{formatBytes(a.total.down)}</span>
+			<div class="head" role="row">
+				{#each columns as col (col.key)}
+					<button class="th" class:num={col.num} class:on={sortKey === col.key} onclick={() => sortBy(col.key)} title="Sort by {col.label.replace(/^[↑↓] /, '')}">
+						{col.label}{#if sortKey === col.key}<span class="arrow" aria-hidden="true">{sortDesc ? '▾' : '▴'}</span>{/if}
+					</button>
+				{/each}
+			</div>
+			{#each sortedApps as a (a.name)}
+				<button class="row app-row" onclick={() => (expanded = expanded === a.name ? null : a.name)} aria-expanded={expanded === a.name}>
+					<span class="app-cell">
+						<span class="avatar" aria-hidden="true">{a.name.charAt(0).toUpperCase()}</span>
+						<span class="app-name" title={a.name}>{a.name}</span>
+					</span>
+					<span class="num tabular"><span class="pill">{a.open}</span></span>
+					<span class="num tabular up" class:idle={a.rate.up < 1}>{formatRateOrDash(a.rate.up)}</span>
+					<span class="num tabular down" class:idle={a.rate.down < 1}>{formatRateOrDash(a.rate.down)}</span>
+					<span class="num tabular dim">{formatBytes(a.total.up)}</span>
+					<span class="num tabular dim">{formatBytes(a.total.down)}</span>
+					<span class="meter" aria-hidden="true"><i style="width:{Math.min(100, ((a.rate.up + a.rate.down) / peak) * 100)}%"></i></span>
 				</button>
 				{#if expanded === a.name}
-					<div class="hosts mono">{a.hosts.join(' · ')}{a.open > a.hosts.length ? ' …' : ''}</div>
+					{@const rule = currentRule(a)}
+					<div class="detail">
+						<div class="hosts mono">{a.hosts.join(' · ')}{a.open > a.hosts.length ? ' …' : ''}</div>
+						{#if a.target}
+							<div class="route-bar">
+								<span>Route {a.name}{rule ? ` (now: ${actionWords[rule.action].short})` : ''}</span>
+								{#each ['proxy', 'direct', 'block'] as const as action (action)}
+									<button class="btn small" class:active={rule?.action === action} disabled={rule?.action === action} onclick={() => (routing = { row: a, action })}>{actionWords[action].short}</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
 				{/if}
 			{/each}
 		</div>
-		<small class="note">Rates are measured every 2 seconds. Sent and Received count what moved since you opened this page.</small>
+		<small class="note">Speeds are measured every 2 seconds. Sent and Received count what moved since you opened this page. Click a column to sort. Click an app to route it through the VPN, directly or not at all.</small>
 	{:else}
 		<div class="card list">
 			<div class="head"><span>Destination</span><span>App</span><span>Route</span><span class="num">Down</span><span class="num">Up</span><span class="num">Age</span><span></span></div>
@@ -170,6 +263,16 @@
 		</div>
 	{/if}
 </div>
+
+<ConfirmDialog
+	open={routing !== null}
+	title={routing ? actionWords[routing.action].title.replace('{app}', routing.row.name) : ''}
+	message={routeMessage}
+	confirmLabel={app.connected ? 'Add rule and reconnect' : 'Add rule'}
+	danger={routing?.action === 'block'}
+	onconfirm={applyRoute}
+	onclose={() => (routing = null)}
+/>
 
 <style>
 	.page {
@@ -209,25 +312,106 @@
 	}
 	.apps .head,
 	.apps .row {
-		grid-template-columns: minmax(100px, 2fr) 48px repeat(4, minmax(64px, 1fr));
+		grid-template-columns: minmax(140px, 2fr) 56px repeat(4, minmax(92px, 1fr));
+		column-gap: 12px;
+	}
+	.apps .head {
+		position: sticky;
+		top: 0;
+		background: var(--surface-strong);
+		padding-block: 4px;
+	}
+	.th {
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-transform: inherit;
+		letter-spacing: inherit;
+		text-align: left;
+		padding: 6px 0;
+		white-space: nowrap;
+	}
+	.th.num {
+		text-align: right;
+	}
+	.th:hover,
+	.th.on {
+		color: var(--fg);
+	}
+	.arrow {
+		margin-left: 4px;
+		font-size: 9px;
 	}
 	.app-row {
+		position: relative;
 		width: 100%;
 		border: 0;
 		background: none;
 		color: inherit;
 		font: inherit;
 		text-align: left;
+		padding-block: 10px;
 	}
 	.app-row:hover {
 		background: var(--hairline);
 	}
-	.app-row.busy .up {
-		color: var(--up);
-		font-weight: 650;
+	.app-cell {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: 0;
+	}
+	.avatar {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		border-radius: 7px;
+		background: var(--hairline);
+		color: var(--fg-muted);
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.pill {
+		display: inline-block;
+		min-width: 22px;
+		padding: 1px 7px;
+		border-radius: 999px;
+		background: var(--hairline);
+		text-align: center;
+		font-size: 12px;
+	}
+	.dim {
+		color: var(--fg-muted);
+	}
+	.idle {
+		color: var(--fg-muted);
+		opacity: 0.6;
+	}
+	.meter {
+		position: absolute;
+		left: 12px;
+		right: 12px;
+		bottom: 3px;
+		height: 2px;
+		overflow: hidden;
+		padding: 0 !important;
+	}
+	.meter i {
+		display: block;
+		height: 100%;
+		border-radius: 2px;
+		background: var(--accent);
+		opacity: 0.55;
+		transition: width 0.4s ease;
 	}
 	.app-name {
 		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.down {
 		color: var(--down);
@@ -235,11 +419,35 @@
 	.up {
 		color: var(--up);
 	}
+	.detail {
+		background: color-mix(in srgb, var(--hairline) 50%, transparent);
+	}
+	.route-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+		padding: 0 12px 10px;
+		font-size: 12px;
+	}
+	.route-bar span {
+		flex: 1;
+		min-width: 140px;
+		color: var(--fg-muted);
+	}
+	.route-bar .btn {
+		min-height: 24px;
+		padding: 2px 10px;
+		font-size: 12px;
+	}
+	.route-bar .active {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
 	.hosts {
 		padding: 6px 12px 8px;
 		font-size: 11px;
 		color: var(--fg-muted);
-		background: color-mix(in srgb, var(--hairline) 50%, transparent);
 		overflow-wrap: anywhere;
 	}
 	.note {
