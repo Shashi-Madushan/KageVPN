@@ -128,9 +128,9 @@
 		gap: 4px;
 	}
 	.bar {
-		height: 6px;
-		border-radius: 3px;
-		background: var(--hairline);
+		height: 8px;
+		border-radius: 4px;
+		background: color-mix(in srgb, var(--fg) 16%, transparent);
 		overflow: hidden;
 	}
 	.bar i {

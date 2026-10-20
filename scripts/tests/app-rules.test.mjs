@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activePreset, appChoice, applyPreset, blockedApps, mergeCapRules, otherAppRules, reconcileDraft, setAppChoice } from '../../src/lib/appRules.ts';
+import { appChoice, applyPreset, blockedApps, mergeCapRules, otherAppRules, reconcileDraft, setAppChoice } from '../../src/lib/appRules.ts';
 
 const slack = '/Applications/Slack.app';
 const rule = (value, action, extra = {}) => ({ id: value + action, enabled: true, kind: 'app', value, action, ...extra });
@@ -52,9 +52,6 @@ test('presets set the default and keep per-app rules', () => {
 	const settings = { mode: 'global', finalAction: 'proxy', rules: [rule(slack, 'direct')] };
 	const only = applyPreset(settings, 'only');
 	assert.deepEqual([only.mode, only.finalAction, only.rules.length], ['rule', 'direct', 1]);
-	assert.equal(activePreset(only), 'only');
-	assert.equal(activePreset(applyPreset(settings, 'except')), 'except');
-	assert.equal(activePreset(settings), null);
 	assert.equal(settings.mode, 'global', 'the input is not changed');
 });
 

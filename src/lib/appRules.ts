@@ -55,12 +55,6 @@ export function applyPreset(settings: RoutingSettings, preset: Preset): RoutingS
 	return { ...settings, mode: 'rule', finalAction: preset === 'except' ? 'proxy' : 'direct' };
 }
 
-/** Which preset the settings amount to, if either. */
-export function activePreset(settings: RoutingSettings): Preset | null {
-	if (settings.mode !== 'rule') return null;
-	return settings.finalAction === 'proxy' ? 'except' : settings.finalAction === 'direct' ? 'only' : null;
-}
-
 /**
  * The draft of the Routing page after a data cap changed the stored rules behind it: the stored
  * cap blocks replace the draft's own, and the user's edits stay.

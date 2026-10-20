@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, usageApi, type InstalledApp, type RouteAction, type RoutingSettings } from '$lib/api';
-	import { activePreset, appChoice, applyPreset, blockedApps, otherAppRules, setAppChoice, type AppKind, type Preset } from '$lib/appRules';
+	import { appChoice, applyPreset, blockedApps, otherAppRules, setAppChoice, type AppKind } from '$lib/appRules';
 	import { caps } from '$lib/caps.svelte';
-	import { barTone } from '$lib/capView';
+	import { barTone, periodSpan } from '$lib/capView';
 	import { formatBytes } from '$lib/format';
 	import type { Page } from '$lib/pages';
 	import { installedApps } from './AppPicker.svelte';
@@ -18,11 +18,6 @@
 		{ value: 'direct', label: 'Direct' },
 		{ value: 'block', label: 'Block' }
 	];
-	const presets: { id: Preset; title: string; text: string }[] = [
-		{ id: 'except', title: 'VPN for everything except…', text: 'All traffic uses the VPN. Pick apps to send direct or block.' },
-		{ id: 'only', title: 'VPN only for…', text: 'Nothing uses the VPN. Pick the apps that should.' }
-	];
-
 	let apps = $state<InstalledApp[]>([]);
 	let loading = $state(true);
 	let query = $state('');
@@ -67,7 +62,6 @@
 	}
 
 	const installedPaths = $derived(new Set(apps.map((a) => a.path)));
-	const preset = $derived(activePreset(draft));
 	const blocked = $derived(blockedApps(draft.rules));
 	const others = $derived(otherAppRules(draft.rules, installedPaths));
 	const missingCaps = $derived(caps.list.filter((c) => !c.installed));
@@ -93,16 +87,10 @@
 </script>
 
 <div class="panel" role="tabpanel">
-	<p class="lead">Choose, app by app, whether it uses the VPN, goes direct or is blocked, and set data limits. Changes to the choices apply when you press Save changes; data caps apply at once.</p>
-
-	<div class="presets" role="radiogroup" aria-label="Default for apps">
-		{#each presets as p (p.id)}
-			<button type="button" role="radio" aria-checked={preset === p.id} class:active={preset === p.id} onclick={() => Object.assign(draft, applyPreset($state.snapshot(draft) as RoutingSettings, p.id))}>
-				<strong>{p.title}</strong>
-				<small>{p.text}</small>
-			</button>
-		{/each}
-	</div>
+	<p class="lead">
+		Choices (VPN, Direct, Block) apply when you press Save changes; data caps apply at once. An app with no choice follows
+		{#if onnavigate}<button type="button" class="link" onclick={() => onnavigate('routing')}>the default set in Routing</button>{:else}the default set in Routing{/if}.
+	</p>
 
 	{#if blocked.length}
 		<div class="blocked" aria-label="Blocked apps">
@@ -140,8 +128,14 @@
 						<span class="name" title={a.path}>{a.name}</span>
 						<small>
 							{#if choice?.origin === 'cap'}Blocked by a data cap{:else if choice}Your choice{:else}Follows the default ({draft.mode === 'rule' && draft.finalAction === 'direct' ? 'direct' : draft.mode === 'direct' ? 'idle' : 'VPN'}){/if}
-							{#if used}· {formatBytes(used)} this period{/if}
+							{#if used && !cap}· {formatBytes(used)} this period{/if}
 						</small>
+						{#if cap}
+							<span class="capline {barTone(cap.state)}">
+								<span class="capbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.min(100, Math.round(cap.percent))} aria-label="{a.name} data cap used"><i style="width:{Math.max(cap.percent > 0 ? 3 : 0, Math.min(100, cap.percent))}%"></i></span>
+								<small>{formatBytes(cap.used)} of {formatBytes(cap.limitBytes)} {periodSpan(cap.period)}</small>
+							</span>
+						{/if}
 					</span>
 					<Segmented {options} value={(choice?.action ?? '') as RouteAction} label="What {a.name} does" disabled={choice?.origin === 'cap'} onchange={(v) => choose('app', a.path, v)} />
 					{#if choice?.origin === 'manual'}
@@ -150,7 +144,7 @@
 						<span class="reset-gap"></span>
 					{/if}
 					<button type="button" class="capbtn {cap ? barTone(cap.state) : ''}" class:set={cap} aria-expanded={capOpen === a.path} aria-label="Data cap for {a.name}" onclick={() => (capOpen = capOpen === a.path ? null : a.path)}>
-						{#if cap}<span class="mini" aria-hidden="true"><i style="width:{Math.min(100, cap.percent)}%"></i></span>{Math.round(cap.percent)}%{:else}Cap{/if}
+						{#if cap}{Math.round(cap.percent)}%{:else}Cap{/if}
 					</button>
 				</div>
 				{#if capOpen === a.path}
@@ -206,30 +200,6 @@
 	h4 {
 		margin: 8px 0 0;
 		font-size: 13px;
-	}
-	.presets {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-		gap: 8px;
-	}
-	.presets button {
-		display: grid;
-		gap: 2px;
-		text-align: left;
-		padding: 10px 12px;
-		border-radius: 10px;
-		border: 1px solid var(--hairline);
-		background: none;
-		color: inherit;
-		font: inherit;
-	}
-	.presets button.active {
-		border-color: var(--accent);
-		background: color-mix(in srgb, var(--accent) 10%, transparent);
-	}
-	.presets small {
-		color: var(--fg-muted);
-		font-size: 11px;
 	}
 	.blocked {
 		display: flex;
@@ -314,17 +284,48 @@
 	}
 	.capbtn {
 		flex: none;
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-		min-width: 46px;
-		justify-content: center;
-		padding: 2px 8px;
+		width: 64px;
+		padding: 3px 0;
 		border-radius: 999px;
 		border: 1px solid var(--hairline);
 		background: none;
 		color: var(--fg-muted);
-		font-size: 11px;
+		font-size: 12px;
+		text-align: center;
+	}
+	.capbtn:hover {
+		color: var(--fg);
+		border-color: var(--fg-muted);
+	}
+	.capline {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 3px;
+	}
+	.capbar {
+		flex: 0 1 140px;
+		height: 6px;
+		min-width: 60px;
+		border-radius: 3px;
+		background: color-mix(in srgb, var(--fg) 16%, transparent);
+		overflow: hidden;
+	}
+	.capbar i {
+		display: block;
+		height: 100%;
+		border-radius: 3px;
+		background: var(--accent);
+		transition: width 0.4s ease;
+	}
+	.capline.warn .capbar i {
+		background: var(--warn);
+	}
+	.capline.over .capbar i {
+		background: var(--danger);
+	}
+	.capline.off .capbar i {
+		background: var(--fg-muted);
 	}
 	.capbtn.set {
 		color: var(--fg);
@@ -335,19 +336,6 @@
 	.capbtn.over {
 		border-color: var(--danger);
 		color: var(--danger);
-	}
-	.mini {
-		display: inline-block;
-		width: 22px;
-		height: 4px;
-		border-radius: 2px;
-		background: var(--hairline);
-		overflow: hidden;
-	}
-	.mini i {
-		display: block;
-		height: 100%;
-		background: currentColor;
 	}
 	.btn.small {
 		min-height: 24px;
