@@ -3,12 +3,13 @@
 	import Icon, { type IconName } from './Icon.svelte';
 	import AppPicker, { appLabel } from './AppPicker.svelte';
 	import RuleSources from './RuleSources.svelte';
+	import AppsTab from './AppsTab.svelte';
 	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { CATEGORIES, COUNTRIES, describeList, findEntry } from '$lib/ruleCatalog';
 	import { ruleLists } from '$lib/ruleLists.svelte';
 
-	type Tab = 'rules' | 'lists' | 'test';
+	type Tab = 'rules' | 'apps' | 'lists' | 'test';
 
 	let draft = $state<RoutingSettings | null>(null);
 	let tab = $state<Tab>('rules');
@@ -70,6 +71,7 @@
 	];
 	const tabs = $derived([
 		{ id: 'rules' as Tab, label: 'Your rules', count: draft?.rules.length ?? 0 },
+		{ id: 'apps' as Tab, label: 'Apps', count: null },
 		{ id: 'lists' as Tab, label: 'Ready-made lists', count: draft?.ruleSets.length ?? 0 },
 		{ id: 'test' as Tab, label: 'Try a website', count: null }
 	]);
@@ -241,7 +243,9 @@
 					{/each}
 				</div>
 
-				{#if tab === 'rules'}
+				{#if tab === 'apps'}
+					<AppsTab {draft} />
+				{:else if tab === 'rules'}
 					<div class="panel" role="tabpanel">
 						<p class="lead">Rules are checked from top to bottom. The first one that matches decides.</p>
 

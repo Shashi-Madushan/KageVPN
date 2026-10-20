@@ -205,7 +205,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
 
       <h2 id="routing-modes">Choosing a Mode</h2>
       <p>
-        <strong>Routing</strong> opens with three cards: <strong>Everything through the VPN</strong> (the simplest choice), <strong>Choose by rules</strong>, and <strong>VPN idle</strong> (the VPN stays on but nothing uses it, which is handy for testing). In rules mode, an <strong>Everything else</strong> card decides what happens to traffic that no rule or list matches: <em>Use the VPN</em> or <em>Go direct</em>. Below it, three tabs hold <strong>Your rules</strong>, <strong>Ready-made lists</strong> and <strong>Try a website</strong>. <strong>Network</strong>, at the bottom, has the local-network and DNS settings that apply in every mode. Changes apply when you press <strong>Save changes</strong> and connect again.
+        <strong>Routing</strong> opens with three cards: <strong>Everything through the VPN</strong> (the simplest choice), <strong>Choose by rules</strong>, and <strong>VPN idle</strong> (the VPN stays on but nothing uses it, which is handy for testing). In rules mode, an <strong>Everything else</strong> card decides what happens to traffic that no rule or list matches: <em>Use the VPN</em> or <em>Go direct</em>. Below it, four tabs hold <strong>Your rules</strong>, <strong>Apps</strong>, <strong>Ready-made lists</strong> and <strong>Try a website</strong>. <strong>Network</strong>, at the bottom, has the local-network and DNS settings that apply in every mode. Changes apply when you press <strong>Save changes</strong> and connect again.
       </p>
 
       <h2 id="built-in-rules">Ready-made Lists</h2>
@@ -247,6 +247,11 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
       </ul>
       <p>
         You can also add an app rule from <strong>Connections &rarr; Apps</strong>: click an app and choose <strong>Through VPN</strong>, <strong>Direct</strong> or <strong>Block</strong>. If routing was in Global or Direct mode, it switches to Rules mode with the same default for everything else, so only that app changes. The VPN reconnects to apply it.
+      </p>
+
+      <h2 id="app-rules">Choosing by App</h2>
+      <p>
+        The <strong>Apps</strong> tab lists the apps installed on your Mac. Next to each one, choose <em>VPN</em>, <em>Direct</em> or <em>Block</em>, or press the reset arrow to follow the default again. Two buttons at the top set that default: <em>VPN for everything except&hellip;</em> (all traffic uses the VPN, and you pick the exceptions) or <em>VPN only for&hellip;</em> (nothing uses the VPN until you pick an app). Blocked apps are listed above the search box with an <em>Unblock</em> button, and each row shows how much data the app used through the VPN this billing period when app tracking is on. Programs without an app icon, and rules for apps you have since removed, appear at the bottom and are edited under <strong>Your rules</strong>. This app and its engine cannot be blocked, because the VPN itself needs the network. Changes apply when you press <strong>Save changes</strong>.
       </p>
 
       <h2 id="dns-resolution-rules">Route Precedence</h2>

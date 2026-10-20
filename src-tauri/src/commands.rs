@@ -399,6 +399,7 @@ pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
 #[tauri::command]
 pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSettings) -> Result<()> {
     crate::config::validate_dns(&settings.dns)?;
+    crate::config::validate_rules(&settings.rules)?;
     crate::rulesets::validate_providers(&settings.custom_providers)?;
     let dir = state.paths.rule_sets_dir();
     let provider = crate::rulesets::provider_of(&settings);
@@ -533,6 +534,15 @@ pub fn edit_subscription(
 #[tauri::command]
 pub async fn installed_apps() -> Result<Vec<crate::apps::InstalledApp>> {
     crate::apps::list().await
+}
+
+/// The icon of an installed app as a `data:` URL, or nothing when it has none.
+#[tauri::command]
+pub async fn app_icon(state: State<'_, AppState>, path: String) -> Result<Option<String>> {
+    let cache = state.paths.app_icons_dir();
+    tauri::async_runtime::spawn_blocking(move || crate::apps::icon_data_url(std::path::Path::new(&path), &cache))
+        .await
+        .map_err(|e| AppError::Launch(format!("could not read the app icon: {e}")))
 }
 
 #[tauri::command]

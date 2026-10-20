@@ -155,6 +155,7 @@ pub fn run() {
             commands::edit_subscription,
             commands::refresh_subscription,
             commands::installed_apps,
+            commands::app_icon,
             commands::delete_profiles,
             backup::export_backup,
             backup::restore_backup,

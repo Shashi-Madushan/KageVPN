@@ -234,7 +234,7 @@ fn app_rules_pass_singbox_check() {
         (RuleKind::App, "/Applications/Google Chrome.app", Action::Proxy),
         (RuleKind::ProcessName, "curl", Action::Block),
     ] {
-        routing.rules.push(Rule { id: value.into(), enabled: true, kind, value: value.into(), action });
+        routing.rules.push(Rule { id: value.into(), enabled: true, kind, value: value.into(), action, ..Default::default() });
     }
     let cfg = build(&input(&profiles, &routing, Mode::Proxy)).unwrap();
     let rules = cfg["route"]["rules"].as_array().unwrap();
@@ -361,4 +361,42 @@ fn fake_ip_config_passes_singbox_check() {
     let path = std::env::temp_dir().join("kage-vpn-test-fakeip.json");
     std::fs::write(&path, serde_json::to_vec(&build(&input(&profiles, &routing, Mode::Tun)).unwrap()).unwrap()).unwrap();
     crate::singbox::check(&binary, &path).unwrap();
+}
+
+// ── Per-app rules ───────────────────────────────────────────────────────────
+
+fn rule(kind: RuleKind, value: &str, action: Action, enabled: bool) -> Rule {
+    Rule { id: value.into(), enabled, kind, value: value.into(), action, ..Default::default() }
+}
+
+#[test]
+fn blocking_this_app_or_the_engine_is_refused() {
+    for (kind, value) in [
+        (RuleKind::App, "/Applications/Kage VPN.app"),
+        (RuleKind::App, "/Users/me/Applications/Kage VPN.app/"),
+        (RuleKind::ProcessName, "sing-box"),
+        (RuleKind::ProcessName, "Kage VPN"),
+    ] {
+        let err = validate_rules(&[rule(kind, value, Action::Block, true)]).unwrap_err().to_string();
+        assert!(err.contains("cannot be blocked"), "{value}: {err}");
+    }
+}
+
+#[test]
+fn other_apps_and_other_actions_are_accepted() {
+    assert!(validate_rules(&[rule(RuleKind::App, "/Applications/Slack.app", Action::Block, true)]).is_ok());
+    // Sending this app direct is harmless, and a disabled block does nothing.
+    assert!(validate_rules(&[rule(RuleKind::App, "/Applications/Kage VPN.app", Action::Direct, true)]).is_ok());
+    assert!(validate_rules(&[rule(RuleKind::ProcessName, "sing-box", Action::Block, false)]).is_ok());
+    // A domain that merely contains the name is not an app rule.
+    assert!(validate_rules(&[rule(RuleKind::Domain, "kage", Action::Block, true)]).is_ok());
+}
+
+#[test]
+fn a_rule_saved_before_origin_existed_loads_as_manual() {
+    let old: Rule = serde_json::from_str(r#"{"id":"1","enabled":true,"kind":"app","value":"/Applications/Slack.app","action":"direct"}"#).unwrap();
+    assert_eq!(old.origin, crate::settings::RuleOrigin::Manual);
+    let cap: Rule = serde_json::from_str(r#"{"id":"2","origin":"cap","kind":"app","value":"/x.app","action":"block"}"#).unwrap();
+    assert_eq!(cap.origin, crate::settings::RuleOrigin::Cap);
+    assert!(serde_json::to_string(&cap).unwrap().contains("\"origin\":\"cap\""));
 }

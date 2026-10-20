@@ -315,6 +315,34 @@ pub fn custom_dns_server(text: &str) -> Option<Value> {
     Some(server)
 }
 
+/// Whether a rule names this app or the engine. Blocking either would cut the app's own health
+/// checks, downloads and local proxy traffic, so it is refused rather than saved.
+fn names_the_app_itself(rule: &Rule) -> bool {
+    let value = rule.value.trim().trim_end_matches('/');
+    let name = value.rsplit('/').next().unwrap_or(value);
+    let name = name.strip_suffix(".app").unwrap_or(name).to_lowercase();
+    let own = [crate::app_config::APP_NAME.to_lowercase(), "kage vpn".into(), "kage-vpn".into(), "kage".into(), "sing-box".into()];
+    match rule.kind {
+        RuleKind::ProcessName => own.contains(&name),
+        RuleKind::App => {
+            own.contains(&name)
+                || std::env::current_exe().ok().and_then(|exe| crate::apps::bundle_of(&exe.to_string_lossy()).map(str::to_string)).is_some_and(|bundle| bundle == value)
+        }
+        _ => false,
+    }
+}
+
+/// Refuses an enabled block rule for this app or the engine.
+pub fn validate_rules(rules: &[Rule]) -> Result<()> {
+    if let Some(rule) = rules.iter().find(|r| r.enabled && r.action == Action::Block && names_the_app_itself(r)) {
+        let label = rule.value.rsplit('/').next().unwrap_or(&rule.value).trim_end_matches(".app");
+        return Err(AppError::Invalid(format!(
+            "{label} cannot be blocked: this app and its engine need the network for the VPN itself, health checks and downloads"
+        )));
+    }
+    Ok(())
+}
+
 /// Refuses a custom DNS entry that would silently turn into "use the system resolver".
 pub fn validate_dns(settings: &DnsSettings) -> Result<()> {
     if settings.provider == DnsProvider::Custom && custom_dns_server(&settings.custom).is_none() {

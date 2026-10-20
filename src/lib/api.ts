@@ -132,12 +132,16 @@ export type RuleKind = 'domain' | 'domainSuffix' | 'domainKeyword' | 'ipCidr' | 
 export type RuleSetKind = 'geoip' | 'geosite';
 export type DnsProvider = 'cloudflare' | 'google' | 'quad9' | 'custom' | 'system';
 
+/** `cap` marks a block put in place by a per-app data cap. */
+export type RuleOrigin = 'manual' | 'cap';
+
 export interface Rule {
 	id: string;
 	enabled: boolean;
 	kind: RuleKind;
 	value: string;
 	action: RouteAction;
+	origin?: RuleOrigin;
 }
 
 export interface RuleSetRef {
@@ -388,6 +392,7 @@ export const api = {
 	editSubscription: (id: string, name: string, url: string, options: SubscriptionOptions) =>
 		invoke<void>('edit_subscription', { id, name, url, ...options }),
 	installedApps: () => invoke<InstalledApp[]>('installed_apps'),
+	appIcon: (path: string) => invoke<string | null>('app_icon', { path }),
 	deleteProfiles: (ids: string[]) => invoke<number>('delete_profiles', { ids }),
 	exportBackup: () => invoke<string>('export_backup'),
 	restoreBackup: (text: string) => invoke<RestoreSummary>('restore_backup', { text }),

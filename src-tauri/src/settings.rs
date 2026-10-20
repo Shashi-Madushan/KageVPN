@@ -32,6 +32,15 @@ pub enum RuleKind {
     App,
 }
 
+/// Who made a rule: the user, or the app itself (a per-app data cap that blocked the app).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RuleOrigin {
+    #[default]
+    Manual,
+    Cap,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Rule {
@@ -40,6 +49,7 @@ pub struct Rule {
     pub kind: RuleKind,
     pub value: String,
     pub action: Action,
+    pub origin: RuleOrigin,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

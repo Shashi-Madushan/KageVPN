@@ -83,6 +83,46 @@ fn stem(bundle: &Path) -> String {
     bundle.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
+/// The icon file name an app's `Info.plist` names, with the `.icns` ending macOS leaves out.
+pub fn icon_file_name(info: &plist::Dictionary) -> Option<String> {
+    let name = info.get("CFBundleIconFile").and_then(|v| v.as_string()).map(str::trim).filter(|n| !n.is_empty())?;
+    Some(if name.to_lowercase().ends_with(".icns") { name.to_string() } else { format!("{name}.icns") })
+}
+
+/// A file name that is safe to create for any bundle path.
+fn cache_name(bundle: &Path) -> String {
+    let flat: String = bundle.to_string_lossy().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+    format!("{flat}.png")
+}
+
+/// The app's icon as a small `data:` PNG, made once with `sips` and kept in `cache`. `None` when the
+/// app has no icon or the conversion fails; the caller shows the app's initial instead.
+pub fn icon_data_url(bundle: &Path, cache: &Path) -> Option<String> {
+    if !is_bundle(bundle) {
+        return None;
+    }
+    let cached = cache.join(cache_name(bundle));
+    if !cached.is_file() {
+        let info = plist::Value::from_file(bundle.join("Contents/Info.plist")).ok()?;
+        let icns = bundle.join("Contents/Resources").join(icon_file_name(info.as_dictionary()?)?);
+        std::fs::create_dir_all(cache).ok()?;
+        let made = std::process::Command::new("/usr/bin/sips")
+            .args(["-s", "format", "png", "-Z", "48"])
+            .arg(&icns)
+            .arg("--out")
+            .arg(&cached)
+            .output()
+            .ok()?;
+        if !made.status.success() || !cached.is_file() {
+            let _ = std::fs::remove_file(&cached);
+            return None;
+        }
+    }
+    use base64::Engine;
+    let bytes = std::fs::read(&cached).ok()?;
+    Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
 /// The app a running process belongs to: the outermost `.app` in its path, so a helper deep inside
 /// (`.../Google Chrome.app/Contents/Frameworks/.../Google Chrome Helper.app/...`) counts as the app.
 pub fn bundle_of(process_path: &str) -> Option<&str> {

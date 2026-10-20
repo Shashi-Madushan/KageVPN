@@ -28,6 +28,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
     <div class="docs-prose">
       <h2 id="oct-20">20 October 2026</h2>
       <ul>
+        <li><strong>New:</strong> An <strong>Apps</strong> tab on the Routing page lists your installed apps, each with <em>VPN</em>, <em>Direct</em> and <em>Block</em> buttons, app icons, and the data the app used this period. Two presets set whether everything uses the VPN except the apps you pick, or only the apps you pick use it. Blocked apps are listed with an <em>Unblock</em> button. This app and its engine cannot be blocked.</li>
         <li><strong>Improved:</strong> <strong>Connections</strong> (Apps tab) is redesigned. Columns are wide enough that numbers no longer get cut off, each app has an initial and a connection count, and a thin bar shows how busy it is compared with the others. Click a column heading to sort.</li>
         <li><strong>Fixed:</strong> Speeds under 1 KB could show as long raw numbers such as <code>896.0519740&hellip;</code>. They are now rounded, and an idle app shows a dash.</li>
         <li><strong>Improved:</strong> Checking for and downloading app updates goes through the VPN while it is connected, so a network that blocks GitHub no longer stops updates. It falls back to a direct request if that fails. When no release has been published yet, the message now says so.</li>
