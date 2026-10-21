@@ -96,7 +96,7 @@ Then open the app normally. You only need to do this once per downloaded version
 
 ### Servers
 
-- **Import** from pasted links, text files, **Clash or sing-box configuration files**, or **subscription URLs** (share-link, Clash and sing-box lists), with scheduled refresh and the data and expiry information your provider reports. You are told once when 90% of the plan's data is used and when it runs out.
+- **Import** from pasted links, text files, **Clash or sing-box configuration files**, or **subscription URLs** (share-link, Clash and sing-box lists), with scheduled refresh and the data and expiry information your provider reports. You are told once when 90% of the plan's data is used and when it runs out, and 7 days, 3 days and 1 day before the plan expires.
 - **Subscription options** for providers that are picky: choose which client the app asks as (v2rayN, sing-box, Clash Meta or your own), and send a device ID for providers that limit how many devices may use a subscription. Errors such as a reached device limit or an expired link say what to do.
 - **Search, group, favorite and sort** servers. Duplicates are detected and skipped.
 - **Latency tests** for every server, with a small history graph for each, and one button to remove every server the last test could not reach.
@@ -109,10 +109,16 @@ Then open the app normally. You only need to do this once per downloaded version
 - **Auto-reconnect** when the tunnel drops, and a **restart a dead tunnel** setting (on by default for new installs).
 - **Crash log.** If sing-box or the tunnel stops on its own you get a notification with the reason, and an entry in a crash log you can open inside the app.
 - **Kill switch** (experimental, TUN mode, off by default). It blocks traffic if the tunnel stops, and keeps blocking through restarts and failed reconnects until the new tunnel is verified. Home says when it is blocking and has an **Unblock internet** button. It allows IPv6 neighbour discovery and your server's addresses (looked up again every few minutes), and lets DNS through for up to 20 seconds while a reconnect starts. It has been tested against a stub firewall only, not yet on the real one.
+- **Connect or disconnect by network.** Remember the networks you use and choose for each one whether the VPN connects, disconnects or does nothing when you join it. Networks are recognised by their router, so no location permission is needed.
 - **Local proxy password** (optional). Protect the proxy on `127.0.0.1` with a login so other users on your Mac cannot use your tunnel.
-- **Routing rules** with Global, Rules and Direct modes. Match by domain, domain suffix, keyword, IP range, process name, or an **app picked from your installed apps** (split tunneling: the rule covers the app's helper processes too), send traffic through the VPN, direct, or block it, bypass your local network, and choose your DNS resolver. A built-in tester shows which rule a domain would hit.
+- **Routing rules** with Global, Rules and Direct modes. Match by domain, domain suffix, keyword, IP range, process name, or an **app picked from your installed apps** (split tunneling: the rule covers the app's helper processes too), send traffic through the VPN, direct, or block it, bypass your local network, and choose your DNS resolver (Cloudflare, Google, Quad9, the system resolver, or your own DoH, DoT, DoQ or plain server). An **Allow IPv6** switch (off for new installs) keeps IPv6 out of the tunnel for servers without it, and optional **FakeIP** routes Full System traffic by site name. A built-in tester shows which rule a domain would hit.
 - **Ready-made lists** picked by name (countries, ad networks, Google, Netflix, Telegram and dozens more) instead of codes, kept up to date for you. Choose where they come from (SagerNet, MetaCubeX, v2rayN, Loyalsoldier, runetfreedom, or your own address), and download, update or delete them from the app. Downloads go through the VPN first when connected, so a network that blocks GitHub does not matter.
-- **Live connections** with an **Apps** view (which app is sending and receiving data right now, with live speeds, and a one-click choice to always send it through the VPN, directly or not at all) and a table of every open connection, its app, destination, route and traffic, with the option to close any of them.
+- **Live connections** with an **Apps** view (which app is sending and receiving data right now, with live speeds, and a **Route** button to always send it through the VPN, directly or not at all) and a table of every open connection, its app, destination, route and traffic, with the option to close any of them.
+
+### Apps
+
+- **App controls.** A page listing the apps installed on your Mac, each with its icon and *VPN*, *Direct* and *Block* buttons (split tunneling without typing executable names). Apps without a choice follow your routing default, and blocked apps are gathered at the top with an Unblock button. The app itself and its engine cannot be blocked.
+- **Data caps for apps.** Give any app a daily, weekly or monthly limit. You are told at 80% and 100%, and can choose to be offered **Block now** at the limit; Home shows the offer as a card. A block lifts itself when the period starts over. Counting is approximate and covers traffic through the VPN.
 
 ### Insight
 
@@ -148,7 +154,11 @@ All screenshots use made-up demo data: example hosts and documentation-range IP 
 | <img src="docs/images/usage.png" alt="Data usage" width="430"><br>**Data usage**: totals, trend and per-app breakdown | <img src="docs/images/diagnostics.png" alt="Diagnostics and speed test" width="430"><br>**Diagnostics**: leak check and speed test |
 | <img src="docs/images/routing.png" alt="Routing" width="430"><br>**Routing**: rules, ready-made lists and DNS | <img src="docs/images/connections.png" alt="Live connections" width="430"><br>**Connections**: every open connection, live |
 | <img src="docs/images/engine.png" alt="Engine manager" width="430"><br>**Engine**: versions, channels and update policy | <img src="docs/images/logs.png" alt="Logs" width="430"><br>**Logs**: filters, search and error hints |
-| <img src="docs/images/settings.png" alt="Settings" width="430"><br>**Settings**: reliability, updates and shortcuts | <img src="docs/images/welcome.png" alt="Welcome tour" width="430"><br>**Welcome tour**: first-run setup |
+| <img src="docs/images/settings.png" alt="Settings" width="430"><br>**Settings**: reliability, kill switch and networks | <img src="docs/images/welcome.png" alt="Welcome tour" width="430"><br>**Welcome tour**: first-run setup |
+| <img src="docs/images/apps.png" alt="App controls" width="430"><br>**App controls**: VPN, Direct or Block for each app | <img src="docs/images/app-cap-editor.png" alt="Data cap editor" width="430"><br>**Data caps**: a daily, weekly or monthly limit per app |
+| <img src="docs/images/home-cap-offer.png" alt="Home with a data cap offer" width="430"><br>**Block now**: offered when an app reaches its cap | <img src="docs/images/connections-apps.png" alt="Connections, Apps view" width="430"><br>**Connections, Apps**: live speeds and a Route button |
+| <img src="docs/images/routing-lists.png" alt="Ready-made lists" width="430"><br>**Ready-made lists**: countries and services by name | <img src="docs/images/settings-usage.png" alt="Data limit and usage privacy settings" width="430"><br>**Data limit and privacy**: what is recorded and kept |
+| <img src="docs/images/tour-apps.png" alt="Setup guide, per-app step" width="430"><br>**Setup guide**: now covers rules, apps and data caps | |
 
 <div align="center">
 <img src="docs/images/menu-bar-popover.png" alt="Menu bar popover" width="240"><br>

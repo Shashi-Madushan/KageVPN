@@ -6,11 +6,15 @@
   'use strict';
 
   var DEFAULT_SLUG = 'getting-started/overview';
+  // Width and height of each picture (scaled to 1600 wide), so the page does not jump as they load.
+  // Keep in step with scripts/screenshots/capture.mjs.
   var IMAGE_SIZES = {
-    'home.png': [1600, 925], 'home-dark.png': [1600, 1075], 'welcome.png': [1600, 1075],
-    'servers.png': [1600, 1000], 'connections.png': [1600, 1000], 'logs.png': [1600, 1000],
-    'routing.png': [1600, 1125], 'diagnostics.png': [1600, 1125], 'engine.png': [1600, 1125],
-    'settings.png': [1600, 1375], 'usage.png': [1600, 1475], 'menu-bar-popover.png': [640, 920]
+    'home.png': [1600, 972], 'home-dark.png': [1600, 1111], 'home-cap-offer.png': [1600, 1111], 'welcome.png': [1600, 1111],
+    'tour-apps.png': [1600, 1111], 'servers.png': [1600, 1041], 'connections.png': [1600, 1041],
+    'connections-apps.png': [1600, 1041], 'logs.png': [1600, 1041], 'routing.png': [1600, 1158],
+    'routing-lists.png': [1600, 1274], 'apps.png': [1600, 1158], 'app-cap-editor.png': [1600, 1158],
+    'diagnostics.png': [1600, 1158], 'engine.png': [1600, 1158], 'settings.png': [1600, 1390],
+    'settings-usage.png': [1600, 1390], 'usage.png': [1600, 1483], 'menu-bar-popover.png': [640, 1100]
   };
 
   var nav = window.DOCS_NAVIGATION || [];
@@ -134,6 +138,11 @@
         (next ? '<a class="pagination-card next" href="#/' + esc(next.slug) + '"><span class="pagination-label">Next</span><span class="pagination-title">' + esc(next.title) + '</span></a>' : '') + '</nav>';
     }
     article.innerHTML = html;
+    // Pictures placed inside a page's text get the same sizes as the one at the top.
+    article.querySelectorAll('.shot img:not([width])').forEach(function (img) {
+      var size = IMAGE_SIZES[img.getAttribute('src').split('/').pop()];
+      if (size) { img.setAttribute('width', size[0]); img.setAttribute('height', size[1]); }
+    });
 
     renderToc(toc);
     initSpy();

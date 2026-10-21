@@ -47,6 +47,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
         <li><strong>Fixed:</strong> <strong>Settings:</strong> a switch that could not be saved (for example a cancelled password prompt for the root service) flips back instead of showing a change that did not happen.</li>
         <li><strong>Fixed:</strong> <strong>Data limit:</strong> changing a usage setting no longer brings back a data warning that was already shown.</li>
         <li><strong>Fixed:</strong> <strong>Apps:</strong> after you save, the page shows exactly what was stored, including blocks set by a data cap, instead of the copy it sent.</li>
+        <li><strong>Docs:</strong> a new <strong>App Controls &amp; Data Caps</strong> page, sections on network settings (IPv6, DNS, FakeIP), connecting by network and the setup guide, and new screenshots of App controls, data caps, the Connections Apps view, ready-made lists and the data settings. Corrected: Proxy Only mode does not change the macOS system proxy settings (the docs said it did), and DNS is described as it really works in each mode.</li>
       </ul>
 
       <h2 id="oct-20">20 October 2026: version 0.2.0</h2>

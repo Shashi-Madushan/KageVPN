@@ -295,3 +295,11 @@
 **Context**: Documentation
 
 ---
+
+## Screenshots and docs for the new pages
+**Timestamp**: 2026-10-21T14:00:00Z
+**User Input**: "dow we have the new pages images and things also , update the image s and the genaration script to get the new pages fetures and tebas also and update the docs with new ofetures pages"
+**AI Response**: Extended scripts/screenshots (demo caps, a cap-blocked app, per-app rules, known networks, made-up app icons, connection counters that grow so live speeds show; new shots apps, app-cap-editor, home-cap-offer, connections-apps, routing-lists, settings-usage, tour-apps; every picture also copied to docs-site/assets/images). Regenerated all 19 pictures and reviewed them. Docs: new user-guide page App Controls & Data Caps (moved from Routing), Network Settings on Routing, connect by network, the setup guide, overview capabilities, README features and screenshot table, image sizes in app.js. Corrected two wrong statements (Proxy Only does not set the system proxy; DNS per mode) and toned down the kill switch claim on the overview.
+**Context**: Documentation
+
+---
