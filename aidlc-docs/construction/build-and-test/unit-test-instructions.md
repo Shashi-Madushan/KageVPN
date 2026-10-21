@@ -11,6 +11,6 @@ New tests: core (rollback), repair, diagnostics_bundle (needs macOS `unzip`), ne
 
 ## Round 4, pull request 1 additions
 - Rust: `profile_tuic`, `profile_hysteria`, `profile_ssh`, `profile_wireguard` (each protocol's links, refusals with their messages, round trips, outbound or endpoint shape); the shared conformance suite now covers nine protocols, endpoints and the build-feature declarations; `profile_formats` (sing-box `endpoints`, old and new WireGuard forms, Clash entries for every new type); `profile_links` (import notes, `.conf` files named after the file); `config` (endpoints placement, engine-feature filtering, real `sing-box check` of an SSH server with a pasted key and of WireGuard in both modes); `health` (UDP protocols skip the TCP test).
-- `src-tauri/src/tests/fixtures/test_ssh_key` is a throwaway key made for the tests; it opens nothing.
+- The SSH key for the real `sing-box check` is made by `ssh-keygen` when the test runs (the test is skipped without it); earlier commits kept one in `tests/fixtures/test_ssh_key`, removed after GitGuardian flagged it.
 - Scripts: `format.test.mjs` (import notes in the toast, WireGuard file detection).
 - Expected: `cargo test --lib -- --test-threads=4` 409 passed; `npm run test:scripts` 39 passed.

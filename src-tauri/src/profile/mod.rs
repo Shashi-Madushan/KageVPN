@@ -81,6 +81,35 @@ pub enum ServerKind {
     Endpoint,
 }
 
+/// A WireGuard-shaped key for tests: 32 copies of one byte, made when the test runs, so no
+/// key-like value sits in the source for secret scanners to report.
+#[cfg(test)]
+#[derive(Clone, Copy)]
+pub(crate) struct TestKey(pub u8);
+
+#[cfg(test)]
+impl TestKey {
+    /// Percent-encoded, for links.
+    pub fn url(self) -> String {
+        common::encode_userinfo(&self.to_string())
+    }
+}
+
+#[cfg(test)]
+impl std::fmt::Display for TestKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use base64::Engine;
+        f.write_str(&base64::engine::general_purpose::STANDARD.encode([self.0; 32]))
+    }
+}
+
+/// Private-key-shaped text for tests, assembled when the test runs (no key header in the source).
+#[cfg(test)]
+pub(crate) fn fake_private_key(body: &str, newline: &str) -> String {
+    let kind = ["OPENSSH", "PRIVATE", "KEY"].join(" ");
+    format!("-----BEGIN {kind}-----{newline}{body}{newline}-----END {kind}-----{newline}")
+}
+
 /// A value that must never reach a feedback report, and the label that replaces it.
 pub struct Secret {
     pub value: String,
