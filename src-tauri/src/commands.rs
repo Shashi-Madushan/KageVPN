@@ -396,8 +396,10 @@ pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
     result.map_err(|e| AppError::Launch(e.to_string()))
 }
 
+/// Returns the settings as stored, which keep the data-cap blocks the page's copy may lack, so the
+/// page can show what really applies.
 #[tauri::command]
-pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: RoutingSettings) -> Result<()> {
+pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: RoutingSettings) -> Result<RoutingSettings> {
     // Blocks put in place by a data cap are managed only by the cap commands: a stale draft can
     // neither remove nor recreate one.
     let stored = state.store.lock().unwrap().routing();
@@ -413,7 +415,7 @@ pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: Routing
     if changed_source {
         missing = crate::rulesets::wanted(&settings);
     }
-    state.store.lock().unwrap().set_routing(settings)?;
+    state.store.lock().unwrap().set_routing(settings.clone())?;
     // Fetch new lists now, so connecting later does not wait for them and a failure shows up here.
     if !missing.is_empty() {
         let fetch = crate::rulesets::Fetch { provider: provider.clone(), proxy: crate::session::tunnel_proxy(&app) };
@@ -427,12 +429,12 @@ pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: Routing
             }
         });
     }
-    Ok(())
+    Ok(settings)
 }
 
-#[tauri::command]
 /// Returns true when the kill switch was turned on but only takes effect at the next connect.
 /// Turning it off needs nothing here: the block watch lifts a block that is no longer wanted.
+#[tauri::command]
 pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: ReliabilitySettings) -> Result<bool> {
     let was = state.store.lock().unwrap().reliability().kill_switch;
     let now = settings.kill_switch;

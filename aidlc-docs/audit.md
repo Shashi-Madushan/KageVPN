@@ -271,3 +271,19 @@
 **Context**: CONSTRUCTION - bug fixes, code generation complete
 
 ---
+
+## Change request: fix wiring problems 6 to 8
+**Timestamp**: 2026-10-21T12:00:00Z
+**User Input**: "Fix wiring problems 6, 7 and 8 with tests, then commit."
+**AI Response**: Treated as isolated fixes (minimal depth). Proceeding to code generation with tests, then commit.
+**Context**: CONSTRUCTION - bug fixes, code generation
+
+---
+
+## Wiring fixes 6 to 8 done
+**Timestamp**: 2026-10-21T12:45:00Z
+**User Input**: (none; completion of the request above)
+**AI Response**: set_routing returns the stored settings and the store shows them (cap blocks included); copies are compared with routingText/sameRouting so Rust's field order and filled-in origins are not changes. The DNS note comes from dnsNote() and says the choice is unused in Proxy Only mode. ensure_rules_mode reports how many saved rules and lists a switch to Rules mode turns on; cap_block, routeApp and the Apps page save show a notice. Tests in tests/usage_caps.rs, scripts/tests/app-rules.test.mjs and scripts/tests/dns-note.test.mjs. cargo test 353 passed, clippy clean, svelte-check 0 errors, script tests 37 passed, vite build ok. Not run in the live app.
+**Context**: CONSTRUCTION - bug fixes, code generation complete
+
+---

@@ -187,6 +187,25 @@ fn a_block_switches_global_and_direct_routing_to_rules_mode() {
     assert_eq!(routing.final_action, Action::Direct, "rules mode is left alone");
 }
 
+#[test]
+fn the_switch_to_rules_mode_counts_the_saved_rules_and_lists_it_turns_on() {
+    let rule = |enabled| Rule { id: "r".into(), enabled, kind: RuleKind::DomainSuffix, value: "example.com".into(), ..Rule::default() };
+    let list = |enabled| crate::settings::RuleSetRef { enabled, country: "cn".into(), ..Default::default() };
+    let mut routing = RoutingSettings { mode: RouteMode::Global, rules: vec![rule(true), rule(true), rule(false)], rule_sets: vec![list(true), list(false)], ..RoutingSettings::default() };
+    assert_eq!(ensure_rules_mode(&mut routing), (2, 1), "switched off ones stay off");
+    assert_eq!(ensure_rules_mode(&mut routing), (0, 0), "already in Rules mode: nothing new applies");
+}
+
+#[test]
+fn the_notice_names_what_now_applies_and_is_skipped_when_nothing_does() {
+    assert_eq!(now_active_message(0, 0), None);
+    let one = now_active_message(1, 0).unwrap();
+    assert!(one.contains("1 saved rule from Routing"), "{one}");
+    let both = now_active_message(3, 2).unwrap();
+    assert!(both.contains("3 saved rules and 2 lists"), "{both}");
+    assert!(now_active_message(0, 1).unwrap().contains("1 saved list from"));
+}
+
 // ── Status ──────────────────────────────────────────────────────────────────
 
 #[test]

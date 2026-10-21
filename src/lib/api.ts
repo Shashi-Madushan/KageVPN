@@ -404,7 +404,8 @@ export const api = {
 	profileQr: (id: string) => invoke<string>('profile_qr', { id }),
 	setAuto: (settings: AutoSettings) => invoke<void>('set_auto', { settings }),
 	testAll: () => invoke<NodeLatency[]>('test_all'),
-	setRouting: (settings: RoutingSettings) => invoke<void>('set_routing', { settings }),
+	/** Resolves to the settings as stored, with the data-cap blocks the sent copy may lack. */
+	setRouting: (settings: RoutingSettings) => invoke<RoutingSettings>('set_routing', { settings }),
 	ruleProviders: () => invoke<RuleProvider[]>('rule_providers'),
 	ruleSetsStatus: () => invoke<RuleSetsStatus>('rule_sets_status'),
 	downloadRuleSets: (tag: string | null) => invoke<ListResult[]>('download_rule_sets', { tag }),

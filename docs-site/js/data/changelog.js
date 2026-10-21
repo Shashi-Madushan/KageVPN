@@ -34,6 +34,9 @@ window.DOCS_PAGES["changelog/changelog"] = {
         <li><strong>Kill switch:</strong> turning it off while it is blocking lifts the block within a second. Turning it on while connected says it starts protecting you at the next connect.</li>
         <li><strong>Settings:</strong> a switch that could not be saved (for example a cancelled password prompt for the root service) flips back instead of showing a change that did not happen.</li>
         <li><strong>Data limit:</strong> changing a usage setting no longer brings back a data warning that was already shown.</li>
+        <li><strong>Apps:</strong> after you save, the page shows exactly what was stored, including blocks set by a data cap, instead of the copy it sent.</li>
+        <li><strong>Apps:</strong> when a per-app choice or a data-cap block switches routing to Rules mode, a notice names the saved rules and lists that now apply too.</li>
+        <li><strong>DNS:</strong> in Proxy Only mode the DNS provider says it is not used there, since the server looks up site names.</li>
       </ul>
       <h2 id="oct-20">20 October 2026</h2>
       <ul>

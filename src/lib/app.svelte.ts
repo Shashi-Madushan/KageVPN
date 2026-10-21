@@ -2,6 +2,7 @@ import { listen } from '@tauri-apps/api/event';
 import { setPath } from './path';
 import { skippedReason } from './format';
 import { protocols } from './protocols.svelte';
+import { nowActive, nowActiveMessage } from './appRules';
 import {
 	api,
 	type AppInfo,
@@ -354,10 +355,18 @@ class AppStore {
 		return true;
 	}
 
-	async saveRouting(next: RoutingSettings) {
-		if (!(await this.attempt(() => api.setRouting(next)))) return;
-		this.routing = next;
-		this.notify(this.connected ? 'Routing saved. Reconnect to apply it.' : 'Routing saved.', 'info');
+	/**
+	 * Saves the routing settings and shows them as stored. `fromApps` is for the Apps page, where a
+	 * per-app choice can switch the mode to Rules: saved rules that start applying are then named.
+	 */
+	async saveRouting(next: RoutingSettings, fromApps = false) {
+		const before = this.routing ? ($state.snapshot(this.routing) as RoutingSettings) : null;
+		let stored = next;
+		if (!(await this.attempt(async () => (stored = await api.setRouting(next))))) return;
+		this.routing = stored;
+		const saved = this.connected ? 'Routing saved. Reconnect to apply it.' : 'Routing saved.';
+		const switched = fromApps && before ? nowActiveMessage(nowActive(before, stored)) : null;
+		this.notify(switched ? `${saved} ${switched}` : saved, 'info');
 	}
 
 	async ping(id: string) {
@@ -441,8 +450,12 @@ class AppStore {
 		}
 		next.rules = next.rules.filter((r) => !(r.kind === rule.kind && r.value === rule.value));
 		next.rules.unshift({ id: crypto.randomUUID(), enabled: true, kind: rule.kind, value: rule.value, action });
-		if (!(await this.attempt(() => api.setRouting(next)))) return false;
-		this.routing = next;
+		const before = $state.snapshot(this.routing) as RoutingSettings;
+		let stored = next;
+		if (!(await this.attempt(async () => (stored = await api.setRouting(next))))) return false;
+		this.routing = stored;
+		const switched = nowActiveMessage(nowActive(before, stored));
+		if (switched) this.notify(switched, 'info');
 		return true;
 	}
 

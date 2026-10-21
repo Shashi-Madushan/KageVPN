@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { RoutingSettings } from '$lib/api';
 	import { app } from '$lib/app.svelte';
-	import { reconcileDraft } from '$lib/appRules';
+	import { reconcileDraft, sameRouting } from '$lib/appRules';
 	import type { Page } from '$lib/pages';
 	import AppsTab from './AppsTab.svelte';
 
@@ -20,7 +20,7 @@
 		if (next.changed) draft = next.draft;
 	});
 
-	const dirty = $derived(draft !== null && JSON.stringify($state.snapshot(draft)) !== JSON.stringify($state.snapshot(app.routing)));
+	const dirty = $derived(draft !== null && app.routing !== null && !sameRouting($state.snapshot(draft) as RoutingSettings, $state.snapshot(app.routing) as RoutingSettings));
 </script>
 
 <div class="page">
@@ -30,7 +30,7 @@
 			<div class="savebar" role="status">
 				<span>You have unsaved changes. They apply the next time you connect.</span>
 				<button class="btn" onclick={() => app.routing && (draft = structuredClone($state.snapshot(app.routing) as RoutingSettings))}>Discard</button>
-				<button class="btn primary" onclick={() => draft && app.saveRouting($state.snapshot(draft) as RoutingSettings)}>Save changes</button>
+				<button class="btn primary" onclick={() => draft && app.saveRouting($state.snapshot(draft) as RoutingSettings, true)}>Save changes</button>
 			</div>
 		{/if}
 	{:else}

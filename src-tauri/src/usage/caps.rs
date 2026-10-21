@@ -223,11 +223,28 @@ pub fn keep_cap_rules(stored: &[Rule], incoming: Vec<Rule>) -> Vec<Rule> {
 }
 
 /// A per-app block only means something in Rules mode; the old mode becomes the default action.
-pub fn ensure_rules_mode(routing: &mut RoutingSettings) {
-    if routing.mode != RouteMode::Rule {
-        routing.final_action = if routing.mode == RouteMode::Direct { Action::Direct } else { Action::Proxy };
-        routing.mode = RouteMode::Rule;
+/// Returns how many saved rules and lists start applying with the switch: the other modes ignore
+/// them, so they may have been left there long ago.
+pub fn ensure_rules_mode(routing: &mut RoutingSettings) -> (usize, usize) {
+    if routing.mode == RouteMode::Rule {
+        return (0, 0);
     }
+    routing.final_action = if routing.mode == RouteMode::Direct { Action::Direct } else { Action::Proxy };
+    routing.mode = RouteMode::Rule;
+    (routing.rules.iter().filter(|r| r.enabled).count(), routing.rule_sets.iter().filter(|s| s.enabled).count())
+}
+
+/// The notice for rules and lists that a switch to Rules mode turned on, or `None` when there are none.
+/// The Apps page words it the same way (`nowActiveMessage` in `appRules.ts`).
+pub fn now_active_message(rules: usize, lists: usize) -> Option<String> {
+    let part = |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+    let what = match (rules, lists) {
+        (0, 0) => return None,
+        (r, 0) => part(r, "saved rule", "saved rules"),
+        (0, l) => part(l, "saved list", "saved lists"),
+        (r, l) => format!("{} and {}", part(r, "saved rule", "saved rules"), part(l, "list", "lists")),
+    };
+    Some(format!("Per-app choices need Rules mode, so {what} from Routing now apply too. Check them under Routing."))
 }
 
 // ── Status for the UI ───────────────────────────────────────────────────────
@@ -537,18 +554,22 @@ fn pending_tally(state: &State<AppState>, path: &str) -> Result<Tally> {
 #[tauri::command]
 pub async fn cap_block(app: AppHandle, state: State<'_, AppState>, path: String) -> Result<()> {
     let mut tally = pending_tally(&state, &path)?;
-    {
+    let now_active = {
         let mut store = state.store.lock().unwrap();
         let mut routing = store.routing();
-        ensure_rules_mode(&mut routing);
+        let (rules, lists) = ensure_rules_mode(&mut routing);
         apply_cap_rule(&mut routing.rules, &path);
         crate::config::validate_rules(&routing.rules)?;
         store.set_routing(routing)?;
-    }
+        now_active_message(rules, lists)
+    };
     tally.offer = Offer::Taken;
     with_db(&state, |db| db.save_tally(&tally))?;
     changed(&app);
     reapply(&app).await;
+    if let Some(message) = now_active {
+        notify::send(&app, "Routing switched to Rules mode", &message);
+    }
     Ok(())
 }
 

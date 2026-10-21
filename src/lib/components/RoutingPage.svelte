@@ -4,7 +4,8 @@
 	import AppPicker, { appLabel } from './AppPicker.svelte';
 	import RuleSources from './RuleSources.svelte';
 	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
-	import { reconcileDraft } from '$lib/appRules';
+	import { reconcileDraft, sameRouting } from '$lib/appRules';
+	import { dnsNote } from '$lib/dnsNote';
 	import type { Page } from '$lib/pages';
 	import { app } from '$lib/app.svelte';
 	import { CATEGORIES, COUNTRIES, describeList, findEntry } from '$lib/ruleCatalog';
@@ -46,7 +47,7 @@
 		ruleLists.reload();
 	});
 
-	const dirty = $derived(draft !== null && JSON.stringify(draft) !== JSON.stringify(app.routing));
+	const dirty = $derived(draft !== null && app.routing !== null && !sameRouting($state.snapshot(draft) as RoutingSettings, $state.snapshot(app.routing) as RoutingSettings));
 
 	const modes: { value: RouteMode; label: string; text: string; icon: IconName }[] = [
 		{ value: 'global', label: 'Everything through the VPN', text: 'The simplest choice. All your traffic is protected.', icon: 'shield' },
@@ -428,7 +429,7 @@
 					<input type="checkbox" bind:checked={draft.ipv6} />
 				</label>
 				<div class="item">
-					<span class="grow">DNS provider<span class="sub">{draft.dns.provider === 'system' ? 'Your internet provider can see which sites you look up.' : draft.mode === 'direct' ? 'While the VPN is idle, lookups go to this provider over your normal connection.' : 'Lookups go through the VPN, so they stay private.'}</span></span>
+					<span class="grow">DNS provider<span class="sub">{dnsNote(draft.dns.provider, draft.mode, app.mode)}</span></span>
 					<Select bind:value={draft.dns.provider} label="DNS provider" options={dnsProviders} />
 				</div>
 				{#if draft.dns.provider === 'custom'}
