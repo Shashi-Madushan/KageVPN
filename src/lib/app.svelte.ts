@@ -328,24 +328,30 @@ class AppStore {
 
 	async updateSettings(patch: Partial<Settings>) {
 		const next = { ...this.settings, ...patch };
-		if (!(await this.attempt(() => api.updateSettings(next)))) return;
+		if (!(await this.attempt(() => api.updateSettings(next)))) return false;
 		this.settings = next;
+		return true;
 	}
 
 	async setLaunchAtLogin(enabled: boolean) {
-		if (!(await this.attempt(() => api.setLaunchAtLogin(enabled)))) return;
+		if (!(await this.attempt(() => api.setLaunchAtLogin(enabled)))) return false;
 		this.launchAtLogin = enabled;
+		return true;
 	}
 
 	async saveReliability(patch: Partial<ReliabilitySettings>) {
 		const next = { ...this.reliability, ...patch };
-		if (!(await this.attempt(() => api.setReliability(next)))) return;
+		let laterConnect = false;
+		if (!(await this.attempt(async () => (laterConnect = await api.setReliability(next))))) return false;
 		this.reliability = next;
+		if (laterConnect) this.notify('The kill switch starts protecting you the next time you connect.', 'info');
+		return true;
 	}
 
 	async saveNetworks(next: NetworkSettings) {
-		if (!(await this.attempt(() => api.setNetworkSettings(next)))) return;
+		if (!(await this.attempt(() => api.setNetworkSettings(next)))) return false;
 		this.networks = next;
+		return true;
 	}
 
 	async saveRouting(next: RoutingSettings) {

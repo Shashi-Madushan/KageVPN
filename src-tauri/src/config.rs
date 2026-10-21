@@ -357,7 +357,9 @@ pub fn validate_dns(settings: &DnsSettings) -> Result<()> {
 }
 
 fn dns(routing: &RoutingSettings, mode: Mode) -> Value {
-    let mut config = dns_servers(&routing.dns);
+    // With the VPN idle no traffic uses the server, so lookups do not either: a server that is down
+    // would otherwise leave nothing able to resolve.
+    let mut config = dns_servers(&routing.dns, routing.mode != RouteMode::Direct);
     if routing.dns.fake_ip && mode == Mode::Tun && routing.mode != RouteMode::Direct {
         add_fake_ip(&mut config, routing.ipv6);
     }
@@ -366,6 +368,12 @@ fn dns(routing: &RoutingSettings, mode: Mode) -> Value {
     }
     config
 }
+
+/// How long, in seconds, apps and macOS may keep a made-up address. sing-box hands them out with
+/// a 600 s lifetime and forgets them when it stops, so a cached one would point nowhere for up to
+/// ten minutes after a disconnect or a reconnect. A name keeps its address while sing-box runs, so
+/// asking again every second costs one local lookup.
+const FAKE_IP_TTL: u32 = 1;
 
 /// Answers address lookups with made-up addresses that the tunnel maps back to the domain, so the
 /// route and the server see the name and not an address resolved on this Mac. Local names keep
@@ -380,18 +388,23 @@ fn add_fake_ip(config: &mut Value, ipv6: bool) {
     }
     config["rules"] = json!([
         { "domain_suffix": ["local", "lan", "localdomain", "home.arpa"], "server": "local" },
-        { "query_type": ["A", "AAAA"], "server": "fakeip" },
+        { "query_type": ["A", "AAAA"], "server": "fakeip", "rewrite_ttl": FAKE_IP_TTL },
     ]);
 }
 
-fn dns_servers(settings: &DnsSettings) -> Value {
-    let remote = match settings.provider {
+fn dns_servers(settings: &DnsSettings, through_vpn: bool) -> Value {
+    let mut remote = match settings.provider {
         DnsProvider::Cloudflare => Some(doh("1.1.1.1")),
         DnsProvider::Google => Some(doh("8.8.8.8")),
         DnsProvider::Quad9 => Some(doh("9.9.9.9")),
         DnsProvider::Custom => custom_dns_server(&settings.custom),
         DnsProvider::System => None,
     };
+    if !through_vpn {
+        if let Some(fields) = remote.as_mut().and_then(Value::as_object_mut) {
+            fields.remove("detour");
+        }
+    }
     match remote {
         Some(server) => json!({
             "servers": [server, { "type": "local", "tag": "local" }],

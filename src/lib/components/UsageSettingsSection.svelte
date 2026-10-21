@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { usage } from '$lib/usage.svelte';
 	import Select from './Select.svelte';
+	import { saveToggle } from '$lib/toggle';
 
 	const GIB = 1024 ** 3;
 	let confirmReset = $state(false);
@@ -40,15 +41,15 @@
 	<div class="settings card">
 		<label>
 			<span><strong>Track apps</strong><small>See which apps used your data. Estimated, and stored only on this Mac.</small></span>
-			<input type="checkbox" checked={s.recordApps} onchange={(e) => usage.saveSettings({ recordApps: e.currentTarget.checked })} />
+			<input type="checkbox" checked={s.recordApps} onchange={(e) => saveToggle(e, (on) => usage.saveSettings({ recordApps: on }))} />
 		</label>
 		<label>
 			<span><strong>Track websites</strong><small>See which sites used your data. Stored only on this Mac. Off by default.</small></span>
-			<input type="checkbox" checked={s.recordDomains} onchange={(e) => usage.saveSettings({ recordDomains: e.currentTarget.checked })} />
+			<input type="checkbox" checked={s.recordDomains} onchange={(e) => saveToggle(e, (on) => usage.saveSettings({ recordDomains: on }))} />
 		</label>
 		<label>
 			<span><strong>Pause counting</strong><small>Stop recording new usage until you turn this off.</small></span>
-			<input type="checkbox" checked={s.paused} onchange={(e) => usage.saveSettings({ paused: e.currentTarget.checked })} />
+			<input type="checkbox" checked={s.paused} onchange={(e) => saveToggle(e, (on) => usage.saveSettings({ paused: on }))} />
 		</label>
 		<div class="row">
 			<span><strong>Keep app and website history</strong><small>Older detail is deleted automatically. Totals are kept.</small></span>

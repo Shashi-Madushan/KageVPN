@@ -428,7 +428,7 @@
 					<input type="checkbox" bind:checked={draft.ipv6} />
 				</label>
 				<div class="item">
-					<span class="grow">DNS provider<span class="sub">{draft.dns.provider === 'system' ? 'Your internet provider can see which sites you look up.' : 'Lookups go through the VPN, so they stay private.'}</span></span>
+					<span class="grow">DNS provider<span class="sub">{draft.dns.provider === 'system' ? 'Your internet provider can see which sites you look up.' : draft.mode === 'direct' ? 'While the VPN is idle, lookups go to this provider over your normal connection.' : 'Lookups go through the VPN, so they stay private.'}</span></span>
 					<Select bind:value={draft.dns.provider} label="DNS provider" options={dnsProviders} />
 				</div>
 				{#if draft.dns.provider === 'custom'}

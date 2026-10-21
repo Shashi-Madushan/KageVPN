@@ -9,6 +9,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   title: "Changelog",
   lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
   toc: [
+    { id: "oct-21", label: "21 Oct 2026" },
     { id: "oct-20", label: "20 Oct 2026" },
     { id: "oct-19", label: "19 Oct 2026" },
     { id: "oct-16", label: "16 Oct 2026" },
@@ -26,6 +27,14 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
+      <h2 id="oct-21">21 October 2026</h2>
+      <ul>
+        <li><strong>Route by site name (FakeIP):</strong> sites no longer fail for up to ten minutes after you disconnect or the VPN reconnects. The made-up addresses now expire after one second instead of ten minutes.</li>
+        <li><strong>VPN idle:</strong> DNS lookups now go to your chosen provider over your normal connection, so a server that is down no longer stops every site from loading.</li>
+        <li><strong>Kill switch:</strong> turning it off while it is blocking lifts the block within a second. Turning it on while connected says it starts protecting you at the next connect.</li>
+        <li><strong>Settings:</strong> a switch that could not be saved (for example a cancelled password prompt for the root service) flips back instead of showing a change that did not happen.</li>
+        <li><strong>Data limit:</strong> changing a usage setting no longer brings back a data warning that was already shown.</li>
+      </ul>
       <h2 id="oct-20">20 October 2026</h2>
       <ul>
         <li><strong>New:</strong> A new <strong>Apps</strong> section in the sidebar, with an <strong>App controls</strong> page and the Connections page, lists your installed apps, each with <em>VPN</em>, <em>Direct</em> and <em>Block</em> buttons, app icons, and the data the app used this period. Blocked apps are listed with an <em>Unblock</em> button. This app and its engine cannot be blocked.</li>

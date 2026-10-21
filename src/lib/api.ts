@@ -409,7 +409,8 @@ export const api = {
 	ruleSetsStatus: () => invoke<RuleSetsStatus>('rule_sets_status'),
 	downloadRuleSets: (tag: string | null) => invoke<ListResult[]>('download_rule_sets', { tag }),
 	deleteRuleSets: (tag: string | null) => invoke<void>('delete_rule_sets', { tag }),
-	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
+	/** Resolves to true when a kill switch turned on now only takes effect at the next connect. */
+	setReliability: (settings: ReliabilitySettings) => invoke<boolean>('set_reliability', { settings }),
 	setNetworkSettings: (settings: NetworkSettings) => invoke<void>('set_network_settings', { settings }),
 	currentNetwork: () => invoke<CurrentNetwork | null>('current_network'),
 	restoreNetwork: () => invoke<void>('restore_network'),

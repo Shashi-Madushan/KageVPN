@@ -247,3 +247,27 @@
 **Context**: CONSTRUCTION - change request, code generation
 
 ---
+
+## Wiring review
+**Timestamp**: 2026-10-21T10:00:00Z
+**User Input**: "whats remaining work in kage app , and check wether all togeleer and the dns selecters and things work corectly and wired correctly"
+**AI Response**: Traced every toggle and DNS selector from the UI to the generated sing-box config. Found 8 wiring problems (FakeIP 600 s TTL with no flush, DNS through the server in VPN idle mode, checkboxes not reverting on a failed save, kill switch changes while connected, usage alert state overwritten, cap rules missing from the page after a save, DNS provider unused in Proxy Only mode, automatic switch to Rules mode activating dormant rules) and listed remaining work. No code changed.
+**Context**: Review (no workflow stage)
+
+---
+
+## Change request: fix wiring problems 1 to 5
+**Timestamp**: 2026-10-21T10:30:00Z
+**User Input**: "Fix wiring problems 1 to 5 (FakeIP cache, DNS in VPN idle, checkbox revert, kill switch mid-session, usage alert overwrite), with tests."
+**AI Response**: Treated as isolated bug fixes (minimal depth: no new components, requirements stated by the user). Proceeding directly to code generation with tests.
+**Context**: CONSTRUCTION - bug fixes, code generation
+
+---
+
+## Wiring fixes 1 to 5 done
+**Timestamp**: 2026-10-21T11:30:00Z
+**User Input**: (none; completion of the request above)
+**AI Response**: FakeIP answers get rewrite_ttl 1 (runtime-checked against sing-box 1.14.2 on a spare port); DNS has no proxy detour in VPN idle mode; settings checkboxes go through saveToggle (src/lib/toggle.ts) and revert on a failed save; the block watch lifts a block once the kill switch is off, and set_reliability reports when turning it on waits for the next connect; merge_usage_settings keeps the stored alert state. Tests added in tests/config.rs, tests/reliability.rs, tests/usage_caps.rs and scripts/tests/toggle.test.mjs. cargo test 351 passed, clippy clean, svelte-check 0 errors, script tests 32 passed, vite build ok. Not committed; not run in the live app.
+**Context**: CONSTRUCTION - bug fixes, code generation complete
+
+---

@@ -278,3 +278,17 @@ fn saving_usage_settings_keeps_the_stored_caps_and_resets_the_alert_when_the_quo
     same.app_caps.clear();
     assert_eq!(merge_usage_settings(&current, same).alert_level, 80, "an unchanged quota keeps its alert");
 }
+
+#[test]
+fn a_page_loaded_before_a_warning_does_not_bring_the_warning_back() {
+    use crate::usage::commands::merge_usage_settings;
+    let mut current = crate::settings::UsageSettings { quota_bytes: Some(100), ..Default::default() };
+    let page = current.clone();
+    // The 80% warning is shown after the page loaded its copy.
+    (current.alert_cycle, current.alert_level) = (1_700_000_000, 80);
+
+    let sent = crate::settings::UsageSettings { record_domains: true, ..page };
+    let saved = merge_usage_settings(&current, sent);
+    assert_eq!((saved.alert_cycle, saved.alert_level), (1_700_000_000, 80));
+    assert!(saved.record_domains, "the change itself is saved");
+}

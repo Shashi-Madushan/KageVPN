@@ -431,10 +431,15 @@ pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: Routing
 }
 
 #[tauri::command]
-pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: ReliabilitySettings) -> Result<()> {
+/// Returns true when the kill switch was turned on but only takes effect at the next connect.
+/// Turning it off needs nothing here: the block watch lifts a block that is no longer wanted.
+pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: ReliabilitySettings) -> Result<bool> {
+    let was = state.store.lock().unwrap().reliability().kill_switch;
+    let now = settings.kill_switch;
     state.store.lock().unwrap().set_reliability(settings)?;
     reliability::apply_hotkey(&app);
-    Ok(())
+    let status = state.status.lock().unwrap();
+    Ok(reliability::kill_switch_waits_for_reconnect(was, now, status.state, status.mode))
 }
 
 #[tauri::command]

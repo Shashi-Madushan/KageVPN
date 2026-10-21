@@ -346,6 +346,43 @@ fn fake_ip_adds_a_server_and_keeps_local_names_real() {
 }
 
 #[test]
+fn fake_addresses_expire_at_once_so_none_outlive_a_disconnect() {
+    // sing-box gives them a 600 s lifetime and forgets them when it stops; a cached one would
+    // point nowhere after a disconnect or reconnect.
+    let dns = fake_ip_config(Mode::Tun, RouteMode::Global, false);
+    let rule = dns["rules"].as_array().unwrap().iter().find(|r| r["server"] == "fakeip").unwrap();
+    assert_eq!(rule["rewrite_ttl"], 1);
+}
+
+fn dns_for(route: RouteMode, provider: DnsProvider, custom: &str) -> serde_json::Value {
+    let profiles = every_protocol();
+    let routing = RoutingSettings { mode: route, dns: DnsSettings { provider, custom: custom.into(), fake_ip: false }, ..Default::default() };
+    build(&input(&profiles, &routing, Mode::Tun)).unwrap()["dns"].clone()
+}
+
+#[test]
+fn lookups_use_the_vpn_unless_the_vpn_is_idle() {
+    for (provider, custom) in [(DnsProvider::Cloudflare, ""), (DnsProvider::Quad9, ""), (DnsProvider::Custom, "tls://dns.example.com")] {
+        for route in [RouteMode::Global, RouteMode::Rule] {
+            assert_eq!(dns_for(route, provider, custom)["servers"][0]["detour"], "proxy", "{provider:?} in {route:?}");
+        }
+        let idle = dns_for(RouteMode::Direct, provider, custom);
+        assert!(idle["servers"][0].get("detour").is_none(), "{provider:?} while idle");
+        assert_eq!(idle["final"], "remote", "the chosen provider still answers");
+    }
+}
+
+#[test]
+fn an_idle_vpn_config_passes_singbox_check() {
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let profiles = every_protocol();
+    let routing = RoutingSettings { mode: RouteMode::Direct, ..Default::default() };
+    let path = std::env::temp_dir().join("kage-vpn-test-idle-dns.json");
+    std::fs::write(&path, serde_json::to_vec(&build(&input(&profiles, &routing, Mode::Tun)).unwrap()).unwrap()).unwrap();
+    crate::singbox::check(&binary, &path).unwrap();
+}
+
+#[test]
 fn fake_ip_is_left_out_when_it_cannot_help() {
     for dns in [fake_ip_config(Mode::Proxy, RouteMode::Global, true), fake_ip_config(Mode::Tun, RouteMode::Direct, true)] {
         assert!(dns.get("rules").is_none());
