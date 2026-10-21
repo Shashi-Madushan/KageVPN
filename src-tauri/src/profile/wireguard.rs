@@ -191,7 +191,8 @@ impl ProtocolDef for WireGuard {
     }
 
     fn sample(&self) -> &'static str {
-        "wireguard://JqrQV%2FCpFkpb3qIND9EboiuSWxrbxrxvG4i1L%2BJ1r1I%3D@wg.example.com:51820?publickey=cfd8nh5vBUAu37mGNeL%2F9tJ7DSpFLLvxSTIUGXBF%2B3g%3D&address=10.7.0.2%2F32%2Cfd07%3A%3A2%2F128&mtu=1420#Sample%20WireGuard"
+        // Keys of repeated bytes: the right shape, plainly not secrets.
+        "wireguard://%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fs%3D@wg.example.com:51820?publickey=%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv7%2B%2Fv4%3D&address=10.7.0.2%2F32%2Cfd07%3A%3A2%2F128&mtu=1420#Sample%20WireGuard"
     }
 
     fn form(&self) -> Vec<Field> {

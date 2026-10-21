@@ -441,14 +441,24 @@ fn a_rule_saved_before_origin_existed_loads_as_manual() {
     assert!(serde_json::to_string(&cap).unwrap().contains("\"origin\":\"cap\""));
 }
 
-/// A throwaway key made for this test only (`ssh-keygen -t ed25519 -N ""`); it opens nothing.
-const TEST_SSH_KEY: &str = include_str!("fixtures/test_ssh_key");
+/// A throwaway key made by `ssh-keygen` for this run, so no key sits in the source; `None` when
+/// the tool is missing.
+fn throwaway_ssh_key() -> Option<String> {
+    let dir = std::env::temp_dir().join(format!("kage-ssh-key-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).ok()?;
+    let file = dir.join("key");
+    let made = std::process::Command::new("ssh-keygen").args(["-q", "-t", "ed25519", "-N", "", "-C", "", "-f"]).arg(&file).status().ok()?.success();
+    let key = if made { std::fs::read_to_string(&file).ok() } else { None };
+    let _ = std::fs::remove_dir_all(&dir);
+    key
+}
 
 #[test]
 fn an_ssh_server_with_a_pasted_key_passes_singbox_check() {
     let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let Some(key) = throwaway_ssh_key() else { return };
     let mut ssh = crate::profile::parse_many("ssh://root:pw@ssh.example.com:22?host_key=ssh-ed25519%20AAAAC3NzaC1lZDI1NTE5AAAAIGE58h0urP4jPA6D6Ee%2BUnCVCbe6FbFtJbHa8Nh7CW%2Fr#K").0.remove(0);
-    ssh.set_setting("privateKey", serde_json::json!(TEST_SSH_KEY));
+    ssh.set_setting("privateKey", serde_json::json!(key));
     ssh.set_setting("password", serde_json::json!(""));
     ssh.id = "1".into();
     ssh.validate().unwrap();
@@ -460,7 +470,8 @@ fn an_ssh_server_with_a_pasted_key_passes_singbox_check() {
 }
 
 fn wireguard() -> Profile {
-    let mut wg = crate::profile::parse_many("wireguard://JqrQV%2FCpFkpb3qIND9EboiuSWxrbxrxvG4i1L%2BJ1r1I%3D@wg.example.com:2408?publickey=cfd8nh5vBUAu37mGNeL%2F9tJ7DSpFLLvxSTIUGXBF%2B3g%3D&address=172.16.0.2%2F32&mtu=1280&reserved=1%2C2%2C3#WARP").0.remove(0);
+    let link = format!("wireguard://{}@wg.example.com:2408?publickey={}&address=172.16.0.2%2F32&mtu=1280&reserved=1%2C2%2C3#WARP", crate::profile::TestKey(0xfb).url(), crate::profile::TestKey(0xfe).url());
+    let mut wg = crate::profile::parse_many(&link).0.remove(0);
     wg.id = "wg".into();
     wg
 }

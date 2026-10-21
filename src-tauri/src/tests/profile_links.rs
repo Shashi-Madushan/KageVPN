@@ -12,7 +12,7 @@ fn sample_links() -> Vec<String> {
         format!("tuic://{ID}:pw@e.example.com:443?alpn=h3#tuic"),
         "hysteria://f.example.com:443?auth=pw&upmbps=10&downmbps=50#hy1".into(),
         "ssh://root:pw@g.example.com:22#ssh".into(),
-        "wireguard://JqrQV%2FCpFkpb3qIND9EboiuSWxrbxrxvG4i1L%2BJ1r1I%3D@h.example.com:51820?publickey=cfd8nh5vBUAu37mGNeL%2F9tJ7DSpFLLvxSTIUGXBF%2B3g%3D&address=10.0.0.2#wg".into(),
+        format!("wireguard://{}@h.example.com:51820?publickey={}&address=10.0.0.2#wg", crate::profile::TestKey(0xfb).url(), crate::profile::TestKey(0xfe).url()),
     ]
 }
 
@@ -209,7 +209,12 @@ fn servers_imported_with_a_default_come_with_a_note() {
 
 #[test]
 fn a_wireguard_file_is_one_server_named_after_the_file() {
-    let conf = "[Interface]\nPrivateKey = JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I=\nAddress = 10.0.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=\nAllowedIPs = 0.0.0.0/0\nEndpoint = wg.example.com:51820\n";
+    let conf = format!(
+        "[Interface]\nPrivateKey = {}\nAddress = 10.0.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = {}\nAllowedIPs = 0.0.0.0/0\nEndpoint = wg.example.com:51820\n",
+        crate::profile::TestKey(0xfb),
+        crate::profile::TestKey(0xfe)
+    );
+    let conf = conf.as_str();
     let parsed = parse_all_named(conf, Some("warp-tokyo.conf"));
     assert_eq!((parsed.profiles.len(), parsed.errors.len()), (1, 0));
     assert_eq!((parsed.profiles[0].protocol.as_str(), parsed.profiles[0].name.as_str()), ("wireguard", "warp-tokyo"));

@@ -5,11 +5,16 @@ fn cfg(profile: &Profile) -> SshSettings {
 }
 
 const HOST_KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE58h0urP4jPA6D6Ee+UnCVCbe6FbFtJbHa8Nh7CW/r";
-const KEY: &str = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQ\nAAAAAAAAAAABAAAAMwAAAAtzc2gtZW\n-----END OPENSSH PRIVATE KEY-----\n";
+/// Key-shaped text made when the test runs; it is never parsed as a real key.
+fn key() -> String {
+    crate::profile::fake_private_key("AAAAB3Nz
+C1yc2EAAAADAQAB", "
+")
+}
 
 fn key_link() -> String {
     let mut query = common::query();
-    query.append_pair("private_key", KEY);
+    query.append_pair("private_key", &key());
     query.append_pair("passphrase", "open sesame");
     query.append_pair("host_key", &format!("{HOST_KEY},ecdsa-sha2-nistp256 AAAAE2VjZHNh"));
     format!("ssh://deploy@[2001:db8::7]:2222?{}#Key%20Box", query.finish())
@@ -30,7 +35,7 @@ fn parses_a_key_passphrase_and_host_keys_from_the_query() {
     assert_eq!((p.server.as_str(), p.port), ("2001:db8::7", 2222));
     let s = cfg(&p);
     assert_eq!((s.user.as_str(), s.password.as_str(), s.passphrase.as_str()), ("deploy", "", "open sesame"));
-    assert_eq!(s.private_key, KEY, "line breaks survive");
+    assert_eq!(s.private_key, key(), "line breaks survive");
     assert_eq!(s.host_keys, [HOST_KEY, "ecdsa-sha2-nistp256 AAAAE2VjZHNh"]);
 }
 
@@ -70,7 +75,7 @@ fn outbound_has_only_what_is_set() {
     assert!(password.get("private_key").is_none() && password.get("host_key").is_none() && password.get("tls").is_none());
 
     let key = Ssh.outbound(&parse(&key_link()).unwrap());
-    assert_eq!(key["private_key"], KEY);
+    assert_eq!(key["private_key"], self::key());
     assert_eq!(key["private_key_passphrase"], "open sesame");
     assert_eq!(key["host_key"][0], HOST_KEY);
     assert!(key.get("password").is_none());
@@ -79,12 +84,12 @@ fn outbound_has_only_what_is_set() {
 #[test]
 fn normalize_tidies_pasted_keys_and_empty_editor_fields() {
     let mut p = parse("ssh://root:pw@ssh.example.com#P").unwrap();
-    p.settings.insert("privateKey".into(), serde_json::json!("\r\n-----BEGIN OPENSSH PRIVATE KEY-----\r\nAAAA\r\n-----END OPENSSH PRIVATE KEY-----\r\n\r\n"));
+    p.settings.insert("privateKey".into(), serde_json::json!(format!("\r\n{}\r\n", crate::profile::fake_private_key("AAAA", "\r\n"))));
     p.settings.insert("hostKeys".into(), serde_json::json!(["  ssh-ed25519   AAAAC3Nz  ", ""]));
     p.settings.insert("passphrase".into(), serde_json::Value::Null);
     Ssh.normalize(&mut p);
     let s = cfg(&p);
-    assert_eq!(s.private_key, "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n");
+    assert_eq!(s.private_key, crate::profile::fake_private_key("AAAA", "\n"));
     assert_eq!(s.host_keys, ["ssh-ed25519 AAAAC3Nz"]);
 
     // The editor sends null for optional fields left empty, and a passphrase without a key goes.
@@ -98,5 +103,5 @@ fn normalize_tidies_pasted_keys_and_empty_editor_fields() {
 #[test]
 fn secrets_cover_the_password_key_and_passphrase_but_not_host_keys() {
     let labels: Vec<_> = Ssh.secrets(&parse(&key_link()).unwrap()).into_iter().map(|s| s.value).collect();
-    assert_eq!(labels, [KEY, "open sesame"]);
+    assert_eq!(labels, [key(), "open sesame".to_string()]);
 }

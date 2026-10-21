@@ -1,16 +1,17 @@
 use super::*;
+use crate::profile::TestKey;
 
 fn cfg(profile: &Profile) -> WireGuardSettings {
     profile.settings_as().unwrap()
 }
 
-// Random 32-byte values in base64; they only need to be the right shape.
-const PRIVATE: &str = "JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I=";
-const PUBLIC: &str = "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=";
-const PSK: &str = "H/SCtwO8/2z5AWzLJAcd6df5a0j5LsOjMW7Dcz+3JfI=";
+// Keys made when the tests run; they only need the right shape. These bytes give `+` and `/`.
+const PRIVATE: TestKey = TestKey(0xfb);
+const PUBLIC: TestKey = TestKey(0xfe);
+const PSK: TestKey = TestKey(0x01);
 
-fn enc(text: &str) -> String {
-    common::encode_userinfo(text)
+fn enc(key: TestKey) -> String {
+    key.url()
 }
 
 fn link(extra: &str) -> String {
@@ -22,7 +23,7 @@ fn parses_a_link_with_defaults() {
     let p = parse(&link("")).unwrap();
     assert_eq!((p.protocol.as_str(), p.port, p.name.as_str()), ("wireguard", 51821, "WG"));
     let s = cfg(&p);
-    assert_eq!((s.private_key.as_str(), s.peer_public_key.as_str()), (PRIVATE, PUBLIC));
+    assert_eq!((s.private_key.clone(), s.peer_public_key.clone()), (PRIVATE.to_string(), PUBLIC.to_string()));
     assert_eq!(s.addresses, ["10.7.0.2/32", "fd07::2/128"]);
     assert_eq!((s.mtu, s.keepalive, s.reserved, s.pre_shared_key.as_str()), (DEFAULT_MTU, 0, None, ""));
 }
@@ -32,20 +33,20 @@ fn reads_the_spellings_clients_use_and_unescaped_keys() {
     // Raw `+`, `/` and `=` before the host, a `+` turned into a space in the query.
     let raw = format!(
         "wg://{PRIVATE}@[2001:db8::9]:2408?publicKey={}&ip=172.16.0.2&mtu=1280&reserved=AQID&psk={}&persistentKeepalive=25",
-        PUBLIC.replace('+', " "),
+        PUBLIC.to_string().replace('+', " "),
         enc(PSK)
     );
     let p = parse(&raw).unwrap();
     let s = cfg(&p);
     assert_eq!((p.server.as_str(), p.port), ("2001:db8::9", 2408));
-    assert_eq!((s.private_key.as_str(), s.peer_public_key.as_str(), s.pre_shared_key.as_str()), (PRIVATE, PUBLIC, PSK));
+    assert_eq!((s.private_key.clone(), s.peer_public_key.clone(), s.pre_shared_key.clone()), (PRIVATE.to_string(), PUBLIC.to_string(), PSK.to_string()));
     assert_eq!((s.addresses.as_slice(), s.mtu, s.keepalive, s.reserved), (["172.16.0.2/32".to_string()].as_slice(), 1280, 25, Some([1, 2, 3])));
 }
 
 #[test]
 fn the_private_key_may_come_as_a_parameter() {
     let p = parse(&format!("wireguard://wg.example.com:51820?privatekey={}&publickey={}&address=10.0.0.2", enc(PRIVATE), enc(PUBLIC))).unwrap();
-    assert_eq!(cfg(&p).private_key, PRIVATE);
+    assert_eq!(cfg(&p).private_key, PRIVATE.to_string());
 }
 
 #[test]
@@ -93,7 +94,7 @@ fn the_endpoint_entry_is_what_sing_box_expects() {
     assert_eq!(entry["address"], serde_json::json!(["10.7.0.2/32", "fd07::2/128"]));
     let peer = &entry["peers"][0];
     assert_eq!((peer["address"].as_str(), peer["port"].as_u64()), (Some("wg.example.com"), Some(51821)));
-    assert_eq!((peer["public_key"].as_str(), peer["pre_shared_key"].as_str()), (Some(PUBLIC), Some(PSK)));
+    assert_eq!((peer["public_key"].as_str(), peer["pre_shared_key"].as_str()), (Some(PUBLIC.to_string().as_str()), Some(PSK.to_string().as_str())));
     assert_eq!(peer["allowed_ips"], serde_json::json!(["0.0.0.0/0", "::/0"]));
     assert_eq!((peer["persistent_keepalive_interval"].as_u64(), &peer["reserved"]), (Some(15), &serde_json::json!([1, 2, 3])));
 

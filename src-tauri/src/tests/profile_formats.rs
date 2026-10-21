@@ -119,30 +119,30 @@ fn singbox_hysteria_outbounds_import_and_explain_what_they_cannot() {
 fn singbox_ssh_outbounds_take_the_key_as_text_or_lines_but_not_a_file() {
     let config = json!({ "outbounds": [
         { "type": "ssh", "tag": "Lines", "server": "a.example.com", "server_port": 22, "user": "root",
-          "private_key": ["-----BEGIN OPENSSH PRIVATE KEY-----", "AAAA", "-----END OPENSSH PRIVATE KEY-----"] },
+          "private_key": crate::profile::fake_private_key("AAAA", "\n").trim_end().split('\n').collect::<Vec<_>>() },
         { "type": "ssh", "tag": "File", "server": "b.example.com", "server_port": 22, "user": "root", "private_key_path": "/root/.ssh/id" }
     ] });
     let (profiles, errors) = parse_many(&config.to_string());
     assert_eq!(profiles.len(), 1);
-    assert_eq!(outbound(&profiles[0])["private_key"], "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n");
+    assert_eq!(outbound(&profiles[0])["private_key"], crate::profile::fake_private_key("AAAA", "\n"));
     assert_eq!(errors, ["File: SSH key files on disk are not supported, paste the key into the server editor"]);
 }
 
 #[test]
 fn singbox_wireguard_reads_endpoints_and_the_old_outbound_form() {
-    const PRIVATE: &str = "JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I=";
-    const PUBLIC: &str = "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=";
+    let private = crate::profile::TestKey(0xfb).to_string();
+    let public = crate::profile::TestKey(0xfe).to_string();
     let config = json!({
         "outbounds": [
             { "type": "wireguard", "tag": "Old", "server": "old.example.com", "server_port": 2408, "local_address": ["172.16.0.2/32"],
-              "private_key": PRIVATE, "peer_public_key": PUBLIC, "reserved": "AQID", "mtu": 1280 },
+              "private_key": private, "peer_public_key": public, "reserved": "AQID", "mtu": 1280 },
             { "type": "direct", "tag": "direct" }
         ],
         "endpoints": [
-            { "type": "wireguard", "tag": "New", "address": ["10.0.0.2/32"], "private_key": PRIVATE,
-              "peers": [{ "address": "new.example.com", "port": 51820, "public_key": PUBLIC, "persistent_keepalive_interval": 25, "allowed_ips": ["0.0.0.0/0"] }] },
-            { "type": "wireguard", "tag": "Two", "address": ["10.0.0.3/32"], "private_key": PRIVATE,
-              "peers": [{ "address": "a.example.com", "port": 1, "public_key": PUBLIC }, { "address": "b.example.com", "port": 1, "public_key": PUBLIC }] },
+            { "type": "wireguard", "tag": "New", "address": ["10.0.0.2/32"], "private_key": private,
+              "peers": [{ "address": "new.example.com", "port": 51820, "public_key": public, "persistent_keepalive_interval": 25, "allowed_ips": ["0.0.0.0/0"] }] },
+            { "type": "wireguard", "tag": "Two", "address": ["10.0.0.3/32"], "private_key": private,
+              "peers": [{ "address": "a.example.com", "port": 1, "public_key": public }, { "address": "b.example.com", "port": 1, "public_key": public }] },
             { "type": "tailscale", "tag": "TS" }
         ]
     });
@@ -215,12 +215,12 @@ proxies:
   - { name: SSH, type: ssh, server: ssh.example.com, port: 2222, username: deploy, password: pw, host-key: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE58h0urP4jPA6D6Ee+UnCVCbe6FbFtJbHa8Nh7CW/r"] }
   - { name: SSH file, type: ssh, server: ssh.example.com, port: 22, username: root, private-key: ~/.ssh/id_ed25519 }
   - { name: HY1 faketcp, type: hysteria, server: fake.example.com, port: 443, protocol: faketcp, up: 10, down: 10 }
-  - { name: WireGuard, type: wireguard, server: wg.example.com, port: 51820, private-key: "JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I=", public-key: "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=", ip: 172.16.0.2, ipv6: "fd01::2", mtu: 1280, reserved: [1, 2, 3] }
+  - { name: WireGuard, type: wireguard, server: wg.example.com, port: 51820, private-key: "WG_PRIVATE", public-key: "WG_PUBLIC", ip: 172.16.0.2, ipv6: "fd01::2", mtu: 1280, reserved: [1, 2, 3] }
   - name: WG peers
     type: wireguard
-    private-key: "JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I="
+    private-key: "WG_PRIVATE"
     ip: 10.0.0.2/32
-    peers: [{ server: a.example.com, port: 51820, public-key: "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=" }, { server: b.example.com, port: 51820, public-key: "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=" }]
+    peers: [{ server: a.example.com, port: 51820, public-key: "WG_PUBLIC" }, { server: b.example.com, port: 51820, public-key: "WG_PUBLIC" }]
   - { name: AWG, type: wireguard, server: awg.example.com, port: 51820, amnezia-wg-option: { jc: 4 } }
   - { name: Direct, type: direct }
 proxy-groups:
@@ -231,7 +231,9 @@ rules:
 
 #[test]
 fn clash_configs_import_every_supported_server() {
-    let (profiles, errors) = parse_many(CLASH);
+    // The WireGuard keys are made now, not written in the file above.
+    let clash = CLASH.replace("WG_PRIVATE", &crate::profile::TestKey(0xfb).to_string()).replace("WG_PUBLIC", &crate::profile::TestKey(0xfe).to_string());
+    let (profiles, errors) = parse_many(&clash);
     let names: Vec<&str> = profiles.iter().map(|p| p.name.as_str()).collect();
     assert_eq!(names, ["🇺🇸 VLESS Reality", "VMess WS", "Trojan gRPC", "Upgrade", "SS 2022", "Hy2", "TUIC", "HY1", "SSH", "WireGuard"]);
     assert_eq!(

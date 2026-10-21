@@ -3,7 +3,7 @@
 ## Created
 - `src-tauri/src/profile/ssh.rs`: SSH (`Ssh`, `SshSettings`, `tidy_key`).
 - `src-tauri/src/tests/profile_ssh.rs`: password link with port 22, key/passphrase/host keys in the query, round-trip with a multi-line key, every rejection with its message, the "host not checked" summary, outbound contents, normalize (CRLF keys, null editor fields, passphrase without a key), secrets.
-- `src-tauri/src/tests/fixtures/test_ssh_key`: a throwaway ed25519 key made for the tests (opens nothing), so the real `sing-box check` parses a pasted key.
+- The SSH key for the real `sing-box check` is made by `ssh-keygen` when the test runs (the test is skipped without it); earlier commits kept one in `tests/fixtures/test_ssh_key`, removed after GitGuardian flagged it.
 
 ## Modified
 - `src-tauri/src/profile/form.rs`: `Kind::Multiline`, `Field::multiline`, `Field::warning_when_empty` (`warnWhenEmpty`).
