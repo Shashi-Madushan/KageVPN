@@ -33,6 +33,8 @@ pub struct AppState {
     pub manual_actions: AtomicU64,
     pub clash_secret: Mutex<Option<String>>,
     pub usage: UsageState,
+    /// What Kage last did to the macOS proxy settings; see `sysproxy`.
+    pub system_proxy: Mutex<crate::sysproxy::SystemProxyState>,
 }
 
 impl AppState {
@@ -57,6 +59,7 @@ impl AppState {
             manual_actions: AtomicU64::new(0),
             clash_secret: Mutex::new(None),
             usage: UsageState::open(&paths_for_usage),
+            system_proxy: Mutex::new(Default::default()),
         }
     }
 }

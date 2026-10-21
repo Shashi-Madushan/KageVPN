@@ -121,6 +121,11 @@ export function importMessage(summary: ImportSummary): string {
 	return (parts.join(', ') || 'Nothing to import') + '.';
 }
 
+/** The extra bypass entries typed in Settings: one per line (commas also split), blanks dropped. */
+export function bypassLines(text: string): string[] {
+	return text.split(/[\n,]/).map((l) => l.trim()).filter(Boolean);
+}
+
 /** Whether text is a WireGuard (wg-quick) file: its first section is [Interface] and it has a [Peer]. */
 export function isWireGuardFile(text: string): boolean {
 	const first = text.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('#') && !l.startsWith(';'));

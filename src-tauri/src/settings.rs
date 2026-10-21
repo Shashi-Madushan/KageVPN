@@ -239,11 +239,24 @@ pub struct ReliabilitySettings {
     /// keeps working for apps that cannot send a login.
     pub proxy_auth: bool,
     pub proxy_password: String,
+    /// Set the macOS system proxy while connected in Proxy Only mode; see `sysproxy`.
+    pub system_proxy: bool,
+    /// Hosts and address ranges that skip the system proxy, on top of the built-in list.
+    pub bypass: Vec<String>,
 }
 
 impl Default for ReliabilitySettings {
     fn default() -> Self {
-        Self { auto_reconnect: true, watchdog: true, kill_switch: false, hotkey: false, proxy_auth: false, proxy_password: String::new() }
+        Self {
+            auto_reconnect: true,
+            watchdog: true,
+            kill_switch: false,
+            hotkey: false,
+            proxy_auth: false,
+            proxy_password: String::new(),
+            system_proxy: false,
+            bypass: Vec::new(),
+        }
     }
 }
 

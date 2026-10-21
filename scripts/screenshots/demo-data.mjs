@@ -7,8 +7,9 @@ import { readFileSync } from 'node:fs';
 const protocols = JSON.parse(readFileSync(new URL('./protocols.json', import.meta.url), 'utf8'));
 
 /** Returns JavaScript that installs a fake Tauri backend before the app loads. */
-export function demoScript({ connected = true, withServers = true, capOffer = false, name = 'Kage', version = '0.2.0' } = {}) {
-	return `(${install.toString()})(${JSON.stringify({ connected, withServers, capOffer, name, version, protocols })});`;
+/** `systemProxy`: connected in Proxy Only mode with the macOS system proxy set. */
+export function demoScript({ connected = true, withServers = true, capOffer = false, systemProxy = false, name = 'Kage', version = '0.2.0' } = {}) {
+	return `(${install.toString()})(${JSON.stringify({ connected, withServers, capOffer, systemProxy, name, version, protocols })});`;
 }
 
 function install(opts) {
@@ -49,6 +50,7 @@ function install(opts) {
 	const status = opts.connected
 		? { state: 'connected', mode: 'tun', since: now - 5400, error: null, health: 'healthy', reason: null, latencyMs: 38, failure: null, proxyPort: null }
 		: { state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null };
+	if (opts.connected && opts.systemProxy) Object.assign(status, { mode: 'proxy', proxyPort: 2080, systemProxy: { state: 'set', port: 2080, services: ['Wi-Fi', 'USB 10/100 LAN'] } });
 	const logLine = (level, text) => ({ level, text, hint: null });
 	const logs = opts.connected
 		? [
@@ -68,7 +70,7 @@ function install(opts) {
 		: [];
 
 	const snapshot = {
-		profiles, activeId: profiles.length ? 'p1' : null, mode: 'tun', status, logs,
+		profiles, activeId: profiles.length ? 'p1' : null, mode: status.mode, status, logs,
 		traffic: opts.connected ? { up: 96000, down: 1750000, totalUp: 74 * MB, totalDown: 612 * MB } : { up: 0, down: 0, totalUp: 0, totalDown: 0 },
 		history: opts.connected ? history : [],
 		settings: { showSpeed: true, autoConnect: false, logLevel: 'normal', clearLogs: false }, launchAtLogin: true, auto: { enabled: false, group: null },
@@ -93,7 +95,7 @@ function install(opts) {
 			ruleProvider: 'sagernet', customProviders: [],
 			dns: { provider: 'cloudflare', custom: '', fakeIp: false }
 		},
-		reliability: { autoReconnect: true, watchdog: true, killSwitch: true, hotkey: true, proxyAuth: false, proxyPassword: '' },
+		reliability: { autoReconnect: true, watchdog: true, killSwitch: true, hotkey: true, proxyAuth: false, proxyPassword: '', systemProxy: !!opts.systemProxy, bypass: opts.systemProxy ? ['*.corp.example', '10.20.0.0/16'] : [] },
 		networks: {
 			enabled: true,
 			networks: [

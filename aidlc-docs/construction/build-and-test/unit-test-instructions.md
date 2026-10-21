@@ -14,3 +14,9 @@ New tests: core (rollback), repair, diagnostics_bundle (needs macOS `unzip`), ne
 - The SSH key for the real `sing-box check` is made by `ssh-keygen` when the test runs (the test is skipped without it); earlier commits kept one in `tests/fixtures/test_ssh_key`, removed after GitGuardian flagged it.
 - Scripts: `format.test.mjs` (import notes in the toast, WireGuard file detection).
 - Expected: `cargo test --lib -- --test-threads=4` 409 passed; `npm run test:scripts` 39 passed.
+
+## Round 4, pull request 2 additions
+- Rust: `sysproxy` (13 tests against a pretend macOS: parsing, bypass list, set then restore, a user change kept, rollback after a failure, new services and ports, a proxy with a login left alone, a failed restore kept for Repair, the restore script's quoting and guards, when it applies, old settings); `runner` (the supervisor runs the restore script only when a run ends without a stop request).
+- One live test, ignored by default because it changes a real network service ("iPhone USB" only; it cannot see others): `cargo test --lib live_system_proxy_round_trip -- --ignored --nocapture`.
+- Scripts: `format.test.mjs` (bypass entries from the Settings box).
+- Expected: `cargo test --lib -- --test-threads=4` 424 passed, 1 ignored; `npm run test:scripts` 40 passed.

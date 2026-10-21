@@ -439,12 +439,24 @@ pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: Routing
 /// Turning it off needs nothing here: the block watch lifts a block that is no longer wanted.
 #[tauri::command]
 pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: ReliabilitySettings) -> Result<bool> {
+    crate::sysproxy::bypass_list(&settings.bypass)?;
     let was = state.store.lock().unwrap().reliability().kill_switch;
     let now = settings.kill_switch;
     state.store.lock().unwrap().set_reliability(settings)?;
     reliability::apply_hotkey(&app);
+    // The system proxy option, its bypass list or the proxy login changed: apply at once.
+    crate::sysproxy::spawn_sync(app.clone());
     let status = state.status.lock().unwrap();
     Ok(reliability::kill_switch_waits_for_reconnect(was, now, status.state, status.mode))
+}
+
+/// Puts back the proxy settings Kage saved; the Repair button on Home.
+#[tauri::command]
+pub async fn repair_system_proxy(app: AppHandle) -> Result<crate::sysproxy::SystemProxyState> {
+    if !crate::sysproxy::has_snapshot(&app.state::<AppState>().paths) {
+        return Err(AppError::Invalid("Nothing to restore: Kage has not changed your proxy settings.".into()));
+    }
+    Ok(crate::sysproxy::restore_now(&app).await)
 }
 
 #[tauri::command]

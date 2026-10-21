@@ -17,6 +17,7 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
     { id: "modes-comparison", label: "Mode Comparison" },
     { id: "tun-mode-deep-dive", label: "Full System TUN Mode" },
     { id: "proxy-only-mode", label: "Proxy Only Mode" },
+    { id: "system-proxy", label: "Set system proxy" },
     { id: "dns-handling", label: "DNS Hijacking & Resolution" }
   ],
   contentHtml: `
@@ -79,9 +80,20 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
       </p>
       <ul>
         <li>Kage launches sing-box with a mixed SOCKS5/HTTP inbound listener on <code>127.0.0.1:2080</code>. If another program already uses that port, Kage picks the next free one and shows the address on the Home page.</li>
-        <li>Kage does not change the proxy settings in System Settings. Point each app (a browser, a terminal tool) at the address yourself, as a SOCKS5 or HTTP proxy.</li>
-        <li>With <strong>Password for the local proxy</strong> on (Settings), apps must log in as <code>kage</code> with the password shown there.</li>
+        <li>By default Kage does not change the proxy settings in System Settings: point each app (a browser, a terminal tool) at the address yourself, as a SOCKS5 or HTTP proxy.</li>
+        <li>With <strong>Set system proxy</strong> on (Settings), Kage points the macOS proxy settings at the VPN while you are connected, so apps that follow them (Safari, most browsers, many other apps) use it without any setup. Details below.</li>
+        <li>With <strong>Password for the local proxy</strong> on (Settings), apps must log in as <code>kage</code> with the password shown there. The system proxy option is unavailable then, because apps that follow the system proxy usually ignore the login.</li>
       </ul>
+
+      <h3 id="system-proxy">Set system proxy</h3>
+      <p>When you connect in Proxy Only mode with this option on, Kage:</p>
+      <ul>
+        <li>saves the current proxy settings of every network service (Wi-Fi, Ethernet and so on), including an automatic proxy (PAC) file if you use one;</li>
+        <li>sets the Web, Secure Web and SOCKS proxies to the local address, and turns off automatic proxy configuration while connected (it would take precedence);</li>
+        <li>skips the proxy for localhost, <code>*.local</code> and private address ranges, plus any hosts you add under the option (one per line, such as <code>*.corp.example</code> or <code>10.20.0.0/16</code>).</li>
+      </ul>
+      <p>Your saved settings come back when you disconnect or quit, when you turn the option off, and when a reconnect gives up. A reconnect keeps the proxy set. If the app quits unexpectedly, the background process that runs sing-box puts them back; if even that is stopped (a power cut), Kage puts them back the next time it opens. Kage only puts back a service that still points at it, so a change you made yourself while connected is kept.</p>
+      <p>Home shows <em>System proxy on</em> while it is set. If setting or restoring fails, Home shows a warning with a <strong>Repair</strong> button, which puts back the settings Kage saved. A network service whose proxy needs a login is left alone (macOS keeps that password where Kage cannot put it back). No administrator password is needed: macOS allows its own <code>networksetup</code> tool to change these settings.</p>
 
       <h2 id="dns-handling">DNS Hijacking & Resolution</h2>
       <p>

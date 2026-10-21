@@ -41,6 +41,7 @@ export interface Status {
 	blocked: boolean;
 	/** A stop was asked for and sing-box has not exited yet; `state` is still 'connected' until it has. */
 	disconnecting: boolean;
+	systemProxy?: SystemProxyState;
 }
 
 export interface ErrorInfo {
@@ -221,7 +222,17 @@ export interface ReliabilitySettings {
 	hotkey: boolean;
 	proxyAuth: boolean;
 	proxyPassword: string;
+	/** Set the macOS system proxy while connected in Proxy Only mode. */
+	systemProxy: boolean;
+	/** Extra hosts and address ranges that skip the system proxy. */
+	bypass: string[];
 }
+
+/** What Kage did to the macOS proxy settings. */
+export type SystemProxyState =
+	| { state: 'off' }
+	| { state: 'set'; port: number; services: string[] }
+	| { state: 'failed'; action: 'set' | 'restore'; reason: string };
 
 export type CapPeriod = 'day' | 'week' | 'month';
 export type AtLimit = 'notify' | 'offerBlock';
@@ -421,6 +432,7 @@ export const api = {
 	restoreNetwork: () => invoke<void>('restore_network'),
 	unblockInternet: () => invoke<void>('unblock_internet'),
 	rootServiceInstalled: () => invoke<boolean>('root_service_installed'),
+	repairSystemProxy: () => invoke<SystemProxyState>('repair_system_proxy'),
 	repairService: () => invoke<string>('repair_service'),
 	exportDiagnostics: () => invoke<{ path: string; summary: string }>('diagnostics_export'),
 	installRootService: () => invoke<void>('install_root_service'),

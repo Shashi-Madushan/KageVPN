@@ -1,5 +1,22 @@
 # Build and test summary
 
+## Round 4, pull request 2: system proxy (branch feature/system-proxy, unit U5, at db08ecc)
+| Check | Result |
+|---|---|
+| `cargo test --lib -- --test-threads=4` | 424 passed, 1 ignored (the live test) |
+| `cargo clippy --all-targets -- -D warnings` | clean |
+| `npm run check` (svelte-check) | 0 errors, 0 warnings |
+| `npx vite build` | succeeds |
+| `npm run test:scripts` | 40 passed |
+| `npm run build:app` | builds `Kage.app` (11 MB) |
+| Live set and restore on "iPhone USB" (with permission) | no password prompt; every field back as before; Wi-Fi untouched (integration C) |
+| Crash path with a real sing-box | supervisor stops sing-box, runs the restore script, removes the files (integration D) |
+| Settings section and Home chip | checked in the screenshot demo |
+
+Not verified:
+- Integration steps 7 to 14 (a real Proxy Only connection in the running app, force-quit, power-cut case, PAC, Ethernet): the live app was not run, so your real VPN was not touched.
+- The published screenshots were not regenerated for the new Settings section.
+
 ## Round 4, pull request 1: TUIC, Hysteria v1, SSH, WireGuard (branch feature/protocols-and-system-proxy, units U1 to U4, at 080c53a)
 | Check | Result |
 |---|---|
