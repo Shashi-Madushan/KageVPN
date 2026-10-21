@@ -146,6 +146,9 @@ pub fn spawn_reconnect(app: AppHandle) {
         if matches!(outcome, Outcome::UserTookOver | Outcome::Failed(_)) && state.status.lock().unwrap().state == Conn::Disconnected {
             let _ = crate::runner::request_stop(&state.paths);
         }
+        if matches!(outcome, Outcome::GaveUp | Outcome::Failed(_)) {
+            crate::sysproxy::restore_now(&app).await;
+        }
         match outcome {
             Outcome::Reconnected => notify::send(&app, "VPN reconnected", "The tunnel is back up."),
             Outcome::UserTookOver => {}

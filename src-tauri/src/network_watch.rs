@@ -155,6 +155,10 @@ async fn resume_if_reachable(app: &AppHandle) {
 
 async fn handle(app: &AppHandle, change: Change) {
     applog::info(format!("network watch: {change:?}"));
+    // A service that came up (Ethernet plugged in) gets the system proxy too.
+    if matches!(*app.state::<AppState>().system_proxy.lock().unwrap(), crate::sysproxy::SystemProxyState::Set { .. }) {
+        crate::sysproxy::spawn_sync(app.clone());
+    }
     let manual = app.state::<AppState>().manual_actions.load(std::sync::atomic::Ordering::SeqCst);
     crate::health::recheck();
     let settle = if change == Change::Woke { WAKE_SETTLE } else { NETWORK_SETTLE };

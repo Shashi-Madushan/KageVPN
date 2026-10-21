@@ -11,6 +11,7 @@
 	import { feedback } from '$lib/feedback.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
 	import { saveToggle } from '$lib/toggle';
+	import { bypassLines } from '$lib/format';
 
 	let restoring = $state(false);
 	let backupInput: HTMLInputElement;
@@ -52,6 +53,16 @@
 		);
 		rootBusy = false;
 		return done;
+	}
+
+	let bypassText = $state(app.reliability.bypass?.join('\n') ?? '');
+	let bypassSaving = $state(false);
+	const bypassChanged = $derived(bypassLines(bypassText).join('\n') !== (app.reliability.bypass ?? []).join('\n'));
+
+	async function saveBypass() {
+		bypassSaving = true;
+		if (await app.saveReliability({ bypass: bypassLines(bypassText) })) bypassText = app.reliability.bypass.join('\n');
+		bypassSaving = false;
 	}
 
 	function toggleProxyAuth(on: boolean) {
@@ -131,6 +142,26 @@
 		{#if app.reliability.proxyAuth}
 			<div class="restore">
 				<small>Username <code>kage</code>, password <code class="mono">{app.reliability.proxyPassword}</code></small>
+			</div>
+		{/if}
+		<label>
+			<span>
+				<strong>Set system proxy</strong>
+				<small>
+					{#if app.reliability.proxyAuth}
+						Unavailable while the proxy password is on: apps that follow the system proxy usually ignore the login.
+					{:else}
+						Proxy Only mode: apps that follow the macOS proxy settings use the VPN without setting each one up. Your previous settings come back when you disconnect, and if the app quits unexpectedly.{app.status.mode === 'tun' ? ' Not used in TUN mode, which already carries every app.' : ''}
+					{/if}
+				</small>
+			</span>
+			<input type="checkbox" checked={app.reliability.systemProxy && !app.reliability.proxyAuth} disabled={app.reliability.proxyAuth} onchange={(e) => saveToggle(e, (on) => app.saveReliability({ systemProxy: on }))} />
+		</label>
+		{#if app.reliability.systemProxy && !app.reliability.proxyAuth}
+			<div class="restore bypass">
+				<small>Always skipped: localhost, <code>*.local</code> and private address ranges. Also skip (one per line, such as <code>*.corp.example</code> or <code>10.20.0.0/16</code>):</small>
+				<textarea class="input mono" rows="3" bind:value={bypassText} spellcheck="false" aria-label="Hosts that skip the system proxy"></textarea>
+				<button class="btn" disabled={!bypassChanged || bypassSaving} onclick={saveBypass}>{bypassSaving ? 'Saving…' : 'Save'}</button>
 			</div>
 		{/if}
 		<label>
@@ -296,6 +327,14 @@
 		align-items: center;
 		gap: 12px;
 		padding: 10px 14px 12px;
+	}
+	.restore.bypass {
+		display: grid;
+		justify-items: start;
+		gap: 8px;
+	}
+	.restore.bypass textarea {
+		width: 100%;
 	}
 	.quit {
 		margin-top: 4px;

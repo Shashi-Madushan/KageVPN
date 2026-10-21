@@ -426,3 +426,43 @@ keep the network exteion part for later"
 **Context**: CONSTRUCTION - Build and Test for PR 1 (awaiting approval)
 
 ---
+
+## Pull request 1 and U5 system proxy functional design questions
+**Timestamp**: 2026-10-21T11:40:00Z
+**User Input**: "Commit the build-and-test docs, push the branch and open pull request 1 (protocols) to dev, then continue to U5 system proxy."
+**AI Response**: Build and Test approved. Committed be3b103, pushed feature/protocols-and-system-proxy, opened https://github.com/Shashi-Madushan/KageVPN/pull/6 to dev (bound; 2 checks pending, mergeable). Created branch feature/system-proxy from it for U5 so pull request 1 stays as it is. Read the supervisor, runner, session and settings code, and read-only checks on the Mac: the network settings right allows entitled programs and /usr/sbin/networksetup is entitled for it, so no password prompt is needed (open point settled; to be confirmed during code generation); listed services and current proxy settings without changing them. Wrote construction/plans/u5-system-proxy-functional-design-plan.md with 8 questions and stopped at the answer gate.
+**Context**: CONSTRUCTION - U5 System proxy Functional Design (awaiting answers)
+
+---
+
+## U5 System proxy functional design
+**Timestamp**: 2026-10-21T12:00:00Z
+**User Input**: "Use your recommended answers for the U5 system proxy questions and write the functional design."
+**AI Response**: Filled answers (all A); no contradictions. Wrote construction/u5-system-proxy/functional-design/: domain-entities.md (settings, built-in bypass list, ServiceProxy, snapshot and restore script files, SystemProxyState), business-rules.md (R1 when it applies, R2 set when listening, R3 order with snapshot first and PAC/WPAD off, R4 restore only what still points at Kage, R5 when restored incl. supervisor and launch, R6 new services, R7 bypass validation, R8 login, R9 no privileges via entitled networksetup, R10 failures and Repair, R11 live-Mac testing on iPhone USB only after asking), business-logic-model.md (F1 to F8), frontend-components.md (Settings toggle and bypass box, Home chip and Repair, API). Presented for approval.
+**Context**: CONSTRUCTION - U5 System proxy Functional Design (awaiting approval)
+
+---
+
+## U5 functional design approval and code generation plan
+**Timestamp**: 2026-10-21T12:20:00Z
+**User Input**: "Approve the U5 system proxy functional design and continue to the U5 code generation plan."
+**AI Response**: Functional design approved. Found the hook points (connect after Connected, stop_with by Ending, reconnect outcomes, quit via disconnect, supervisor after its loop, launch before auto_connect, network_watch::handle, set_reliability and set_mode). Wrote construction/plans/u5-system-proxy-code-generation-plan.md: 10 steps (settings, pure core, effects behind a runner trait, session hooks, supervisor argument and restore, commands, interface, a runtime check on the unused "iPhone USB" service only after asking, docs and screenshots, verify). Presented the plan for approval.
+**Context**: CONSTRUCTION - U5 System proxy Code Generation, Part 1 planning (awaiting approval)
+
+---
+
+## U5 System proxy code generation
+**Timestamp**: 2026-10-21T13:30:00Z
+**User Input**: "Approve the U5 system proxy code generation plan and generate the code."
+**AI Response**: Plan approved; executed steps 1 to 7 and 9 to 10, then stopped before step 8 to ask. Created sysproxy.rs (pure core, effects behind a Runner, app glue) with 13 fake-macOS tests; hooked connect, stop, failed connect, reconnect outcomes, network watch, launch, set_reliability and a new repair_system_proxy command; the supervisor runs the restore script when a run ends without a stop request (tested with a stand-in sing-box); Settings toggle and bypass box, Home chip and Repair banner; docs. 424 Rust tests, clippy clean, svelte-check 0 errors, 40 script tests, vite build ok.
+**Context**: CONSTRUCTION - U5 Code Generation (live check pending permission)
+
+---
+
+## U5 live check on iPhone USB
+**Timestamp**: 2026-10-21T13:45:00Z
+**User Input**: "Yes, run the live system proxy test on the iPhone USB service only."
+**AI Response**: Ran the ignored live test, whose runner can only see "iPhone USB": set, restore script, app restore, no password prompt. Found that a restore left Kage's address in switched-off fields; confirmed on iPhone USB that networksetup accepts an empty address, changed restore to set the old address and turn the proxy off, made the fake's injected failure one-time, cleared the leftovers, and reran: every field identical to the state read before the first change. Wi-Fi diffed before and after: identical. No sing-box ran; 2080/19090 unused. Rerun: 424 passed, clippy clean, svelte-check 0 errors, 40 script tests, build:app ok. Wrote construction/u5-system-proxy/code/summary.md. Not committed.
+**Context**: CONSTRUCTION - U5 System proxy Code Generation complete (awaiting approval)
+
+---

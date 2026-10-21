@@ -59,11 +59,15 @@ pub struct Status {
     /// has, so this is what lets the screens show "Disconnecting…" instead of an unresponsive button.
     #[serde(default)]
     pub disconnecting: bool,
+    /// What Kage did to the macOS proxy settings (Proxy Only mode); kept across runs, since a
+    /// failed restore matters after disconnecting too.
+    #[serde(default)]
+    pub system_proxy: crate::sysproxy::SystemProxyState,
 }
 
 impl Status {
     pub fn disconnected(mode: Mode) -> Self {
-        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None, proxy_port: None, blocked: false, disconnecting: false }
+        Self { state: State::Disconnected, mode, since: None, error: None, health: Health::Idle, reason: None, latency_ms: None, failure: None, proxy_port: None, blocked: false, disconnecting: false, system_proxy: Default::default() }
     }
 }
 
@@ -94,6 +98,8 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
                 s.proxy_port = Some(config::mixed_port());
             });
             applog::info(format!("connect: up, supervisor pid {pid}"));
+            // Set (or keep, on the new port) or put back the macOS proxy for this run.
+            crate::sysproxy::spawn_sync(app.clone());
             watch(app.clone(), pid);
             traffic::spawn(app.clone(), pid, secret);
             spawn_connection_poll(app.clone(), pid);
@@ -121,6 +127,10 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
             *state.clash_secret.lock().unwrap() = None;
             note_stop(&state);
             let _ = end_run(app, mode, Ending::Failed);
+            // A reconnect in progress keeps the system proxy; it is put back if it gives up.
+            if !state.reconnecting.load(Ordering::SeqCst) {
+                crate::sysproxy::restore_now(app).await;
+            }
             update(app, |s| *s = Status { error: Some(error.to_string()), failure: Some(error.info()), ..Status::disconnected(mode) });
             Err(error)
         }
@@ -281,6 +291,10 @@ async fn stop_with(app: &AppHandle, ending: Ending) -> Result<()> {
         sleep(POLL_INTERVAL).await;
     }
     finish(app, pid);
+    // A restart keeps the system proxy set for the next run; any other stop puts it back.
+    if ending != Ending::Restart {
+        crate::sysproxy::restore_now(app).await;
+    }
     Ok(())
 }
 
@@ -311,7 +325,7 @@ fn begin(app: &AppHandle, mode: Mode) -> Result<()> {
     }
     state.stopping.store(false, Ordering::SeqCst);
     state.cancel_connect.store(false, Ordering::SeqCst);
-    *status = Status { state: State::Connecting, ..Status::disconnected(mode) };
+    *status = Status { state: State::Connecting, system_proxy: crate::sysproxy::current(&state), ..Status::disconnected(mode) };
     let _ = app.emit("status", status.clone());
     Ok(())
 }
@@ -590,6 +604,7 @@ pub(crate) fn update(app: &AppHandle, change: impl FnOnce(&mut Status)) {
     let mut status = state.status.lock().unwrap();
     change(&mut status);
     status.blocked = state.blocked.load(Ordering::SeqCst);
+    status.system_proxy = crate::sysproxy::current(&state);
     // Timers must not be napped while a tunnel is up; the health and reconnect logic runs on them.
     if status.state == State::Connected {
         crate::appnap::hold();

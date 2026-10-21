@@ -123,6 +123,16 @@ impl AppPaths {
         self.data_dir.join("child.pid")
     }
 
+    /// The proxy settings Kage saved before setting the system proxy; see `sysproxy`.
+    pub fn system_proxy_snapshot(&self) -> PathBuf {
+        self.data_dir.join("system-proxy-saved.json")
+    }
+
+    /// Puts the saved proxy settings back; the supervisor runs it if the app dies.
+    pub fn system_proxy_script(&self) -> PathBuf {
+        self.data_dir.join("system-proxy-restore.sh")
+    }
+
     pub fn supervisor_script(&self) -> PathBuf {
         self.data_dir.join("supervisor.sh")
     }

@@ -660,3 +660,66 @@ mod helper {
         let _ = fs::remove_dir_all(dir);
     }
 }
+
+mod supervisor_restore {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("kage-supervisor-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Runs the supervisor with a stand-in sing-box that exits at once, and a restore script that
+    /// leaves a marker. Returns whether the marker appeared and whether the saved-settings file is gone.
+    fn run(dir: &Path, with_stop_file: bool) -> (bool, bool) {
+        let core = dir.join("core");
+        fs::write(&core, "#!/bin/sh\nexit 1\n").unwrap();
+        Command::new("chmod").args(["+x", core.to_str().unwrap()]).status().unwrap();
+        let script = dir.join("supervisor.sh");
+        fs::write(&script, super::SUPERVISOR).unwrap();
+        let marker = dir.join("restored");
+        let restore = dir.join("system-proxy-restore.sh");
+        fs::write(&restore, format!("#!/bin/sh\ntouch '{}'\n", marker.display())).unwrap();
+        let saved = dir.join("system-proxy-saved.json");
+        fs::write(&saved, "{}").unwrap();
+        let stop = dir.join("stop");
+        if with_stop_file {
+            fs::write(&stop, "").unwrap();
+        }
+        // The stand-in sing-box fails, so the supervisor's own exit status says nothing here.
+        let _ = Command::new("/bin/sh")
+            .arg(&script)
+            .args([core.to_str().unwrap(), "/dev/null", stop.to_str().unwrap(), &std::process::id().to_string(), "", restore.to_str().unwrap(), saved.to_str().unwrap()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline && !(marker.exists() || with_stop_file) {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        (marker.exists(), !saved.exists())
+    }
+
+    #[test]
+    fn a_run_that_ends_without_a_stop_request_puts_the_proxy_settings_back() {
+        let dir = scratch("died");
+        assert_eq!(run(&dir, false), (true, true));
+        assert!(!dir.join("system-proxy-restore.sh").exists());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_requested_stop_leaves_the_restore_to_the_app() {
+        let dir = scratch("stopped");
+        assert_eq!(run(&dir, true), (false, false));
+        let _ = fs::remove_dir_all(dir);
+    }
+}

@@ -162,6 +162,10 @@ fn start_plain(paths: &AppPaths, binary: &Path) -> Result<u32> {
         paths.config_file().display().to_string(),
         paths.stop_file().display().to_string(),
         std::process::id().to_string(),
+        // No kill switch in this mode; then where the system proxy settings are put back from.
+        String::new(),
+        paths.system_proxy_script().display().to_string(),
+        paths.system_proxy_snapshot().display().to_string(),
     ];
     spawn_plain(&args)
 }

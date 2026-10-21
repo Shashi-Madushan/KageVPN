@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatBytes, formatRate, formatRateOrDash, importMessage, isWireGuardFile, planSummary } from '../../src/lib/format.ts';
+import { bypassLines, formatBytes, formatRate, formatRateOrDash, importMessage, isWireGuardFile, planSummary } from '../../src/lib/format.ts';
 
 const GB = 1024 ** 3;
 const DAY = 86400;
@@ -52,4 +52,9 @@ test('a wg-quick file is told apart from other text', () => {
 	assert.equal(isWireGuardFile('[Interface]\nPrivateKey = x\n'), false, 'no peer');
 	assert.equal(isWireGuardFile('[Peer]\nEndpoint = h:1\n[Interface]\n'), false, 'interface not first');
 	assert.equal(isWireGuardFile('vless://x@h:443'), false);
+});
+
+test('bypass entries are read one per line or comma-separated', () => {
+	assert.deepEqual(bypassLines(' *.corp.example \n\n10.20.0.0/16, intranet\n'), ['*.corp.example', '10.20.0.0/16', 'intranet']);
+	assert.deepEqual(bypassLines(''), []);
 });

@@ -1,9 +1,12 @@
 #!/bin/sh
-# usage: supervisor.sh <sing-box> <config> <stop-file> <parent-pid> [kill-switch-ips]
+# usage: supervisor.sh <sing-box> <config> <stop-file> <parent-pid> [kill-switch-ips] [restore-script saved-settings]
 # Runs sing-box until the stop file appears or the parent app exits. When a
 # kill-switch IP list is given (even "-"), traffic is blocked if sing-box dies
-# on its own, until the stop file appears or the parent exits.
-bin="$1"; config="$2"; stop="$3"; parent="$4"; ips="$5"
+# on its own, until the stop file appears or the parent exits. When a restore
+# script is given (Proxy Only mode with the system proxy on), it runs if the
+# run ends without the stop file, so the macOS proxy settings Kage changed are
+# put back even when the app dies.
+bin="$1"; config="$2"; stop="$3"; parent="$4"; ips="$5"; restore="$6"; saved="$7"
 anchor="com.apple/250.KageVPN"
 token=""
 
@@ -45,6 +48,11 @@ if ! kill -0 "$child" 2>/dev/null; then
       ps -axo pid,ppid,user,etime,comm 2>/dev/null | grep -iE 'vpn|tunnel|proxy|clash|v2ray|xray|wireguard|tailscale|openvpn|surge|tun2' | grep -v grep | head -6
     } >> "$errlog"
   fi
+fi
+
+if [ -n "$restore" ] && [ ! -e "$stop" ] && [ -f "$restore" ]; then
+  /bin/sh "$restore" >/dev/null 2>&1
+  rm -f "$restore" "$saved"
 fi
 
 if [ -n "$ips" ] && [ ! -e "$stop" ] && kill -0 "$parent" 2>/dev/null && ! kill -0 "$child" 2>/dev/null; then

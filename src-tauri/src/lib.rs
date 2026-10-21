@@ -37,6 +37,7 @@ mod speed_icon;
 mod state;
 mod store;
 mod subscriptions;
+mod sysproxy;
 mod tray;
 mod traffic;
 mod usage;
@@ -92,6 +93,7 @@ pub fn run() {
             warn_if_data_was_recovered(app.handle());
             logs::spawn_tailer(app.handle().clone());
             tray::setup(app.handle())?;
+            sysproxy::restore_at_launch(&app.state::<AppState>().paths);
             auto_connect(app.handle());
             core::commands::spawn_background_check(app.handle().clone());
             app_update::spawn_background_check(app.handle().clone());
@@ -141,6 +143,7 @@ pub fn run() {
             commands::test_all,
             commands::set_routing,
             commands::set_reliability,
+            commands::repair_system_proxy,
             networks::set_network_settings,
             networks::current_network,
             commands::restore_network,

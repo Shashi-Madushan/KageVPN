@@ -49,7 +49,7 @@ class AppStore {
 	subscriptions = $state<Subscription[]>([]);
 	routing = $state<RoutingSettings | null>(null);
 	networks = $state<NetworkSettings>({ enabled: false, networks: [] });
-	reliability = $state<ReliabilitySettings>({ autoReconnect: true, watchdog: true, killSwitch: false, hotkey: false, proxyAuth: false, proxyPassword: '' });
+	reliability = $state<ReliabilitySettings>({ autoReconnect: true, watchdog: true, killSwitch: false, hotkey: false, proxyAuth: false, proxyPassword: '', systemProxy: false, bypass: [] });
 	hotkey = $state('');
 	latency = $state<Record<string, Latency>>({});
 	latencyHistory = $state<Record<string, (number | null)[]>>({});
