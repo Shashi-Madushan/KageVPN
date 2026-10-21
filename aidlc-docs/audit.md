@@ -287,3 +287,11 @@
 **Context**: CONSTRUCTION - bug fixes, code generation complete
 
 ---
+
+## Changelog update
+**Timestamp**: 2026-10-21T13:00:00Z
+**User Input**: "update the changelog s also check yesterdays hnages laso , add them to today if need cusy yesterday we had a release ,"
+**AI Response**: 0.2.0 was published 2026-10-20T13:47Z from main at 31f0233; every commit on this branch is later. Moved the five 20 October items written after the release (Apps page, data caps, expiry warnings, setup guide steps, Download now and Route button) to 21 October, marked 20 October as version 0.2.0 and 21 October as not released, and added entries that had none: the rename to Kage, IPv6 off by default with an IPv4-only tunnel, IPv6 refused before sniff, and the segmented toggle contrast fix. Updated the page lead, which still said nothing was tagged.
+**Context**: Documentation
+
+---
