@@ -45,6 +45,10 @@ impl ProtocolDef for Vless {
         &["vless"]
     }
 
+    fn over_udp(&self) -> bool {
+        false
+    }
+
     fn parse(&self, link: &str) -> Result<Profile> {
         parse_vless(link)
     }

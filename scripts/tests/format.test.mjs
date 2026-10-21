@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatBytes, formatRate, formatRateOrDash, planSummary } from '../../src/lib/format.ts';
+import { formatBytes, formatRate, formatRateOrDash, importMessage, planSummary } from '../../src/lib/format.ts';
 
 const GB = 1024 ** 3;
 const DAY = 86400;
@@ -35,4 +35,13 @@ test('speeds are rounded, never raw decimals', () => {
 	assert.equal(formatRateOrDash(0), '—');
 	assert.equal(formatRateOrDash(0.4), '—');
 	assert.equal(formatRateOrDash(2048), '2.0 KB/s');
+});
+
+test('an import message names skips and notes', () => {
+	assert.equal(importMessage({ added: 2, duplicates: 0, failed: [], notes: [] }), 'Imported 2 profiles.');
+	assert.equal(
+		importMessage({ added: 1, duplicates: 0, failed: [], notes: ['HK: no speeds in the link, using 10 Mbps up and 50 Mbps down'] }),
+		'Imported 1 profile, note (HK: no speeds in the link, using 10 Mbps up and 50 Mbps down).'
+	);
+	assert.equal(importMessage({ added: 3, duplicates: 0, failed: ['x'], notes: ['a: b', 'c: d'] }), 'Imported 3 profiles, 1 skipped (x), 2 notes (a: b).');
 });

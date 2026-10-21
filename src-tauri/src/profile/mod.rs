@@ -11,10 +11,13 @@ mod common;
 mod conformance;
 mod form;
 mod formats;
+mod hysteria;
 mod hysteria2;
 mod links;
 mod shadowsocks;
+mod ssh;
 mod trojan;
+mod tuic;
 mod vless;
 mod vmess;
 
@@ -25,7 +28,7 @@ use serde_json::{Map, Value};
 use crate::error::{AppError, Result};
 
 pub use form::{Field, ProtocolView};
-pub use links::{contains_link, parse_many, to_link};
+pub use links::{contains_link, parse_all, parse_many, to_link};
 #[cfg(test)]
 pub use links::parse_link;
 
@@ -89,6 +92,9 @@ pub trait ProtocolDef: Sync {
     fn label(&self) -> &'static str;
     /// URL schemes its links use, lowercase.
     fn schemes(&self) -> &'static [&'static str];
+    /// Whether it reaches the server over UDP (QUIC and the like), so a TCP connect says
+    /// nothing about whether the server is up.
+    fn over_udp(&self) -> bool;
     fn parse(&self, link: &str) -> Result<Profile>;
     fn to_link(&self, profile: &Profile) -> String;
     /// Protocol-specific checks; the name, address and port are checked for every protocol.
@@ -112,9 +118,14 @@ pub trait ProtocolDef: Sync {
     /// Tidies a profile before it is saved: clears settings that no longer apply and fills
     /// required defaults. Runs before `validate`.
     fn normalize(&self, _profile: &mut Profile) {}
+    /// Something the user should know about a server this link imported, such as a default
+    /// filled in for a value the link left out. Shown with the import result.
+    fn import_note(&self, _link: &str) -> Option<String> {
+        None
+    }
 }
 
-pub static REGISTRY: &[&dyn ProtocolDef] = &[&vless::Vless, &trojan::Trojan, &shadowsocks::Shadowsocks, &hysteria2::Hysteria2, &vmess::Vmess];
+pub static REGISTRY: &[&dyn ProtocolDef] = &[&vless::Vless, &trojan::Trojan, &shadowsocks::Shadowsocks, &hysteria2::Hysteria2, &tuic::Tuic, &hysteria::Hysteria, &vmess::Vmess, &ssh::Ssh];
 
 pub fn def(protocol: ProtocolId) -> &'static dyn ProtocolDef {
     *REGISTRY.iter().find(|d| d.id() == protocol.0).expect("every ProtocolId comes from REGISTRY")

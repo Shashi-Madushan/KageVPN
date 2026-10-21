@@ -303,3 +303,86 @@
 **Context**: Documentation
 
 ---
+
+## Round 3 request: Network Extension mode
+**Timestamp**: 2026-10-21T15:00:00Z
+**User Input**: "create  a new barnch and use aidlc and plan this NetworkExtension mode. This is how sing-box’s own Apple apps work. It would remove the need for the root helper and allow on-demand connections."
+**AI Response**: Created branch feature/network-extension from dev (84ce628). Workspace Detection: resumed the existing AI-DLC project (brownfield); reverse engineering artifacts reused (runner, session and config unchanged in scope). Intent: new feature, system-wide (new Swift system extension, Rust bridge, build and signing pipeline), complex. Researched constraints (Developer ID system extension entitlement, notarization, libbox via gomobile, GPL-3.0-or-later licence with a name clause, VPN On Demand). Wrote inception/requirements/network-extension-questions.md (12 questions plus the three extension opt-ins) and stopped at the answer gate.
+**Context**: INCEPTION - Workspace Detection, Requirements Analysis (questions)
+
+---
+
+## Round 4 request: more protocols and system-proxy mode
+**Timestamp**: 2026-10-21T06:01:15Z
+**User Input**: "in hear lets do this next use aidelc , 5. More protocols. TUIC, WireGuard, Hysteria v1 and SSH links are currently reported as “not supported yet”. Each one is a new module (see docs/ADDING-A-PROTOCOL.md).
+6. System-proxy mode. Turn on the macOS system proxy in Proxy Only mode, with a restore step so a crash never leaves a dead proxy configured. Today you point each app at the proxy yourself.
+
+keep the network exteion part for later"
+**AI Response**: Parked Round 3 (Network Extension) at its question gate; its questions file stays unanswered. Created branch feature/protocols-and-system-proxy from dev (84ce628); the uncommitted AI-DLC docs came along. Workspace Detection: resumed brownfield project, reverse engineering reused (profile registry, config builder and runner unchanged since). Intent: new features, multiple components (profile modules, links and formats import, config builder for the WireGuard endpoint, runner/supervisor and settings for the system proxy), moderate to complex. Standard depth. Wrote inception/requirements/protocols-and-system-proxy-questions.md (19 questions plus the three extension opt-ins) and stopped at the answer gate.
+**Context**: INCEPTION - Workspace Detection, Requirements Analysis (questions)
+
+---
+
+## Round 4 answers and requirements
+**Timestamp**: 2026-10-21T06:02:59Z
+**User Input**: "Use your recommended answers for all questions and continue to the requirements document."
+**AI Response**: Filled the recommended answers (A for Questions 1 to 19). The three extension questions had no recommendation; set to the earlier rounds' choices (Security B, PBT C, Resiliency B), recorded as No in aidlc-state.md, full rule files not loaded. Checked for contradictions: none. Wrote inception/requirements/protocols-and-system-proxy-requirements.md (FR1 four protocol modules with WireGuard as a sing-box endpoint and .conf import, FR2 system-proxy toggle with a disk-backed restore by app, supervisor and next launch; NFRs for tests, live-machine safety, privileges, engine version, docs, two PRs). Open point for design: whether networksetup needs an admin password. User Stories proposed as skipped. Presented the requirements approval prompt.
+**Context**: INCEPTION - Requirements Analysis (awaiting approval)
+
+---
+
+## Round 4 requirements approval and workflow planning
+**Timestamp**: 2026-10-21T06:04:21Z
+**User Input**: "Approve the requirements and continue to Workflow Planning (skip User Stories)."
+**AI Response**: Requirements approved, User Stories skipped. Read the outbound call sites (only config.rs:108 via Profile::outbound), form field kinds (no multi-line kind) and the proxy-mode supervisor (exits with the parent app). Wrote inception/plans/protocols-and-system-proxy-execution-plan.md: risk Medium; skip Application Design, Units Generation, NFR and Infrastructure stages; Functional Design for U4 WireGuard and U5 system proxy; units U1 TUIC, U2 Hysteria v1, U3 SSH, U4 WireGuard (PR 1), U5 system proxy (PR 2), each with its own code generation plan. Mermaid diagram checked (alphanumeric node ids, quoted labels) with a text alternative. Presented the plan for approval.
+**Context**: INCEPTION - Workflow Planning (awaiting approval)
+
+---
+
+## Round 4 workflow plan approval and U1 TUIC code generation plan
+**Timestamp**: 2026-10-21T06:18:07Z
+**User Input**: "Approve the execution plan and continue to the U1 TUIC code generation plan."
+**AI Response**: Execution plan approved. Read code-generation.md, profile/hysteria2.rs (QUIC model), its tests, the form and common helpers, and formats.rs (subscription entries become links parsed by the protocol). Wrote construction/plans/u1-tuic-code-generation-plan.md: 9 steps (shared port-list check, tuic.rs module, registry, links, sing-box JSON and Clash entries, tests, screenshot fixture, docs, verify); v5 only with stated rejections. Presented the plan for approval (Part 1 gate).
+**Context**: CONSTRUCTION - U1 TUIC Code Generation, Part 1 planning (awaiting approval)
+
+---
+
+## U1 TUIC code generation
+**Timestamp**: 2026-10-21T06:45:00Z
+**User Input**: "Approve the U1 TUIC code generation plan and generate the code."
+**AI Response**: Plan approved; executed steps 1 to 9. Added step 10 during generation: health::needs_tcp_check only exempted hysteria2, so TUIC would have failed the pre-connect TCP test; ProtocolDef gained a required over_udp() and the check asks the registry. Created profile/tuic.rs and tests/profile_tuic.rs; modified profile mod/common/links/formats, every protocol module (over_udp), health.rs, tests, screenshot fixture, four front-end strings, README, ADDING-A-PROTOCOL.md, docs site (user guide, new TUIC page and nav entry, changelog). cargo test 363 passed (real sing-box 1.14.2 check includes the TUIC sample), clippy clean, svelte-check 0 errors, script tests 37 passed, vite build ok. Not tested against a real TUIC server; live app not run. Not committed.
+**Context**: CONSTRUCTION - U1 TUIC Code Generation complete (awaiting approval)
+
+---
+
+## U1 approval and U2 Hysteria v1 code generation plan
+**Timestamp**: 2026-10-21T07:00:00Z
+**User Input**: "Approve the U1 TUIC code and continue to the U2 Hysteria v1 code generation plan."
+**AI Response**: U1 approved. Read the import flow (commands::import_text, subscriptions refresh, ImportSummary in api.ts, importMessage in format.ts). Wrote construction/plans/u2-hysteria-code-generation-plan.md: 9 steps; adds import notes (ProtocolDef::import_note with a default of None, parse_many returns notes, ImportSummary.notes, toast text) for the default speeds; hysteria.rs on the official v1 URI with stated rejections; subscription entries; tests; fixture; docs. Presented the plan for approval.
+**Context**: CONSTRUCTION - U2 Hysteria v1 Code Generation, Part 1 planning (awaiting approval)
+
+---
+
+## U2 Hysteria v1 code generation
+**Timestamp**: 2026-10-21T07:40:00Z
+**User Input**: "Approve the U2 Hysteria v1 code generation plan and generate the code."
+**AI Response**: Plan approved; executed steps 1 to 9. Decisions while coding: parse_all with notes added beside an unchanged parse_many; speeds stored as numbers but read from editor text; conformance test exempts hysteria from "blank needs credentials" (password optional). Created profile/hysteria.rs and tests/profile_hysteria.rs; modified profile mod/links/formats, commands.rs (ImportSummary.notes), api.ts, format.ts, tests, fixture, wording, README, ADDING-A-PROTOCOL.md, docs site (new Hysteria v1 page). cargo test 375 passed (real sing-box 1.14.2 check), clippy clean, svelte-check 0 errors, script tests 38 passed, vite build ok. Not tested against a real Hysteria server; live app not run. Not committed.
+**Context**: CONSTRUCTION - U2 Hysteria v1 Code Generation complete (awaiting approval)
+
+---
+
+## U2 approval and U3 SSH code generation plan
+**Timestamp**: 2026-10-21T07:55:00Z
+**User Input**: "Approve the U2 Hysteria v1 code and continue to the U3 SSH code generation plan."
+**AI Response**: U2 approved. Read ProfileDialog.svelte (single-line inputs only; warnings only for toggles that are on) and ProfilesPage.svelte (summary shown under each server). Wrote construction/plans/u3-ssh-code-generation-plan.md: 9 steps; adds a multi-line field kind and a warning-while-empty option to the editor, ssh.rs (password or pasted key, optional host keys with a warning when empty, port 22), subscription entries (key files skipped), tests, fixture, docs. Presented the plan for approval.
+**Context**: CONSTRUCTION - U3 SSH Code Generation, Part 1 planning (awaiting approval)
+
+---
+
+## U3 SSH code generation
+**Timestamp**: 2026-10-21T08:30:00Z
+**User Input**: "Approve the U3 SSH code generation plan and generate the code."
+**AI Response**: Plan approved; executed steps 1 to 9. Added step 10 from the editor check: fixed a U2 bug (null from the editor for Hysteria's optional password; new common::null_as_empty), turned the protocol picker into a dropdown (eight protocols overflowed the button row), made an untouched port follow the protocol default when switching (SSH 22), and taught the screenshot mock the new protocols. Created profile/ssh.rs, tests/profile_ssh.rs and a throwaway test key fixture; modified form.rs, common.rs, hysteria.rs, mod/links/formats, ProfileDialog.svelte, api.ts, tests, fixture, demo mock, wording and docs (new SSH page). cargo test 387 passed (real sing-box 1.14.2 check accepts the SSH sample and a pasted key), clippy clean, svelte-check 0 errors, script tests 38 passed, vite build ok; editor checked in the demo with headless Chrome. Not tested against a real SSH server; live app not run. Not committed.
+**Context**: CONSTRUCTION - U3 SSH Code Generation complete (awaiting approval)
+
+---

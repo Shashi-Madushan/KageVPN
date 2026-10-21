@@ -116,6 +116,8 @@ export function importMessage(summary: ImportSummary): string {
 	if (summary.added) parts.push(`Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}`);
 	if (summary.duplicates) parts.push(summary.added ? `${summary.duplicates} already saved` : 'Already imported');
 	if (summary.failed.length) parts.push(`${summary.failed.length} skipped${skippedReason(summary.failed[0])}`);
+	const notes = summary.notes ?? [];
+	if (notes.length) parts.push(notes.length === 1 ? `note${skippedReason(notes[0])}` : `${notes.length} notes${skippedReason(notes[0])}`);
 	return (parts.join(', ') || 'Nothing to import') + '.';
 }
 

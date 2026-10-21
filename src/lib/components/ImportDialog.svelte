@@ -86,7 +86,7 @@
 		role="region"
 		aria-label="Drop a file with links"
 	>
-		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…  trojan://…  ss://…  hysteria2://…" aria-label="Server links"></textarea>
+		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…  trojan://…  ss://…  hysteria2://…  hysteria://…  tuic://…  ssh://…" aria-label="Server links"></textarea>
 		{#if dragging}<div class="overlay">Drop the file to load its servers</div>{/if}
 	</div>
 

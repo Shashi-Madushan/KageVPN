@@ -16,6 +16,7 @@
         "mono": true,
         "placeholder": "00000000-0000-0000-0000-000000000000",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": {
           "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -41,6 +42,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -54,6 +56,7 @@
         "mono": false,
         "placeholder": "Same as the address",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -67,6 +70,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "security",
           "values": [
@@ -85,6 +89,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "security",
           "values": [
@@ -103,6 +108,7 @@
         "mono": false,
         "placeholder": null,
         "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "security",
           "values": [
@@ -138,6 +144,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -151,6 +158,7 @@
         "mono": true,
         "placeholder": "/",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -170,6 +178,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -189,6 +198,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -236,6 +246,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -258,6 +269,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -271,6 +283,7 @@
         "mono": true,
         "placeholder": "h2,http/1.1",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "security",
           "values": [
@@ -302,6 +315,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       }
@@ -324,6 +338,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -337,6 +352,7 @@
         "mono": false,
         "placeholder": "Same as the address",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -350,6 +366,7 @@
         "mono": false,
         "placeholder": null,
         "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -380,6 +397,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -393,6 +411,7 @@
         "mono": true,
         "placeholder": "/",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -412,6 +431,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -431,6 +451,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -478,6 +499,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -491,6 +513,7 @@
         "mono": true,
         "placeholder": "h2,http/1.1",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       }
@@ -586,6 +609,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -599,6 +623,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       }
@@ -622,6 +647,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -635,6 +661,7 @@
         "mono": false,
         "placeholder": "Same as the address",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -648,6 +675,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -661,6 +689,7 @@
         "mono": false,
         "placeholder": null,
         "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -674,6 +703,266 @@
         "mono": true,
         "placeholder": "h2,http/1.1",
         "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      }
+    ]
+  },
+  {
+    "id": "tuic",
+    "label": "TUIC",
+    "schemes": [
+      "tuic"
+    ],
+    "fields": [
+      {
+        "key": "uuid",
+        "label": "User ID (UUID)",
+        "kind": "text",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "message": "This is not a valid UUID."
+        }
+      },
+      {
+        "key": "password",
+        "label": "Password",
+        "kind": "secret",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "tls.sni",
+        "label": "Server name (SNI)",
+        "kind": "text",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": false,
+        "placeholder": "Same as the address",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "tls.allowInsecure",
+        "label": "Skip certificate check",
+        "kind": "toggle",
+        "section": "security",
+        "choices": [],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "congestionControl",
+        "label": "Congestion control",
+        "kind": "select",
+        "section": "advanced",
+        "choices": [
+          {
+            "value": "bbr",
+            "label": "BBR"
+          },
+          {
+            "value": "cubic",
+            "label": "CUBIC"
+          },
+          {
+            "value": "new_reno",
+            "label": "NewReno"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "udpRelayMode",
+        "label": "UDP relay",
+        "kind": "segmented",
+        "section": "advanced",
+        "choices": [
+          {
+            "value": "native",
+            "label": "Native"
+          },
+          {
+            "value": "quic",
+            "label": "QUIC"
+          }
+        ],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "zeroRtt",
+        "label": "0-RTT handshake",
+        "kind": "toggle",
+        "section": "advanced",
+        "choices": [],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": "Faster to connect, but a recorded handshake can be replayed. Leave it off unless the server asks for it.",
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "tls.alpn",
+        "label": "ALPN",
+        "kind": "list",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "h2,http/1.1",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      }
+    ]
+  },
+  {
+    "id": "hysteria",
+    "label": "Hysteria",
+    "schemes": [
+      "hysteria"
+    ],
+    "fields": [
+      {
+        "key": "auth",
+        "label": "Password",
+        "kind": "secret",
+        "section": "connection",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "None",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "upMbps",
+        "label": "Upload speed (Mbps)",
+        "kind": "text",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^\\s*\\d+(\\.\\d+)?\\s*(m|mbps|g|gbps)?\\s*$",
+          "message": "Enter a speed in Mbps, such as 20."
+        }
+      },
+      {
+        "key": "downMbps",
+        "label": "Download speed (Mbps)",
+        "kind": "text",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^\\s*\\d+(\\.\\d+)?\\s*(m|mbps|g|gbps)?\\s*$",
+          "message": "Enter a speed in Mbps, such as 100."
+        }
+      },
+      {
+        "key": "tls.sni",
+        "label": "Server name (SNI)",
+        "kind": "text",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": false,
+        "placeholder": "Same as the address",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "obfs",
+        "label": "Obfuscation password (xplus)",
+        "kind": "secret",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "tls.allowInsecure",
+        "label": "Skip certificate check",
+        "kind": "toggle",
+        "section": "security",
+        "choices": [],
+        "optional": false,
+        "mono": false,
+        "placeholder": null,
+        "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "tls.alpn",
+        "label": "ALPN",
+        "kind": "list",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "h2,http/1.1",
+        "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       }
@@ -696,6 +985,7 @@
         "mono": true,
         "placeholder": "00000000-0000-0000-0000-000000000000",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": {
           "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -733,6 +1023,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -746,6 +1037,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -759,6 +1051,7 @@
         "mono": false,
         "placeholder": "Same as the address",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "tlsEnabled",
           "values": [
@@ -777,6 +1070,7 @@
         "mono": false,
         "placeholder": null,
         "warning": "Anyone on the network could impersonate this server. Only use this for a server you run yourself.",
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "tlsEnabled",
           "values": [
@@ -812,6 +1106,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": null,
         "pattern": null
       },
@@ -825,6 +1120,7 @@
         "mono": true,
         "placeholder": "/",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -844,6 +1140,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -863,6 +1160,7 @@
         "mono": true,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "transport.kind",
           "values": [
@@ -910,6 +1208,7 @@
         "mono": false,
         "placeholder": null,
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "tlsEnabled",
           "values": [
@@ -928,12 +1227,92 @@
         "mono": true,
         "placeholder": "h2,http/1.1",
         "warning": null,
+        "warnWhenEmpty": false,
         "showWhen": {
           "key": "tlsEnabled",
           "values": [
             "true"
           ]
         },
+        "pattern": null
+      }
+    ]
+  },
+  {
+    "id": "ssh",
+    "label": "SSH",
+    "schemes": [
+      "ssh"
+    ],
+    "fields": [
+      {
+        "key": "user",
+        "label": "User name",
+        "kind": "text",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "password",
+        "label": "Password",
+        "kind": "secret",
+        "section": "connection",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "privateKey",
+        "label": "Private key",
+        "kind": "multiline",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "hostKeys",
+        "label": "Server host key",
+        "kind": "list",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "ssh-ed25519 AAAA…",
+        "warning": "Without a host key, anyone who can intercept your connection could pretend to be this server. Ask your provider for the server's public host key.",
+        "warnWhenEmpty": true,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "passphrase",
+        "label": "Key passphrase",
+        "kind": "secret",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
         "pattern": null
       }
     ]

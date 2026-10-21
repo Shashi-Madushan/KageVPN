@@ -22,7 +22,7 @@
 	const slides = $derived([
 		{ id: 'welcome', title: `Welcome to ${app.info.name}`, text: 'A simple way to run a private, encrypted connection on your Mac. Meet the Kage mascot: it is your connect button and your status light. Three quick steps get you set up.' },
 		{ id: 'engine', title: 'Get the engine', text: 'The engine is the program that carries your traffic. It is downloaded once from its official release page and checked before use.' },
-		{ id: 'add', title: 'Add a server', text: 'Your VPN provider gives you a server link (vless://, trojan://, ss:// or hysteria2://) or a subscription URL. Paste it here and the app saves and keeps it for you.' },
+		{ id: 'add', title: 'Add a server', text: 'Your VPN provider gives you a server link (vless://, vmess://, trojan://, ss://, hysteria://, hysteria2://, tuic:// or ssh://) or a subscription URL. Paste it here and the app saves and keeps it for you.' },
 		{ id: 'mode', title: 'Choose how to connect', text: 'Full system sends every app through the VPN and asks for your password once to set it up. Proxy only protects just the apps you point at the local proxy. You can change this later.' },
 		{ id: 'tap', title: 'Tap the mascot to connect', text: 'Pick a server, then tap the mascot to start the VPN. Tap it again any time to disconnect. A sleeping mascot means you are not connected; a smiling one means you are protected.' },
 		{ id: 'face', title: 'Read the mascot’s face', text: 'The mascot shows what is happening. “Protected” appears only after a real request has gone through the tunnel. If it looks worried, you are connected but no internet is getting through. Open Home to see why and use the one-click fix.' },

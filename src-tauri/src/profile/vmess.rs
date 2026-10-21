@@ -45,6 +45,10 @@ impl ProtocolDef for Vmess {
         &["vmess"]
     }
 
+    fn over_udp(&self) -> bool {
+        false
+    }
+
     fn parse(&self, link: &str) -> Result<Profile> {
         parse(link)
     }

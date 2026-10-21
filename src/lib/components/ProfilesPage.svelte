@@ -190,7 +190,7 @@
 	{#if app.profiles.length === 0}
 		<div class="empty">
 			<h2>No servers yet</h2>
-			<p>Paste a server link (VLESS, Trojan, Shadowsocks or Hysteria2) to get started, or add a subscription from your provider.</p>
+			<p>Paste a server link (VLESS, VMess, Trojan, Shadowsocks, Hysteria, Hysteria2, TUIC or SSH) to get started, or add a subscription from your provider.</p>
 			<div class="empty-actions">
 				<button class="btn primary" onclick={openImport}>Add server</button>
 				<button class="btn" onclick={() => openSubForm(null)}>Add subscription</button>

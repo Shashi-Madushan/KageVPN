@@ -17,7 +17,7 @@ fn is_link(token: &str) -> bool {
 
 /// Link schemes people meet in subscriptions that this app cannot run yet. Naming them lets the
 /// import say why servers were skipped instead of leaving a mystery.
-const UNSUPPORTED: &[&str] = &["tuic", "hysteria", "ssr", "wireguard", "wg", "socks", "socks4", "socks5", "anytls", "juicity", "mieru", "ssh"];
+const UNSUPPORTED: &[&str] = &["ssr", "wireguard", "wg", "socks", "socks4", "socks5", "anytls", "juicity", "mieru"];
 
 fn unsupported_scheme(token: &str) -> Option<&'static str> {
     let (scheme, _) = token.split_once("://")?;
@@ -60,32 +60,59 @@ fn split_links(text: &str) -> Vec<String> {
     links
 }
 
+/// What a block of text held: the servers, why entries were skipped (one per entry), and notes
+/// about servers that were imported with something filled in.
+#[derive(Default)]
+pub struct Parsed {
+    pub profiles: Vec<Profile>,
+    pub errors: Vec<String>,
+    pub notes: Vec<String>,
+}
+
+impl Parsed {
+    fn add(&mut self, link: &str, result: Result<Profile>, label: Option<&str>) {
+        match result {
+            Ok(profile) => {
+                if let Some(note) = def(profile.protocol).import_note(link) {
+                    self.notes.push(format!("{}: {note}", profile.name));
+                }
+                self.profiles.push(profile);
+            }
+            Err(error) => self.errors.push(match label {
+                Some(name) => format!("{name}: {error}"),
+                None => error.to_string(),
+            }),
+        }
+    }
+}
+
 /// Parses every supported link in a block of text, or every server in a sing-box or Clash
-/// configuration file, returning profiles and the reasons any entry was skipped (one per entry).
-pub fn parse_many(text: &str) -> (Vec<Profile>, Vec<String>) {
+/// configuration file.
+pub fn parse_all(text: &str) -> Parsed {
+    let mut parsed = Parsed::default();
     if let Some(found) = formats::extract(text) {
-        let (mut profiles, mut errors) = (Vec::new(), Vec::new());
         for entry in found {
-            match entry.map(|(name, link)| parse_link(&link).map_err(|error| format!("{name}: {error}"))) {
-                Ok(Ok(profile)) => profiles.push(profile),
-                Ok(Err(reason)) | Err(reason) => errors.push(reason),
+            match entry {
+                Ok((name, link)) => parsed.add(&link, parse_link(&link), Some(&name)),
+                Err(reason) => parsed.errors.push(reason),
             }
         }
-        return (profiles, errors);
+        return parsed;
     }
-    let mut profiles = Vec::new();
-    let mut errors = Vec::new();
     for link in split_links(text) {
         if let Some(scheme) = unsupported_scheme(&link) {
-            errors.push(format!("{scheme}:// links are not supported yet"));
+            parsed.errors.push(format!("{scheme}:// links are not supported yet"));
             continue;
         }
-        match parse_link(&link) {
-            Ok(profile) => profiles.push(profile),
-            Err(error) => errors.push(error.to_string()),
-        }
+        parsed.add(&link, parse_link(&link), None);
     }
-    (profiles, errors)
+    parsed
+}
+
+/// `parse_all` without the notes: profiles and the reasons any entry was skipped.
+pub fn parse_many(text: &str) -> (Vec<Profile>, Vec<String>) {
+    let parsed = parse_all(text);
+    (parsed.profiles, parsed.errors)
 }
 
 pub fn to_link(profile: &Profile) -> String {

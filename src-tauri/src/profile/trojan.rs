@@ -32,6 +32,10 @@ impl ProtocolDef for Trojan {
         &["trojan"]
     }
 
+    fn over_udp(&self) -> bool {
+        false
+    }
+
     fn parse(&self, link: &str) -> Result<Profile> {
         parse(link)
     }

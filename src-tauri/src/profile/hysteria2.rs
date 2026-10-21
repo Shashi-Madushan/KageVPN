@@ -34,6 +34,10 @@ impl ProtocolDef for Hysteria2 {
         &["hysteria2", "hy2"]
     }
 
+    fn over_udp(&self) -> bool {
+        true
+    }
+
     fn parse(&self, link: &str) -> Result<Profile> {
         parse(link)
     }
@@ -112,7 +116,7 @@ impl ProtocolDef for Hysteria2 {
 
 fn parse(link: &str) -> Result<Profile> {
     let link = link.trim();
-    if has_port_list(link) {
+    if common::has_port_list(link) {
         return Err(invalid("Hysteria2 port hopping is not supported, use a single port"));
     }
     let url = Url::parse(link).map_err(|e| invalid(format!("not a valid link: {e}")))?;
@@ -158,15 +162,6 @@ fn to_link(profile: &Profile) -> String {
         query.append_pair("insecure", "1");
     }
     common::build_link("hysteria2", &common::encode_userinfo(&settings.password), profile, &query.finish())
-}
-
-/// `host:443,5000-6000` style ports: the authority's port is not a single number.
-fn has_port_list(link: &str) -> bool {
-    let after_scheme = link.split_once("://").map_or(link, |(_, rest)| rest);
-    let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or_default();
-    let host_and_port = authority.rsplit_once('@').map_or(authority, |(_, rest)| rest);
-    let port = host_and_port.rsplit_once(':').filter(|(host, _)| !host.ends_with(']') || host.contains('[')).map(|(_, p)| p);
-    port.is_some_and(|p| p.contains(',') || p.contains('-'))
 }
 
 #[cfg(test)]

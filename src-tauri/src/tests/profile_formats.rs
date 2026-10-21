@@ -68,11 +68,58 @@ fn singbox_configs_skip_groups_quietly_and_explain_the_rest() {
     assert_eq!(
         errors,
         [
-            "Tokyo TUIC: tuic servers are not supported yet",
+            "Tokyo TUIC: TUIC needs a UUID and a password (v4 servers are not supported)",
             "Chained: servers that connect through another server are not supported",
             "No port: no valid port",
         ]
     );
+}
+
+#[test]
+fn singbox_tuic_outbounds_import_with_their_options() {
+    let config = json!({ "outbounds": [{
+        "type": "tuic", "tag": "TUIC", "server": "tuic.example.com", "server_port": 443,
+        "uuid": "11111111-2222-4333-8444-555555555555", "password": "secret",
+        "congestion_control": "new_reno", "udp_relay_mode": "quic", "zero_rtt_handshake": true,
+        "tls": { "enabled": true, "server_name": "front.example.com", "alpn": ["h3"] }
+    }] });
+    let out = outbound(&only(&config.to_string()));
+    assert_eq!((out["congestion_control"].as_str(), out["udp_relay_mode"].as_str()), (Some("new_reno"), Some("quic")));
+    assert_eq!(out["zero_rtt_handshake"], true);
+    assert_eq!(out["tls"]["server_name"], "front.example.com");
+}
+
+#[test]
+fn singbox_hysteria_outbounds_import_and_explain_what_they_cannot() {
+    let config = json!({ "outbounds": [
+        { "type": "hysteria", "tag": "HY", "server": "hy.example.com", "server_port": 443, "up": "20 Mbps", "down_mbps": 80, "auth_str": "pw", "tls": { "enabled": true, "alpn": ["hysteria"] } },
+        { "type": "hysteria", "tag": "Binary", "server": "b.example.com", "server_port": 443, "up_mbps": 1, "down_mbps": 1, "auth": "c2VjcmV0", "tls": { "enabled": true } },
+        { "type": "hysteria", "tag": "Hop", "server": "h.example.com", "server_ports": ["1000:2000"], "up_mbps": 1, "down_mbps": 1, "tls": { "enabled": true } }
+    ] });
+    let (profiles, errors) = parse_many(&config.to_string());
+    assert_eq!(profiles.len(), 1);
+    let out = outbound(&profiles[0]);
+    assert_eq!((out["up_mbps"].as_u64(), out["down_mbps"].as_u64(), out["auth_str"].as_str()), (Some(20), Some(80), Some("pw")));
+    assert_eq!(
+        errors,
+        [
+            "Binary: Hysteria with a binary (base64) auth key is not supported, use auth_str",
+            "Hop: Hysteria port hopping is not supported, use a single port",
+        ]
+    );
+}
+
+#[test]
+fn singbox_ssh_outbounds_take_the_key_as_text_or_lines_but_not_a_file() {
+    let config = json!({ "outbounds": [
+        { "type": "ssh", "tag": "Lines", "server": "a.example.com", "server_port": 22, "user": "root",
+          "private_key": ["-----BEGIN OPENSSH PRIVATE KEY-----", "AAAA", "-----END OPENSSH PRIVATE KEY-----"] },
+        { "type": "ssh", "tag": "File", "server": "b.example.com", "server_port": 22, "user": "root", "private_key_path": "/root/.ssh/id" }
+    ] });
+    let (profiles, errors) = parse_many(&config.to_string());
+    assert_eq!(profiles.len(), 1);
+    assert_eq!(outbound(&profiles[0])["private_key"], "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n");
+    assert_eq!(errors, ["File: SSH key files on disk are not supported, paste the key into the server editor"]);
 }
 
 #[test]
@@ -127,6 +174,12 @@ proxies:
   - { name: Hy2, type: hysteria2, server: hy.example.com, port: 443, password: secret, sni: hy.example.com, obfs: salamander, obfs-password: salt, skip-cert-verify: true }
   - { name: Hopping, type: hysteria2, server: hop.example.com, port: 443, ports: "20000-30000", password: secret }
   - { name: Plain VLESS, type: vless, server: plain.example.com, port: 80, uuid: 11111111-2222-4333-8444-555555555555 }
+  - { name: TUIC, type: tuic, server: tuic.example.com, port: 8443, uuid: 11111111-2222-4333-8444-555555555555, password: "p@ss", sni: tuic.example.com, alpn: [h3], congestion-controller: cubic, udp-relay-mode: quic, reduce-rtt: true, skip-cert-verify: true }
+  - { name: TUIC v4, type: tuic, server: v4.example.com, port: 443, token: abc }
+  - { name: HY1, type: hysteria, server: hy1.example.com, port: 443, auth-str: secret, up: "30 Mbps", down: 200, obfs: mask, sni: hy1.example.com, alpn: [hysteria] }
+  - { name: SSH, type: ssh, server: ssh.example.com, port: 2222, username: deploy, password: pw, host-key: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE58h0urP4jPA6D6Ee+UnCVCbe6FbFtJbHa8Nh7CW/r"] }
+  - { name: SSH file, type: ssh, server: ssh.example.com, port: 22, username: root, private-key: ~/.ssh/id_ed25519 }
+  - { name: HY1 faketcp, type: hysteria, server: fake.example.com, port: 443, protocol: faketcp, up: 10, down: 10 }
   - { name: WireGuard, type: wireguard, server: wg.example.com, port: 51820 }
   - { name: Direct, type: direct }
 proxy-groups:
@@ -139,13 +192,16 @@ rules:
 fn clash_configs_import_every_supported_server() {
     let (profiles, errors) = parse_many(CLASH);
     let names: Vec<&str> = profiles.iter().map(|p| p.name.as_str()).collect();
-    assert_eq!(names, ["🇺🇸 VLESS Reality", "VMess WS", "Trojan gRPC", "Upgrade", "SS 2022", "Hy2"]);
+    assert_eq!(names, ["🇺🇸 VLESS Reality", "VMess WS", "Trojan gRPC", "Upgrade", "SS 2022", "Hy2", "TUIC", "HY1", "SSH"]);
     assert_eq!(
         errors,
         [
             "SS obfs: Shadowsocks plugins are not supported",
             "Hopping: Hysteria2 port hopping is not supported, use a single port",
             "Plain VLESS: only security=tls or reality is supported",
+            "TUIC v4: TUIC v4 is not supported, ask for a v5 server (UUID and password)",
+            "SSH file: SSH key files on disk are not supported, paste the key into the server editor",
+            "HY1 faketcp: Hysteria over faketcp is not supported, only udp",
             "WireGuard: wireguard servers are not supported yet",
         ]
     );
@@ -177,6 +233,20 @@ fn clash_configs_import_every_supported_server() {
     let hy2 = by_name("Hy2");
     assert_eq!(hy2["obfs"], json!({ "type": "salamander", "password": "salt" }));
     assert_eq!(hy2["tls"]["insecure"], true);
+
+    let tuic = by_name("TUIC");
+    assert_eq!((tuic["server_port"].as_u64(), tuic["password"].as_str()), (Some(8443), Some("p@ss")));
+    assert_eq!((tuic["congestion_control"].as_str(), tuic["udp_relay_mode"].as_str()), (Some("cubic"), Some("quic")));
+    assert_eq!(tuic["zero_rtt_handshake"], true);
+    assert_eq!(tuic["tls"]["insecure"], true);
+
+    let hy1 = by_name("HY1");
+    assert_eq!((hy1["up_mbps"].as_u64(), hy1["down_mbps"].as_u64()), (Some(30), Some(200)));
+    assert_eq!((hy1["auth_str"].as_str(), hy1["obfs"].as_str()), (Some("secret"), Some("mask")));
+
+    let ssh = by_name("SSH");
+    assert_eq!((ssh["server_port"].as_u64(), ssh["user"].as_str(), ssh["password"].as_str()), (Some(2222), Some("deploy"), Some("pw")));
+    assert!(ssh["host_key"][0].as_str().unwrap().starts_with("ssh-ed25519 AAAA"));
 }
 
 #[test]

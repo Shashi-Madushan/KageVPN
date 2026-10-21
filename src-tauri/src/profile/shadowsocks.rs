@@ -33,6 +33,10 @@ impl ProtocolDef for Shadowsocks {
         &["ss"]
     }
 
+    fn over_udp(&self) -> bool {
+        false
+    }
+
     fn parse(&self, link: &str) -> Result<Profile> {
         parse(link)
     }

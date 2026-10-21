@@ -90,7 +90,9 @@ fn the_editor_fields_point_at_real_settings() {
 
 #[test]
 fn a_blank_server_of_this_protocol_needs_its_credentials() {
-    for def in REGISTRY {
+    // Hysteria v1 servers may accept anyone, so its password is optional.
+    const OPTIONAL_CREDENTIALS: &[&str] = &["hysteria"];
+    for def in REGISTRY.iter().filter(|d| !OPTIONAL_CREDENTIALS.contains(&d.id())) {
         let mut blank = def.blank();
         assert_eq!(blank.protocol, def.id());
         blank.name = "n".into();

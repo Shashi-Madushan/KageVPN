@@ -440,3 +440,21 @@ fn a_rule_saved_before_origin_existed_loads_as_manual() {
     assert_eq!(cap.origin, crate::settings::RuleOrigin::Cap);
     assert!(serde_json::to_string(&cap).unwrap().contains("\"origin\":\"cap\""));
 }
+
+/// A throwaway key made for this test only (`ssh-keygen -t ed25519 -N ""`); it opens nothing.
+const TEST_SSH_KEY: &str = include_str!("fixtures/test_ssh_key");
+
+#[test]
+fn an_ssh_server_with_a_pasted_key_passes_singbox_check() {
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let mut ssh = crate::profile::parse_many("ssh://root:pw@ssh.example.com:22?host_key=ssh-ed25519%20AAAAC3NzaC1lZDI1NTE5AAAAIGE58h0urP4jPA6D6Ee%2BUnCVCbe6FbFtJbHa8Nh7CW%2Fr#K").0.remove(0);
+    ssh.set_setting("privateKey", serde_json::json!(TEST_SSH_KEY));
+    ssh.set_setting("password", serde_json::json!(""));
+    ssh.id = "1".into();
+    ssh.validate().unwrap();
+    let profiles = vec![ssh];
+    let path = std::env::temp_dir().join("kage-vpn-test-ssh-key.json");
+    std::fs::write(&path, serde_json::to_vec(&build(&input(&profiles, &RoutingSettings::default(), Mode::Proxy)).unwrap()).unwrap()).unwrap();
+    crate::singbox::check(&binary, &path).unwrap();
+    let _ = std::fs::remove_file(path);
+}

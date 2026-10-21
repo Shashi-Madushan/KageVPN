@@ -101,3 +101,12 @@ fn demo_protocols_fixture_is_current() {
     let saved = std::fs::read_to_string(&path).unwrap_or_default();
     assert_eq!(saved, current, "scripts/screenshots/protocols.json is out of date: run UPDATE_FIXTURES=1 cargo test demo_protocols_fixture");
 }
+
+#[test]
+fn multiline_fields_and_empty_warnings_reach_the_editor_by_name() {
+    let field = serde_json::to_value(Field::multiline("privateKey", "Key", Section::Security).warning_when_empty("careful")).unwrap();
+    assert_eq!((field["kind"].as_str(), field["mono"].as_bool()), (Some("multiline"), Some(true)));
+    assert_eq!((field["warning"].as_str(), field["warnWhenEmpty"].as_bool()), (Some("careful"), Some(true)));
+    let plain = serde_json::to_value(Field::text("x", "X", Section::Connection)).unwrap();
+    assert_eq!(plain["warnWhenEmpty"], false);
+}

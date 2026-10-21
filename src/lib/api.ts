@@ -5,7 +5,8 @@ export type Mode = 'tun' | 'proxy';
 export type ConnState = 'disconnected' | 'connecting' | 'connected';
 export type Level = 'debug' | 'info' | 'warn' | 'error';
 
-export type Protocol = 'vless' | 'trojan' | 'shadowsocks' | 'hysteria2';
+/** A registered protocol id; the list comes from the backend (`protocols`). */
+export type Protocol = 'vless' | 'vmess' | 'trojan' | 'shadowsocks' | 'hysteria2' | 'hysteria' | 'tuic' | 'ssh';
 
 /** One server. Everything specific to its protocol is in `settings`; the editor reads and writes
  *  it by the key paths each protocol lists (see `FormField`), so no per-protocol types are needed. */
@@ -309,6 +310,8 @@ export interface ImportSummary {
 	added: number;
 	duplicates: number;
 	failed: string[];
+	/** Servers imported with something filled in, such as default speeds: "Name: what". */
+	notes: string[];
 }
 
 export interface RefreshSummary {
@@ -509,7 +512,7 @@ export interface AppInfo {
 	protocols: ProtocolInfo[];
 }
 
-export type FieldKind = 'text' | 'secret' | 'select' | 'segmented' | 'toggle' | 'list';
+export type FieldKind = 'text' | 'secret' | 'select' | 'segmented' | 'toggle' | 'list' | 'multiline';
 export type FieldSection = 'connection' | 'security' | 'transport' | 'advanced';
 
 export interface FieldChoice {
@@ -528,7 +531,9 @@ export interface FormField {
 	optional: boolean;
 	mono: boolean;
 	placeholder: string | null;
+	/** Shown while a toggle is on, or while the field is empty when `warnWhenEmpty`. */
 	warning: string | null;
+	warnWhenEmpty: boolean;
 	showWhen: { key: string; values: string[] } | null;
 	pattern: { regex: string; message: string } | null;
 }

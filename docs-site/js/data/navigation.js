@@ -203,6 +203,24 @@ window.DOCS_NAVIGATION = [
         title: "Hysteria 2 (Salamander)",
         badge: "Protocol",
         description: "High-throughput QUIC/UDP protocol with Salamander port obfuscation."
+      },
+      {
+        slug: "protocol-reference/tuic",
+        title: "TUIC v5",
+        badge: "Protocol",
+        description: "QUIC-based proxy with a UUID and password, selectable congestion control and UDP relay."
+      },
+      {
+        slug: "protocol-reference/hysteria",
+        title: "Hysteria (v1)",
+        badge: "Protocol",
+        description: "The first Hysteria: QUIC with declared speeds and optional xplus obfuscation."
+      },
+      {
+        slug: "protocol-reference/ssh",
+        title: "SSH",
+        badge: "Protocol",
+        description: "Use an SSH server as a proxy, with a password or a private key and a checked host key."
       }
     ]
   },
