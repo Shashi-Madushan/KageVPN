@@ -386,3 +386,35 @@ keep the network exteion part for later"
 **Context**: CONSTRUCTION - U3 SSH Code Generation complete (awaiting approval)
 
 ---
+
+## U3 approval, commits, and U4 WireGuard functional design questions
+**Timestamp**: 2026-10-21T08:45:00Z
+**User Input**: "commit phases and continu to u4"
+**AI Response**: Took this as approval of U3. Committed in two phases on feature/protocols-and-system-proxy: 7262eda (inception docs, Network Extension questions parked) and 4c94355 (U1 to U3 code, tests, docs, construction docs). Read functional-design.md, config::build, the engine checks (min version 1.12.0 already rules out pre-endpoint engines; required features lack with_wireguard and with_quic) and the formats reader (outbounds only). Wrote construction/plans/u4-wireguard-functional-design-plan.md with 8 questions and stopped at the answer gate.
+**Context**: CONSTRUCTION - U4 WireGuard Functional Design (awaiting answers)
+
+---
+
+## U4 WireGuard functional design
+**Timestamp**: 2026-10-21T09:05:00Z
+**User Input**: "Use your recommended answers for the U4 WireGuard questions and write the functional design."
+**AI Response**: Filled answers (all A); no contradictions. Wrote construction/u4-wireguard/functional-design/: domain-entities.md (settings, ServerKind, required build feature per protocol, parsed wg-quick file), business-rules.md (R1 sources, R2 defaults, R3 refusals, R4 notes for ignored .conf lines, R5 naming, R6 identity, R8 endpoints placement, R9 missing engine features, R10 no version check needed, R11 latency verified at runtime), business-logic-model.md, frontend-components.md (file name passed to import_text, .conf recognised in the dialog). Presented for approval.
+**Context**: CONSTRUCTION - U4 WireGuard Functional Design (awaiting approval)
+
+---
+
+## U4 functional design approval and code generation plan
+**Timestamp**: 2026-10-21T09:20:00Z
+**User Input**: "Approve the U4 WireGuard functional design and continue to the U4 code generation plan."
+**AI Response**: Functional design approved. Read session::connect (engine resolved, then pre-check, nodes, config::build, singbox::check). Wrote construction/plans/u4-wireguard-code-generation-plan.md: 12 steps (kind and feature on every protocol, endpoints in config, engine-feature filtering at connect, wireguard.rs, wg-quick reader with name hint, subscriptions both forms, import command and dialog, shared tests, new tests, runtime Clash API check on spare ports, fixture and docs, verify). Presented the plan for approval.
+**Context**: CONSTRUCTION - U4 WireGuard Code Generation, Part 1 planning (awaiting approval)
+
+---
+
+## U4 WireGuard code generation
+**Timestamp**: 2026-10-21T10:30:00Z
+**User Input**: "Approve the U4 WireGuard code generation plan and generate the code."
+**AI Response**: Plan approved; executed steps 1 to 12. ServerKind and build feature on every protocol; endpoints in config; engine-feature check at connect; wireguard.rs with links and the wg-quick reader; sing-box endpoints and both WireGuard forms and Clash forms in subscriptions; file name passed from the Add server dialog. Runtime check on spare ports 21080/29090: the Clash API lists the endpoint and its delay test answers (Timeout for an unreachable peer); sing-box stopped. Demo check led to three polish fixes (keepalive shown empty, shorter placeholder, WireGuard wording in the dialog). cargo test 409 passed (real sing-box 1.14.2 check of WireGuard in both modes), clippy clean, svelte-check 0 errors, script tests 39 passed, vite build ok. Not tested against a real WireGuard server; live app not run. Not committed.
+**Context**: CONSTRUCTION - U4 WireGuard Code Generation complete (awaiting approval)
+
+---

@@ -12,6 +12,7 @@ fn sample_links() -> Vec<String> {
         format!("tuic://{ID}:pw@e.example.com:443?alpn=h3#tuic"),
         "hysteria://f.example.com:443?auth=pw&upmbps=10&downmbps=50#hy1".into(),
         "ssh://root:pw@g.example.com:22#ssh".into(),
+        "wireguard://JqrQV%2FCpFkpb3qIND9EboiuSWxrbxrxvG4i1L%2BJ1r1I%3D@h.example.com:51820?publickey=cfd8nh5vBUAu37mGNeL%2F9tJ7DSpFLLvxSTIUGXBF%2B3g%3D&address=10.0.0.2#wg".into(),
     ]
 }
 
@@ -20,7 +21,7 @@ fn one_paste_can_mix_every_protocol() {
     let (profiles, errors) = parse_many(&sample_links().join("\n"));
     assert!(errors.is_empty(), "{errors:?}");
     let kinds: Vec<_> = profiles.iter().map(|p| p.protocol.as_str()).collect();
-    assert_eq!(kinds, ["vless", "trojan", "shadowsocks", "hysteria2", "tuic", "hysteria", "ssh"]);
+    assert_eq!(kinds, ["vless", "trojan", "shadowsocks", "hysteria2", "tuic", "hysteria", "ssh", "wireguard"]);
 }
 
 #[test]
@@ -68,7 +69,7 @@ fn different_protocols_at_one_address_are_not_duplicates() {
 
 #[test]
 fn an_unknown_protocol_in_saved_data_is_an_error_not_a_silent_vless() {
-    let saved = r#"{"id":"1","protocol":"wireguard","name":"n","server":"s","port":1}"#;
+    let saved = r#"{"id":"1","protocol":"anytls","name":"n","server":"s","port":1}"#;
     assert!(serde_json::from_str::<Profile>(saved).is_err());
 }
 
@@ -192,10 +193,10 @@ fn a_byte_order_mark_does_not_hide_the_first_link() {
 
 #[test]
 fn links_this_app_cannot_run_are_reported_not_silently_dropped() {
-    let text = format!("socks5://u:p@a.example.com:1080#S\nvless://{ID}@b.example.com:443?security=tls#V\nSSR://x@c.example.com:1#H\nwireguard://k@d.example.com:51820");
+    let text = format!("socks5://u:p@a.example.com:1080#S\nvless://{ID}@b.example.com:443?security=tls#V\nSSR://x@c.example.com:1#H\nanytls://k@d.example.com:443");
     let (profiles, errors) = parse_many(&text);
     assert_eq!(profiles.len(), 1);
-    assert_eq!(errors, ["socks5:// links are not supported yet", "ssr:// links are not supported yet", "wireguard:// links are not supported yet"]);
+    assert_eq!(errors, ["socks5:// links are not supported yet", "ssr:// links are not supported yet", "anytls:// links are not supported yet"]);
 }
 
 #[test]
@@ -204,4 +205,15 @@ fn servers_imported_with_a_default_come_with_a_note() {
     assert_eq!((parsed.profiles.len(), parsed.errors.len()), (3, 0));
     assert_eq!(parsed.notes.len(), 1);
     assert!(parsed.notes[0].starts_with("Speedless: no speeds in the link"), "{:?}", parsed.notes);
+}
+
+#[test]
+fn a_wireguard_file_is_one_server_named_after_the_file() {
+    let conf = "[Interface]\nPrivateKey = JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I=\nAddress = 10.0.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=\nAllowedIPs = 0.0.0.0/0\nEndpoint = wg.example.com:51820\n";
+    let parsed = parse_all_named(conf, Some("warp-tokyo.conf"));
+    assert_eq!((parsed.profiles.len(), parsed.errors.len()), (1, 0));
+    assert_eq!((parsed.profiles[0].protocol.as_str(), parsed.profiles[0].name.as_str()), ("wireguard", "warp-tokyo"));
+    assert_eq!(parsed.notes, ["warp-tokyo: DNS from the file is not used; Kage's DNS and routing settings decide"]);
+    let refused = parse_all(&conf.replace("Endpoint = wg.example.com:51820\n", ""));
+    assert_eq!(refused.errors, ["the file has no Endpoint for its peer"]);
 }

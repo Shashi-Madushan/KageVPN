@@ -121,6 +121,12 @@ export function importMessage(summary: ImportSummary): string {
 	return (parts.join(', ') || 'Nothing to import') + '.';
 }
 
+/** Whether text is a WireGuard (wg-quick) file: its first section is [Interface] and it has a [Peer]. */
+export function isWireGuardFile(text: string): boolean {
+	const first = text.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('#') && !l.startsWith(';'));
+	return first?.toLowerCase() === '[interface]' && /^\s*\[peer\]\s*$/im.test(text);
+}
+
 /** Drops a leading emoji flag from a name, since the flag is shown separately. */
 export const stripFlag = (name: string) => name.replace(/^\p{RI}{2}\s*/u, '');
 

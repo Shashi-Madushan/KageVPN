@@ -41,6 +41,7 @@ fn udp_protocols_skip_the_tcp_check() {
     assert!(!needs_tcp_check("hysteria2"));
     assert!(!needs_tcp_check("tuic"));
     assert!(!needs_tcp_check("hysteria"));
+    assert!(!needs_tcp_check("wireguard"));
     assert!(needs_tcp_check("vless"));
     assert!(needs_tcp_check("shadowsocks"));
     assert!(needs_tcp_check("ssh"));

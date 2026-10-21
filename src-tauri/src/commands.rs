@@ -7,7 +7,7 @@ use crate::config::Mode;
 use crate::diagnostics::{self, Diagnostics, SpeedResult};
 use crate::error::{AppError, Result};
 use crate::logs::LogLine;
-use crate::profile::{parse_all, to_link, Profile, ProfileView};
+use crate::profile::{parse_all_named, to_link, Profile, ProfileView};
 use crate::session::{self, State as ConnState, Status};
 use crate::settings::{AutoSettings, NetworkSettings, ReliabilitySettings, RoutingSettings, Subscription};
 use crate::state::AppState;
@@ -100,8 +100,9 @@ pub fn snapshot(app: AppHandle, state: State<AppState>) -> Snapshot {
 }
 
 #[tauri::command]
-pub fn import_text(state: State<AppState>, text: String) -> Result<ImportSummary> {
-    let parsed = parse_all(&text);
+/// `file_name`: the name of a dropped file, which names a WireGuard server read from it.
+pub fn import_text(state: State<AppState>, text: String, file_name: Option<String>) -> Result<ImportSummary> {
+    let parsed = parse_all_named(&text, file_name.as_deref());
     if parsed.profiles.is_empty() {
         let reason = parsed.errors.into_iter().next().unwrap_or_else(|| "no supported server links were found".into());
         return Err(AppError::Invalid(reason));

@@ -25,7 +25,13 @@ fn every_protocol_round_trips_through_a_singbox_config() {
         let original = def.parse(def.sample()).unwrap();
         let mut exported = original.outbound(&original.name);
         exported["tag"] = json!(original.name);
-        let config = json!({ "outbounds": [exported, { "type": "direct", "tag": "direct" }] }).to_string();
+        let list = match original.kind() {
+            crate::profile::ServerKind::Outbound => "outbounds",
+            crate::profile::ServerKind::Endpoint => "endpoints",
+        };
+        let mut config = json!({ "outbounds": [{ "type": "direct", "tag": "direct" }] });
+        config[list] = json!([exported]);
+        let config = config.to_string();
 
         let imported = only(&config);
         assert_eq!(imported.protocol, original.protocol, "{}", def.id());
@@ -123,6 +129,35 @@ fn singbox_ssh_outbounds_take_the_key_as_text_or_lines_but_not_a_file() {
 }
 
 #[test]
+fn singbox_wireguard_reads_endpoints_and_the_old_outbound_form() {
+    const PRIVATE: &str = "JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I=";
+    const PUBLIC: &str = "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=";
+    let config = json!({
+        "outbounds": [
+            { "type": "wireguard", "tag": "Old", "server": "old.example.com", "server_port": 2408, "local_address": ["172.16.0.2/32"],
+              "private_key": PRIVATE, "peer_public_key": PUBLIC, "reserved": "AQID", "mtu": 1280 },
+            { "type": "direct", "tag": "direct" }
+        ],
+        "endpoints": [
+            { "type": "wireguard", "tag": "New", "address": ["10.0.0.2/32"], "private_key": PRIVATE,
+              "peers": [{ "address": "new.example.com", "port": 51820, "public_key": PUBLIC, "persistent_keepalive_interval": 25, "allowed_ips": ["0.0.0.0/0"] }] },
+            { "type": "wireguard", "tag": "Two", "address": ["10.0.0.3/32"], "private_key": PRIVATE,
+              "peers": [{ "address": "a.example.com", "port": 1, "public_key": PUBLIC }, { "address": "b.example.com", "port": 1, "public_key": PUBLIC }] },
+            { "type": "tailscale", "tag": "TS" }
+        ]
+    });
+    let (profiles, errors) = parse_many(&config.to_string());
+    let names: Vec<&str> = profiles.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["Old", "New"]);
+    let old = outbound(&profiles[0]);
+    assert_eq!((old["peers"][0]["port"].as_u64(), &old["peers"][0]["reserved"]), (Some(2408), &json!([1, 2, 3])));
+    assert_eq!(outbound(&profiles[1])["peers"][0]["persistent_keepalive_interval"], 25);
+    assert_eq!(errors, ["Two: WireGuard configs with more than one peer are not supported", "TS: tailscale servers are not supported yet"]);
+    // A file with only endpoints is still a sing-box file.
+    assert!(extract(&json!({ "endpoints": [] }).to_string()).is_some());
+}
+
+#[test]
 fn xray_configs_are_named_rather_than_ignored() {
     let config = r#"{ "outbounds": [ { "protocol": "vless", "settings": {} }, { "protocol": "freedom" } ] }"#;
     let (profiles, errors) = parse_many(config);
@@ -180,7 +215,13 @@ proxies:
   - { name: SSH, type: ssh, server: ssh.example.com, port: 2222, username: deploy, password: pw, host-key: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE58h0urP4jPA6D6Ee+UnCVCbe6FbFtJbHa8Nh7CW/r"] }
   - { name: SSH file, type: ssh, server: ssh.example.com, port: 22, username: root, private-key: ~/.ssh/id_ed25519 }
   - { name: HY1 faketcp, type: hysteria, server: fake.example.com, port: 443, protocol: faketcp, up: 10, down: 10 }
-  - { name: WireGuard, type: wireguard, server: wg.example.com, port: 51820 }
+  - { name: WireGuard, type: wireguard, server: wg.example.com, port: 51820, private-key: "JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I=", public-key: "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=", ip: 172.16.0.2, ipv6: "fd01::2", mtu: 1280, reserved: [1, 2, 3] }
+  - name: WG peers
+    type: wireguard
+    private-key: "JqrQV/CpFkpb3qIND9EboiuSWxrbxrxvG4i1L+J1r1I="
+    ip: 10.0.0.2/32
+    peers: [{ server: a.example.com, port: 51820, public-key: "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=" }, { server: b.example.com, port: 51820, public-key: "cfd8nh5vBUAu37mGNeL/9tJ7DSpFLLvxSTIUGXBF+3g=" }]
+  - { name: AWG, type: wireguard, server: awg.example.com, port: 51820, amnezia-wg-option: { jc: 4 } }
   - { name: Direct, type: direct }
 proxy-groups:
   - { name: Proxy, type: select, proxies: ["🇺🇸 VLESS Reality", VMess WS] }
@@ -192,7 +233,7 @@ rules:
 fn clash_configs_import_every_supported_server() {
     let (profiles, errors) = parse_many(CLASH);
     let names: Vec<&str> = profiles.iter().map(|p| p.name.as_str()).collect();
-    assert_eq!(names, ["🇺🇸 VLESS Reality", "VMess WS", "Trojan gRPC", "Upgrade", "SS 2022", "Hy2", "TUIC", "HY1", "SSH"]);
+    assert_eq!(names, ["🇺🇸 VLESS Reality", "VMess WS", "Trojan gRPC", "Upgrade", "SS 2022", "Hy2", "TUIC", "HY1", "SSH", "WireGuard"]);
     assert_eq!(
         errors,
         [
@@ -202,7 +243,8 @@ fn clash_configs_import_every_supported_server() {
             "TUIC v4: TUIC v4 is not supported, ask for a v5 server (UUID and password)",
             "SSH file: SSH key files on disk are not supported, paste the key into the server editor",
             "HY1 faketcp: Hysteria over faketcp is not supported, only udp",
-            "WireGuard: wireguard servers are not supported yet",
+            "WG peers: WireGuard configs with more than one peer are not supported",
+            "AWG: AmneziaWG options are not supported; sing-box runs plain WireGuard",
         ]
     );
 
@@ -247,6 +289,11 @@ fn clash_configs_import_every_supported_server() {
     let ssh = by_name("SSH");
     assert_eq!((ssh["server_port"].as_u64(), ssh["user"].as_str(), ssh["password"].as_str()), (Some(2222), Some("deploy"), Some("pw")));
     assert!(ssh["host_key"][0].as_str().unwrap().starts_with("ssh-ed25519 AAAA"));
+
+    let wg = by_name("WireGuard");
+    assert_eq!((wg["type"].as_str(), wg["mtu"].as_u64()), (Some("wireguard"), Some(1280)));
+    assert_eq!(wg["address"], json!(["172.16.0.2/32", "fd01::2/128"]));
+    assert_eq!((wg["peers"][0]["address"].as_str(), &wg["peers"][0]["reserved"]), (Some("wg.example.com"), &json!([1, 2, 3])));
 }
 
 #[test]

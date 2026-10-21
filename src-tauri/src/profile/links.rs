@@ -1,7 +1,7 @@
 //! Turns pasted text, subscriptions and the share button into profiles and back, by
 //! looking up the protocol that owns a link's scheme in the registry.
 
-use super::{common::invalid, def, formats, Profile, ProtocolId, REGISTRY};
+use super::{common::invalid, def, formats, wireguard, Profile, ProtocolId, REGISTRY};
 use crate::error::Result;
 
 /// The protocol whose scheme starts this token. Schemes are case-insensitive.
@@ -17,7 +17,7 @@ fn is_link(token: &str) -> bool {
 
 /// Link schemes people meet in subscriptions that this app cannot run yet. Naming them lets the
 /// import say why servers were skipped instead of leaving a mystery.
-const UNSUPPORTED: &[&str] = &["ssr", "wireguard", "wg", "socks", "socks4", "socks5", "anytls", "juicity", "mieru"];
+const UNSUPPORTED: &[&str] = &["ssr", "socks", "socks4", "socks5", "anytls", "juicity", "mieru"];
 
 fn unsupported_scheme(token: &str) -> Option<&'static str> {
     let (scheme, _) = token.split_once("://")?;
@@ -87,9 +87,25 @@ impl Parsed {
 }
 
 /// Parses every supported link in a block of text, or every server in a sing-box or Clash
-/// configuration file.
+/// configuration file, or the one server of a WireGuard (wg-quick) file.
 pub fn parse_all(text: &str) -> Parsed {
+    parse_all_named(text, None)
+}
+
+/// `parse_all` for the text of a file: `file_name` names a WireGuard server read from it.
+pub fn parse_all_named(text: &str, file_name: Option<&str>) -> Parsed {
     let mut parsed = Parsed::default();
+    if wireguard::is_wg_quick(clean(text)) {
+        let stem = file_name.map(|n| n.rsplit_once('.').filter(|(stem, _)| !stem.is_empty()).map_or(n, |(stem, _)| stem));
+        match wireguard::parse_wg_quick(clean(text), stem) {
+            Ok((profile, note)) => {
+                parsed.notes.extend(note.map(|n| format!("{}: {n}", profile.name)));
+                parsed.profiles.push(profile);
+            }
+            Err(error) => parsed.errors.push(error.to_string()),
+        }
+        return parsed;
+    }
     if let Some(found) = formats::extract(text) {
         for entry in found {
             match entry {

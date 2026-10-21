@@ -184,9 +184,10 @@ function install(opts) {
 				vmess: { uuid: '', security: 'auto', tlsEnabled: false, transport: tcp, tls: tls() },
 				tuic: { uuid: '', password: '', congestionControl: 'bbr', udpRelayMode: 'native', zeroRtt: false, tls: tls({ fingerprint: null, alpn: ['h3'] }) },
 				hysteria: { auth: '', upMbps: 10, downMbps: 50, obfs: null, tls: tls({ fingerprint: null, alpn: ['hysteria'] }) },
-				ssh: { user: '', password: '', privateKey: '', passphrase: '', hostKeys: [] }
+				ssh: { user: '', password: '', privateKey: '', passphrase: '', hostKeys: [] },
+				wireguard: { privateKey: '', peerPublicKey: '', preSharedKey: '', addresses: [], mtu: 1408, keepalive: null, reserved: null }
 			}[a.protocol];
-			const port = { shadowsocks: 8388, ssh: 22 }[a.protocol] ?? 443;
+			const port = { shadowsocks: 8388, ssh: 22, wireguard: 51820 }[a.protocol] ?? 443;
 			return { ...base, port, settings };
 		},
 		snapshot: () => snapshot,

@@ -458,3 +458,61 @@ fn an_ssh_server_with_a_pasted_key_passes_singbox_check() {
     crate::singbox::check(&binary, &path).unwrap();
     let _ = std::fs::remove_file(path);
 }
+
+fn wireguard() -> Profile {
+    let mut wg = crate::profile::parse_many("wireguard://JqrQV%2FCpFkpb3qIND9EboiuSWxrbxrxvG4i1L%2BJ1r1I%3D@wg.example.com:2408?publickey=cfd8nh5vBUAu37mGNeL%2F9tJ7DSpFLLvxSTIUGXBF%2B3g%3D&address=172.16.0.2%2F32&mtu=1280&reserved=1%2C2%2C3#WARP").0.remove(0);
+    wg.id = "wg".into();
+    wg
+}
+
+#[test]
+fn wireguard_servers_are_endpoints_the_selector_still_lists() {
+    let profiles = vec![profile(), wireguard()];
+    let config = build(&input(&profiles, &RoutingSettings::default(), Mode::Proxy)).unwrap();
+    let endpoints = config["endpoints"].as_array().expect("an endpoints list");
+    assert_eq!((endpoints.len(), endpoints[0]["tag"].as_str()), (1, Some("node-wg")));
+    assert!(config["outbounds"].as_array().unwrap().iter().all(|o| o["type"] != "wireguard"));
+    let selector = config["outbounds"].as_array().unwrap().iter().find(|o| o["tag"] == "proxy").unwrap();
+    assert_eq!(selector["outbounds"], serde_json::json!(["node-1", "node-wg"]));
+
+    let without = build(&input(&[profile()], &RoutingSettings::default(), Mode::Proxy)).unwrap();
+    assert!(without.get("endpoints").is_none());
+}
+
+#[test]
+fn a_wireguard_config_passes_singbox_check_in_both_modes() {
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let mut wg = wireguard();
+    wg.id = "1".into();
+    let profiles = vec![wg];
+    for mode in [Mode::Tun, Mode::Proxy] {
+        let path = std::env::temp_dir().join(format!("kage-vpn-test-wg-{mode:?}.json"));
+        std::fs::write(&path, serde_json::to_vec(&build(&input(&profiles, &RoutingSettings::default(), mode)).unwrap()).unwrap()).unwrap();
+        crate::singbox::check(&binary, &path).unwrap();
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+#[test]
+fn servers_the_engine_cannot_run_are_left_out_with_a_reason() {
+    use crate::profile::{missing_feature, missing_feature_message, usable_nodes};
+    let tuic = crate::profile::parse_many("tuic://11111111-2222-4333-8444-555555555555:pw@t.example.com:443#T").0.remove(0);
+    let nodes = vec![profile(), wireguard(), tuic];
+    let tags = |list: &[&str]| list.iter().map(|t| t.to_string()).collect::<Vec<_>>();
+
+    let (kept, left) = usable_nodes(&nodes, None);
+    assert_eq!((kept.len(), left.len()), (3, 0), "unknown tags leave the decision to sing-box check");
+
+    let quic_only = tags(&["with_quic", "with_utls"]);
+    let (kept, left) = usable_nodes(&nodes, Some(&quic_only));
+    assert_eq!(kept.iter().map(|p| p.protocol.as_str()).collect::<Vec<_>>(), ["vless", "tuic"]);
+    assert_eq!(left[0].protocol.as_str(), "wireguard");
+    assert_eq!(missing_feature(&nodes[1], Some(&quic_only)), Some("with_wireguard"));
+    assert_eq!(
+        missing_feature_message(&nodes[1], "with_wireguard"),
+        "This sing-box was built without WireGuard support, which WireGuard servers need. Install the official build on the Engine page."
+    );
+    let bare = tags(&["with_utls"]);
+    assert_eq!(missing_feature_message(&nodes[2], missing_feature(&nodes[2], Some(&bare)).unwrap()), "This sing-box was built without QUIC support, which TUIC servers need. Install the official build on the Engine page.");
+    assert_eq!(missing_feature(&nodes[0], Some(&bare)), None);
+}

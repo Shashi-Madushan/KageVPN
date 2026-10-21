@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use url::Url;
 
 use crate::error::{AppError, Result};
-use crate::profile::Profile;
+use crate::profile::{Profile, ServerKind};
 use crate::settings::{Action, DnsProvider, DnsSettings, LogLevel, RouteMode, RoutingSettings, Rule, RuleKind, RuleSetKind};
 
 /// The ports the app asks for first. When another program holds one, connecting picks a free one
@@ -105,7 +105,15 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
         .map(node_tag)
         .unwrap_or_else(|| tags[0].clone());
 
-    let mut outbounds: Vec<Value> = nodes.iter().map(|p| p.outbound(&node_tag(&p.id))).collect();
+    // WireGuard servers are endpoints, the rest outbounds; the selector takes both by tag.
+    let (mut outbounds, mut endpoints) = (Vec::new(), Vec::new());
+    for node in &nodes {
+        let entry = node.outbound(&node_tag(&node.id));
+        match node.kind() {
+            ServerKind::Outbound => outbounds.push(entry),
+            ServerKind::Endpoint => endpoints.push(entry),
+        }
+    }
     outbounds.push(if input.auto {
         json!({
             "type": "urltest", "tag": "proxy", "outbounds": tags,
@@ -152,14 +160,18 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
         },
     });
 
-    Ok(json!({
+    let mut config = json!({
         "log": { "level": input.log_level.as_str(), "timestamp": true, "output": input.log_path },
         "dns": dns(input.routing, input.mode),
         "experimental": experimental,
         "inbounds": inbounds,
         "outbounds": outbounds,
         "route": route,
-    }))
+    });
+    if !endpoints.is_empty() {
+        config["endpoints"] = Value::Array(endpoints);
+    }
+    Ok(config)
 }
 
 fn select_nodes<'a>(input: &ConfigInput<'a>) -> Vec<&'a Profile> {

@@ -6,7 +6,7 @@ export type ConnState = 'disconnected' | 'connecting' | 'connected';
 export type Level = 'debug' | 'info' | 'warn' | 'error';
 
 /** A registered protocol id; the list comes from the backend (`protocols`). */
-export type Protocol = 'vless' | 'vmess' | 'trojan' | 'shadowsocks' | 'hysteria2' | 'hysteria' | 'tuic' | 'ssh';
+export type Protocol = 'vless' | 'vmess' | 'trojan' | 'shadowsocks' | 'hysteria2' | 'hysteria' | 'tuic' | 'ssh' | 'wireguard';
 
 /** One server. Everything specific to its protocol is in `settings`; the editor reads and writes
  *  it by the key paths each protocol lists (see `FormField`), so no per-protocol types are needed. */
@@ -396,7 +396,8 @@ export interface Snapshot {
 export const api = {
 	appInfo: () => invoke<AppInfo>('app_info'),
 	snapshot: () => invoke<Snapshot>('snapshot'),
-	importText: (text: string) => invoke<ImportSummary>('import_text', { text }),
+	/** `fileName`: a dropped file's name, which names a WireGuard server read from it. */
+	importText: (text: string, fileName?: string) => invoke<ImportSummary>('import_text', { text, fileName: fileName ?? null }),
 	newProfile: (protocol: string) => invoke<Profile>('new_profile', { protocol }),
 	saveProfile: (profile: Profile) => invoke<Profile>('save_profile', { profile }),
 	duplicateProfile: (id: string) => invoke<Profile>('duplicate_profile', { id }),

@@ -4,7 +4,7 @@ use url::Url;
 
 use super::common::{self, invalid, Obfs, Params, Tls};
 use super::form::{Field, Section};
-use super::{Profile, ProtocolDef, ProtocolId, Secret};
+use super::{Profile, ProtocolDef, ProtocolId, Secret, ServerKind};
 use crate::error::Result;
 
 pub const ID: ProtocolId = ProtocolId("hysteria2");
@@ -36,6 +36,14 @@ impl ProtocolDef for Hysteria2 {
 
     fn over_udp(&self) -> bool {
         true
+    }
+
+    fn kind(&self) -> ServerKind {
+        ServerKind::Outbound
+    }
+
+    fn feature(&self) -> Option<&'static str> {
+        Some("with_quic")
     }
 
     fn parse(&self, link: &str) -> Result<Profile> {

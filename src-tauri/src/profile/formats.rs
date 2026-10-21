@@ -22,8 +22,14 @@ pub fn extract(text: &str) -> Option<Vec<Found>> {
     let text = text.trim_start_matches('\u{feff}').trim();
     if text.starts_with('{') {
         let value: Value = serde_json::from_str(text).ok()?;
-        let outbounds = value.get("outbounds")?.as_array()?;
-        return Some(collect(outbounds.iter().cloned(), singbox));
+        // WireGuard sits in `endpoints` since sing-box 1.11.
+        let list = |key: &str| value.get(key).and_then(Value::as_array).cloned();
+        let (outbounds, endpoints) = (list("outbounds"), list("endpoints"));
+        if outbounds.is_none() && endpoints.is_none() {
+            return None;
+        }
+        let entries = outbounds.into_iter().flatten().chain(endpoints.into_iter().flatten());
+        return Some(collect(entries, singbox));
     }
     if text.lines().any(|line| line.starts_with("proxies:")) {
         let mut document: serde_yaml_ng::Value = serde_yaml_ng::from_str(text).ok()?;
@@ -231,6 +237,13 @@ fn singbox(outbound: &Map<String, Value>) -> Entry {
     if matches!(kind.as_str(), "selector" | "urltest" | "direct" | "block" | "dns") {
         return Entry::Ignore;
     }
+    if kind == "wireguard" {
+        return singbox_wireguard(outbound);
+    }
+    // Name the type before the address check: an endpoint such as Tailscale has no server field.
+    if !matches!(kind.as_str(), "vless" | "vmess" | "trojan" | "shadowsocks" | "hysteria2" | "hysteria" | "tuic" | "ssh") {
+        return Entry::Skip(format!("{}: {kind} servers are not supported yet", text(outbound, "tag").unwrap_or_default()));
+    }
     let server = match Server::read(outbound, "tag", "server_port") {
         Ok(server) => server,
         Err(_) if matches!(kind.as_str(), "hysteria2" | "hysteria") && outbound.contains_key("server_ports") => {
@@ -373,6 +386,9 @@ fn clash(proxy: &Map<String, Value>) -> Entry {
     let kind = text(proxy, "type").unwrap_or_default().to_lowercase();
     if matches!(kind.as_str(), "direct" | "reject" | "dns") {
         return Entry::Ignore;
+    }
+    if kind == "wireguard" {
+        return clash_wireguard(proxy);
     }
     let server = match Server::read(proxy, "name", "port") {
         Ok(server) => server,
@@ -543,6 +559,107 @@ fn hysteria2_link(server: &Server, password: &str, tls: &Tls, obfs: Option<(Stri
         put(&mut q, "obfs-password", password.as_deref());
     }
     server.link("hysteria2", password, q)
+}
+
+/// The WireGuard values every format carries, under their own names.
+#[derive(Default)]
+struct WireGuard {
+    private_key: Option<String>,
+    public_key: Option<String>,
+    pre_shared_key: Option<String>,
+    addresses: Vec<String>,
+    mtu: Option<String>,
+    keepalive: Option<String>,
+    reserved: Option<Value>,
+}
+
+const MULTI_PEER: &str = "WireGuard configs with more than one peer are not supported";
+
+fn wireguard_link(server: &Server, wg: &WireGuard) -> Entry {
+    let reserved = match wg.reserved.as_ref().map(super::wireguard::reserved_of).transpose() {
+        Ok(reserved) => reserved.flatten(),
+        Err(why) => return server.skip(&why),
+    };
+    let mut q = query();
+    put(&mut q, "publickey", wg.public_key.as_deref());
+    if !wg.addresses.is_empty() {
+        q.append_pair("address", &wg.addresses.join(","));
+    }
+    put(&mut q, "mtu", wg.mtu.as_deref());
+    put(&mut q, "presharedkey", wg.pre_shared_key.as_deref());
+    put(&mut q, "keepalive", wg.keepalive.as_deref());
+    if let Some([a, b, c]) = reserved {
+        q.append_pair("reserved", &format!("{a},{b},{c}"));
+    }
+    let key = wg.private_key.as_deref().unwrap_or_default();
+    server.link_encoded("wireguard", &utf8_percent_encode(key, NON_ALPHANUMERIC).to_string(), q)
+}
+
+/// A sing-box WireGuard entry: an endpoint (1.11 and later, peers listed) or the old outbound
+/// (one peer, written flat).
+fn singbox_wireguard(entry: &Map<String, Value>) -> Entry {
+    let tag = text(entry, "tag").unwrap_or_default();
+    let label = if tag.is_empty() { "a server".to_string() } else { tag.clone() };
+    let peers = entry.get("peers").and_then(Value::as_array);
+    let (peer, server) = match peers.map(Vec::as_slice) {
+        Some([peer]) => {
+            let peer = peer.as_object().cloned().unwrap_or_default();
+            let Some(host) = text(&peer, "address").or_else(|| text(&peer, "server")) else { return Entry::Skip(format!("{label}: no server address")) };
+            let Some(port) = port(&peer, "port").or_else(|| port(&peer, "server_port")) else { return Entry::Skip(format!("{label}: no valid port")) };
+            (peer, Server { name: tag, host, port })
+        }
+        Some([]) | None => match Server::read(entry, "tag", "server_port") {
+            Ok(server) => (entry.clone(), server),
+            Err(reason) => return Entry::Skip(reason),
+        },
+        Some(_) => return Entry::Skip(format!("{label}: {MULTI_PEER}")),
+    };
+    let mut addresses = list(entry, "address");
+    addresses.extend(list(entry, "local_address"));
+    wireguard_link(
+        &server,
+        &WireGuard {
+            private_key: text(entry, "private_key"),
+            public_key: text(&peer, "public_key").or_else(|| text(&peer, "peer_public_key")),
+            pre_shared_key: text(&peer, "pre_shared_key"),
+            addresses,
+            mtu: text(entry, "mtu"),
+            keepalive: text(&peer, "persistent_keepalive_interval"),
+            reserved: peer.get("reserved").or_else(|| entry.get("reserved")).cloned(),
+        },
+    )
+}
+
+/// A Clash WireGuard proxy: flat (one peer) or with a `peers` list.
+fn clash_wireguard(proxy: &Map<String, Value>) -> Entry {
+    let name = text(proxy, "name").unwrap_or_default();
+    let label = if name.is_empty() { "a server".to_string() } else { name.clone() };
+    if proxy.contains_key("amnezia-wg-option") {
+        return Entry::Skip(format!("{label}: AmneziaWG options are not supported; sing-box runs plain WireGuard"));
+    }
+    let peers = proxy.get("peers").and_then(Value::as_array);
+    let peer = match peers.map(Vec::as_slice) {
+        Some([peer]) => peer.as_object().cloned().unwrap_or_default(),
+        Some([]) | None => proxy.clone(),
+        Some(_) => return Entry::Skip(format!("{label}: {MULTI_PEER}")),
+    };
+    let server = match Server::read(&Map::from_iter(peer.clone().into_iter().chain([("name".to_string(), Value::String(name))])), "name", "port") {
+        Ok(server) => server,
+        Err(reason) => return Entry::Skip(reason),
+    };
+    let addresses = [text(proxy, "ip"), text(proxy, "ipv6")].into_iter().flatten().collect();
+    wireguard_link(
+        &server,
+        &WireGuard {
+            private_key: text(proxy, "private-key"),
+            public_key: text(&peer, "public-key"),
+            pre_shared_key: text(&peer, "pre-shared-key"),
+            addresses,
+            mtu: text(proxy, "mtu"),
+            keepalive: text(proxy, "persistent-keepalive"),
+            reserved: peer.get("reserved").or_else(|| proxy.get("reserved")).cloned(),
+        },
+    )
 }
 
 const SSH_KEY_FILE: &str = "SSH key files on disk are not supported, paste the key into the server editor";

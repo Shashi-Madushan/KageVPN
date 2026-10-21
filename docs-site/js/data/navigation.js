@@ -221,6 +221,12 @@ window.DOCS_NAVIGATION = [
         title: "SSH",
         badge: "Protocol",
         description: "Use an SSH server as a proxy, with a password or a private key and a checked host key."
+      },
+      {
+        slug: "protocol-reference/wireguard",
+        title: "WireGuard",
+        badge: "Protocol",
+        description: "Links and .conf files, including Cloudflare WARP; one peer per server."
       }
     ]
   },

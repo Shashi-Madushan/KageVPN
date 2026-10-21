@@ -4,7 +4,7 @@
 
 **A clean, native-feeling VPN manager for macOS, powered by [sing-box](https://sing-box.sagernet.org).**
 
-Import your VLESS, VMess, Trojan, Shadowsocks, Hysteria, Hysteria2, TUIC or SSH servers, connect with one click, and see exactly where your traffic goes.
+Import your VLESS, VMess, Trojan, Shadowsocks, Hysteria, Hysteria2, TUIC, SSH or WireGuard servers, connect with one click, and see exactly where your traffic goes.
 
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%2B%20Svelte-blue)
@@ -22,7 +22,7 @@ Import your VLESS, VMess, Trojan, Shadowsocks, Hysteria, Hysteria2, TUIC or SSH 
 
 Kage VPN is a desktop app that sits in your menu bar and manages a [sing-box](https://sing-box.sagernet.org) tunnel for you. You bring a server (a `vless://`, `vmess://`, `trojan://`, `ss://` or `hysteria2://` link, or a subscription URL from your provider); the app turns it into a working connection, keeps it healthy, and shows you what it is doing.
 
-It is for people who already have a VLESS, VMess, Trojan, Shadowsocks, Hysteria, Hysteria2, TUIC or SSH server or provider and want a polished Mac app instead of hand-editing config files. It does not sell or provide VPN servers.
+It is for people who already have a VLESS, VMess, Trojan, Shadowsocks, Hysteria, Hysteria2, TUIC, SSH or WireGuard server or provider and want a polished Mac app instead of hand-editing config files. It does not sell or provide VPN servers.
 
 > Development happens on `dev` and is merged into `main` when it is ready; see [docs/BRANCHING.md](docs/BRANCHING.md).
 
@@ -88,7 +88,7 @@ Then open the app normally. You only need to do this once per downloaded version
 
 - **One-click connection** with a clear status: protected, connecting or not protected, plus session time, exit IP and latency.
 - **Two modes.** *Full System (TUN)* sends all of your Mac's traffic through the VPN. *Proxy Only* runs a local proxy on `127.0.0.1:2080` (the next free port if that one is taken; the Home page shows the address) for just the apps you point at it.
-- **Eight protocols.** VLESS (TLS or Reality), VMess, Trojan, Shadowsocks (including the 2022 ciphers), Hysteria2 (with Salamander obfuscation), Hysteria v1, TUIC v5 and SSH (password or pasted key). VLESS, VMess and Trojan run over TCP, WebSocket, gRPC or HTTPUpgrade.
+- **Nine protocols.** VLESS (TLS or Reality), VMess, Trojan, Shadowsocks (including the 2022 ciphers), Hysteria2 (with Salamander obfuscation), Hysteria v1, TUIC v5, SSH (password or pasted key) and WireGuard (links or `.conf` files, including Cloudflare WARP). VLESS, VMess and Trojan run over TCP, WebSocket, gRPC or HTTPUpgrade.
 - **Menu-bar app** with live download and upload speed beside the icon, and a compact popover led by the Kage mascot, which is also the connect button and shows at a glance whether you are protected. The popover has a latency pill, a server picker that switches servers without disconnecting, the timer and exit IP, live traffic, what is left of your provider's plan, and a mode switch, and shows loading skeletons while data loads.
 - **Hide addresses.** Server addresses and IP addresses are blurred until you click the eye icon (next to the IP address, in the app and in the menu-bar popover), so screen shares and screenshots do not give them away. The choice is remembered.
 - **Optional global shortcut** (⌥⌘V, off by default) to connect or disconnect from anywhere.

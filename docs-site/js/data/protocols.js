@@ -360,3 +360,65 @@ window.DOCS_PAGES["protocol-reference/ssh"] = {
     </div>
   `
 };
+
+window.DOCS_PAGES["protocol-reference/wireguard"] = {
+  category: "Protocol Reference",
+  title: "WireGuard",
+  featureBadge: "UDP",
+  lead: "Import WireGuard servers from links or from the .conf files many providers hand out, including Cloudflare WARP.",
+  toc: [
+    { id: "wg-overview", label: "Overview" },
+    { id: "wg-conf", label: "Importing a .conf file" },
+    { id: "wg-fields", label: "Settings" },
+    { id: "wg-limits", label: "What Kage refuses" },
+    { id: "wg-uri", label: "URI Format" }
+  ],
+  contentHtml: `
+    <div class="docs-prose">
+      <h2 id="wg-overview">Overview</h2>
+      <p>
+        Kage runs WireGuard inside sing-box, so it needs no extra permissions in Proxy Only mode and works with your routing rules like any other server. WireGuard uses UDP, so the check before connecting skips its TCP test. Your sing-box must be built with WireGuard support (the official builds are); if it is not, connecting says so and points to the Engine page.
+      </p>
+
+      <h2 id="wg-conf">Importing a .conf file</h2>
+      <p>
+        Drop the file on <em>Add server</em> (or paste its text). The server is named after the file, for example <em>warp-tokyo</em> for <code>warp-tokyo.conf</code>; pasted text uses a <code># Name =</code> line if there is one, else the server address.
+      </p>
+      <p>
+        Some lines in a <code>.conf</code> are for the WireGuard app itself and Kage does not use them: <code>DNS</code>, an <code>AllowedIPs</code> narrower than everything, <code>Table</code>, <code>PostUp</code> and similar. They do not stop the import; the import result names them. Kage's own DNS and routing settings decide those things.
+      </p>
+
+      <h2 id="wg-fields">Settings</h2>
+      <ul>
+        <li><strong>Private key</strong> and <strong>server public key</strong>: required.</li>
+        <li><strong>Local addresses</strong>: this device's addresses inside the tunnel (the file's <code>Address</code>).</li>
+        <li><strong>Pre-shared key</strong>: optional.</li>
+        <li><strong>MTU</strong>: 1408 unless the server says otherwise. Try 1280 if large pages stall.</li>
+        <li><strong>Keepalive</strong>: optional, in seconds.</li>
+        <li><strong>Reserved bytes</strong>: only for Cloudflare WARP, which uses them to tell clients apart. The list shows such servers as <em>WireGuard · WARP</em>.</li>
+      </ul>
+
+      <h2 id="wg-limits">What Kage refuses</h2>
+      <ul>
+        <li>Configs with more than one <code>[Peer]</code>.</li>
+        <li>AmneziaWG options (<code>Jc</code>, <code>Jmin</code>, <code>S1</code> and so on): sing-box runs plain WireGuard.</li>
+        <li>A file with no <code>Address</code> or no peer <code>Endpoint</code>.</li>
+      </ul>
+
+      <h2 id="wg-uri">URI Format</h2>
+      <p>Kage reads and writes the form v2rayN and Hiddify use. <code>presharedkey</code>, <code>mtu</code>, <code>keepalive</code> and <code>reserved</code> are optional.</p>
+    </div>
+
+    <div class="code-block-container">
+      <div class="code-header">
+        <span class="code-lang-label">uri</span>
+        <button class="btn-copy-code" data-code="wireguard://YOUR_PRIVATE_KEY@engage.cloudflareclient.com:2408?publickey=SERVER_PUBLIC_KEY&address=172.16.0.2%2F32%2Cfd01%3A%3A2%2F128&mtu=1280&reserved=12%2C34%2C56#WARP">Copy</button>
+      </div>
+      <pre><code>wireguard://YOUR_PRIVATE_KEY@engage.cloudflareclient.com:2408
+  ?publickey=SERVER_PUBLIC_KEY
+  &amp;address=172.16.0.2/32,fd01::2/128
+  &amp;mtu=1280
+  &amp;reserved=12,34,56#WARP</code></pre>
+    </div>
+  `
+};

@@ -2,7 +2,7 @@
 	import { readText } from '@tauri-apps/plugin-clipboard-manager';
 	import { protocols } from '$lib/protocols.svelte';
 	import { app } from '$lib/app.svelte';
-	import { importMessage } from '$lib/format';
+	import { importMessage, isWireGuardFile } from '$lib/format';
 	import Dialog from './Dialog.svelte';
 
 	let {
@@ -19,7 +19,10 @@
 
 	const found = $derived(text.split(/\s+/).filter((t) => protocols.isLink(t)).length);
 	/** A Clash or sing-box configuration file. The backend reads the servers out of it. */
-	const isConfig = $derived(/^proxies:/m.test(text) || /^\s*\{[\s\S]*"outbounds"\s*:/.test(text));
+	const wireGuardFile = $derived(isWireGuardFile(text));
+	const isConfig = $derived(/^proxies:/m.test(text) || /^\s*\{[\s\S]*"(outbounds|endpoints)"\s*:/.test(text) || wireGuardFile);
+	/** A dropped file and the text it held: its name names a WireGuard server, until the text is edited. */
+	let dropped = $state<{ name: string; text: string } | null>(null);
 	const ready = $derived(found > 0 || isConfig);
 
 	$effect(() => {
@@ -46,6 +49,7 @@
 		if (!file) return;
 		try {
 			text = await file.text();
+			dropped = { name: file.name, text };
 			error = null;
 		} catch (err) {
 			error = `Could not read the file: ${err}`;
@@ -60,7 +64,7 @@
 
 	async function save() {
 		busy = true;
-		const { summary, error: failure } = await app.importText(text);
+		const { summary, error: failure } = await app.importText(text, dropped?.text === text ? dropped.name : undefined);
 		busy = false;
 		error = failure;
 		if (summary) {
@@ -86,13 +90,13 @@
 		role="region"
 		aria-label="Drop a file with links"
 	>
-		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…  trojan://…  ss://…  hysteria2://…  hysteria://…  tuic://…  ssh://…" aria-label="Server links"></textarea>
+		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…  trojan://…  ss://…  hysteria2://…  tuic://…  wireguard://…  or a WireGuard .conf file" aria-label="Server links"></textarea>
 		{#if dragging}<div class="overlay">Drop the file to load its servers</div>{/if}
 	</div>
 
 	<div class="meta">
 		<span class="found" class:ok={ready}>
-			{#if isConfig}Configuration file: its servers will be added{:else if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No supported links found{:else}Nothing pasted yet{/if}
+			{#if wireGuardFile}WireGuard file: its server will be added{:else if isConfig}Configuration file: its servers will be added{:else if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No supported links found{:else}Nothing pasted yet{/if}
 		</span>
 		<span class="links">
 			<input type="file" accept=".txt,.json,.yaml,.yml,.conf,text/plain" hidden bind:this={fileInput} onchange={(e) => loadFile(e.currentTarget.files?.[0])} />
@@ -106,7 +110,7 @@
 	{#snippet footer()}
 		<button class="btn" onclick={() => (open = false)}>Cancel</button>
 		<button class="btn primary" disabled={!ready || busy} onclick={save}>
-			{busy ? 'Adding…' : isConfig ? 'Add servers' : found > 1 ? `Add ${found} servers` : 'Add server'}
+			{busy ? 'Adding…' : wireGuardFile ? 'Add server' : isConfig ? 'Add servers' : found > 1 ? `Add ${found} servers` : 'Add server'}
 		</button>
 	{/snippet}
 </Dialog>

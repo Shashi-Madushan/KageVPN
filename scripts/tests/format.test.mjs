@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatBytes, formatRate, formatRateOrDash, importMessage, planSummary } from '../../src/lib/format.ts';
+import { formatBytes, formatRate, formatRateOrDash, importMessage, isWireGuardFile, planSummary } from '../../src/lib/format.ts';
 
 const GB = 1024 ** 3;
 const DAY = 86400;
@@ -44,4 +44,12 @@ test('an import message names skips and notes', () => {
 		'Imported 1 profile, note (HK: no speeds in the link, using 10 Mbps up and 50 Mbps down).'
 	);
 	assert.equal(importMessage({ added: 3, duplicates: 0, failed: ['x'], notes: ['a: b', 'c: d'] }), 'Imported 3 profiles, 1 skipped (x), 2 notes (a: b).');
+});
+
+test('a wg-quick file is told apart from other text', () => {
+	assert.equal(isWireGuardFile('# exported\n[Interface]\nPrivateKey = x\nAddress = 10.0.0.2/32\n\n[Peer]\nPublicKey = y\nEndpoint = h:51820\n'), true);
+	assert.equal(isWireGuardFile('[interface]\r\nPrivateKey = x\r\n[peer]\r\nEndpoint = h:1\r\n'), true);
+	assert.equal(isWireGuardFile('[Interface]\nPrivateKey = x\n'), false, 'no peer');
+	assert.equal(isWireGuardFile('[Peer]\nEndpoint = h:1\n[Interface]\n'), false, 'interface not first');
+	assert.equal(isWireGuardFile('vless://x@h:443'), false);
 });

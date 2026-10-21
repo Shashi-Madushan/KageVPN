@@ -1316,5 +1316,131 @@
         "pattern": null
       }
     ]
+  },
+  {
+    "id": "wireguard",
+    "label": "WireGuard",
+    "schemes": [
+      "wireguard",
+      "wg"
+    ],
+    "fields": [
+      {
+        "key": "privateKey",
+        "label": "Private key",
+        "kind": "secret",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^\\s*[a-z0-9+/]{43}=\\s*$",
+          "message": "This is not a WireGuard key (44 characters ending in =)."
+        }
+      },
+      {
+        "key": "peerPublicKey",
+        "label": "Server public key",
+        "kind": "text",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^\\s*[a-z0-9+/]{43}=\\s*$",
+          "message": "This is not a WireGuard key (44 characters ending in =)."
+        }
+      },
+      {
+        "key": "addresses",
+        "label": "Local addresses",
+        "kind": "list",
+        "section": "connection",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": "172.16.0.2/32, fd01::2/128",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": null
+      },
+      {
+        "key": "preSharedKey",
+        "label": "Pre-shared key",
+        "kind": "secret",
+        "section": "security",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": null,
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^\\s*[a-z0-9+/]{43}=\\s*$",
+          "message": "This is not a WireGuard key (44 characters ending in =)."
+        }
+      },
+      {
+        "key": "mtu",
+        "label": "MTU",
+        "kind": "text",
+        "section": "advanced",
+        "choices": [],
+        "optional": false,
+        "mono": true,
+        "placeholder": "1408",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^\\s*\\d{4}\\s*$",
+          "message": "Enter an MTU from 1280 to 1500."
+        }
+      },
+      {
+        "key": "keepalive",
+        "label": "Keepalive (seconds)",
+        "kind": "text",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "Off",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^\\s*\\d{1,5}\\s*$",
+          "message": "Enter a number of seconds."
+        }
+      },
+      {
+        "key": "reserved",
+        "label": "Reserved bytes",
+        "kind": "text",
+        "section": "advanced",
+        "choices": [],
+        "optional": true,
+        "mono": true,
+        "placeholder": "WARP only: 12,34,56",
+        "warning": null,
+        "warnWhenEmpty": false,
+        "showWhen": null,
+        "pattern": {
+          "regex": "^\\s*\\d{1,3}\\s*,\\s*\\d{1,3}\\s*,\\s*\\d{1,3}\\s*$",
+          "message": "Enter three numbers, such as 12,34,56."
+        }
+      }
+    ]
   }
 ]
