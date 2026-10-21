@@ -482,3 +482,11 @@ keep the network exteion part for later"
 **Context**: Delivery (merge paused)
 
 ---
+
+## Test keys made at run time; merge waiting on GitGuardian
+**Timestamp**: 2026-10-21T14:45:00Z
+**User Input**: "Replace the hardcoded test keys with keys made at test time in a new commit; I'll mark the 5 existing GitGuardian incidents as test credentials. Then merge both into dev once checks pass."
+**AI Response**: On feature/protocols-and-system-proxy, commit 6a0878d: WireGuard test keys from a test-only TestKey(byte) helper (base64 of 32 repeated bytes, made at run time); the SSH key for the real sing-box check made by ssh-keygen at run time (fixture deleted); key-shaped text assembled at run time; the WireGuard sample link uses repeated-byte keys; every copy of the old keys removed (not only the 5 flagged). 409 tests passed, clippy clean. Pushed; merged into feature/system-proxy (f2b2243): 424 passed, clippy clean, svelte-check 0 errors, 40 script tests; pushed. CI read once: #6 GitGuardian still reports the same 5 findings, all in the older commits 4c94355 and 080c53a (none in the new commit); build checks pending on both. Not merged yet: waiting for the user to mark the 5 incidents and for checks to pass.
+**Context**: Delivery (merge waiting on checks)
+
+---
