@@ -310,7 +310,8 @@ fn ipv6_off_blocks_ipv6_and_passes_singbox_check() {
     let routing = RoutingSettings { ipv6: false, ..RoutingSettings::default() };
     let cfg = build(&input(&profiles, &routing, Mode::Tun)).unwrap();
     assert_eq!(cfg["dns"]["strategy"], "ipv4_only");
-    assert!(cfg["route"]["rules"].as_array().unwrap().iter().any(|r| r["ip_version"] == 6 && r["action"] == "reject"));
+    let first = &cfg["route"]["rules"][0];
+    assert!(first["ip_version"] == 6 && first["action"] == "reject", "v6 reject must come before sniff");
     // Still dual-stack, so v6 is captured by the tunnel and rejected rather than leaking.
     assert_eq!(cfg["inbounds"][1]["address"].as_array().unwrap().len(), 2);
     let on = build(&input(&profiles, &RoutingSettings::default(), Mode::Tun)).unwrap();

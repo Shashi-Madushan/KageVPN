@@ -173,10 +173,13 @@ fn select_nodes<'a>(input: &ConfigInput<'a>) -> Vec<&'a Profile> {
 }
 
 fn route_rules(routing: &RoutingSettings, available: &[(String, PathBuf)]) -> Vec<Value> {
-    let mut rules = vec![json!({ "action": "sniff" }), json!({ "protocol": "dns", "action": "hijack-dns" })];
+    let mut rules = Vec::new();
+    // Before sniff, so the TUN refuses the v6 SYN itself and browsers fall back to v4 at once.
+    // After sniff the handshake has already completed and the reset only lands at TLS.
     if !routing.ipv6 {
         rules.push(json!({ "ip_version": 6, "action": "reject" }));
     }
+    rules.extend([json!({ "action": "sniff" }), json!({ "protocol": "dns", "action": "hijack-dns" })]);
     if routing.bypass_lan {
         rules.push(json!({ "ip_is_private": true, "outbound": "direct" }));
     }
