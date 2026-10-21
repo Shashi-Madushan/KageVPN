@@ -119,3 +119,187 @@
 **Context**: CONSTRUCTION - condensed single unit
 
 ---
+
+## Per-app controls: request
+**Timestamp**: 2026-10-20T14:10:00Z
+**User Input**: "lets crete a new branch and start the remaing fetures , use ai dlc , and  Per-app picker for bypass and proxy rules. and datausage caping or disable usage for selected apps like feture also"
+**AI Response**: Created branch feature/app-picker-and-usage-limits from dev (after fast-forwarding dev to main). Existing AI-DLC project resumed; reverse engineering artifacts reused. Found that an app picker, per-app routing rules and a global data cap already exist. Wrote inception/requirements/app-controls-questions.md (13 questions) and stopped at the requirements gate.
+**Context**: INCEPTION - Requirements Analysis (Standard depth, brownfield)
+
+---
+
+## Requirements answers received
+**Timestamp**: 2026-10-20T14:30:00Z
+**User Input**: "i answerd them some qustions are not answerd you choos what best for them"
+**AI Response**: Read the answers. Q1 and Q2 were empty; chose C for both and recorded that in the file. Q7 answer "a like how the data eye app work" read as a plain per-app block switch. Checked for contradictions: none. Wrote inception/requirements/app-controls-requirements.md and asked for approval.
+**Context**: INCEPTION - Requirements Analysis
+
+---
+
+## Requirements approved; Workflow Planning
+**Timestamp**: 2026-10-20T14:50:00Z
+**User Input**: "Requirements approved, continue to workflow planning."
+**AI Response**: Read settings.rs, usage/collector.rs, usage/quota.rs and config.rs to size the work; found usage is recorded per process name (not per app) and that caps need usage recording on. Wrote inception/plans/app-controls-execution-plan.md (4 units, functional design for U2 only) and asked for approval.
+**Context**: INCEPTION - Workflow Planning
+
+---
+
+## Plan approved; U1 Code Generation Part 1
+**Timestamp**: 2026-10-20T15:05:00Z
+**User Input**: "Plan approved, start U1."
+**AI Response**: Read RoutingPage, app.svelte.ts routeApp, set_routing, apps.rs. Found the Routing page applies a draft with its own Save, there is no icon source and no rule validation, and no TS test runner (node --test can run a pure .ts module). Wrote construction/plans/u1-apps-tab-code-generation-plan.md (9 steps) and asked for approval.
+**Context**: CONSTRUCTION - U1 Code Generation, Part 1 (planning)
+
+---
+
+## U1 Code Generation Part 2 complete
+**Timestamp**: 2026-10-20T16:00:00Z
+**User Input**: "U1 plan approved, generate the code."
+**AI Response**: Implemented all 9 steps: rule origin, self-block validation, app_icon command, appRules.ts, AppsTab.svelte, docs and changelog. cargo test 321 passed, clippy clean, svelte-check 0 errors, vite build ok, script tests 16 passed. Not run in the live app.
+**Context**: CONSTRUCTION - U1 Code Generation Part 2
+
+---
+
+## U2 Functional Design started
+**Timestamp**: 2026-10-20T16:20:00Z
+**User Input**: "Continue to the next stage, U2 functional design."
+**AI Response**: Read collector.rs, store.rs, quota.rs, notify.rs and clash.rs. Found: connections carry the app bundle path; usage_dim is keyed by process name and wiped by retention or Clear details; notifications have no buttons. Wrote construction/plans/u2-per-app-caps-functional-design-plan.md with 10 questions and stopped for answers.
+**Context**: CONSTRUCTION - U2 Functional Design, step 1
+
+---
+
+## U2 Functional Design answers
+**Timestamp**: 2026-10-20T16:50:00Z
+**User Input**: "can you use recomanded use them"
+**AI Response**: All ten answers were blank; recorded the recommended choice (A for every question) in the plan file and wrote domain-entities.md, business-rules.md, business-logic-model.md and frontend-components.md under construction/u2-per-app-caps/functional-design/. Added a rule that set_routing keeps cap rules (cap rules are managed only by cap commands) to avoid stale-draft conflicts.
+**Context**: CONSTRUCTION - U2 Functional Design, artifacts generated, awaiting approval
+
+---
+
+## U2 Functional design approved; U2 Code Generation Part 1
+**Timestamp**: 2026-10-20T17:15:00Z
+**User Input**: "Continue to the next stage, U2 code generation plan."
+**AI Response**: Read session.rs connect path, reliability.rs restart, store and usage settings. Wrote construction/plans/u2-per-app-caps-code-generation-plan.md (10 steps) and asked for approval.
+**Context**: CONSTRUCTION - U2 Code Generation, Part 1 (planning)
+
+---
+
+## U2 Code Generation Part 2 complete
+**Timestamp**: 2026-10-20T18:00:00Z
+**User Input**: "U2 plan approved, generate the code."
+**AI Response**: Implemented steps 1-8 and the U2 summary (docs entry deferred to U3 because there is no UI yet). 19 new tests; cargo clippy clean, svelte-check 0 errors. Ran the full suite before committing.
+**Context**: CONSTRUCTION - U2 Code Generation Part 2
+
+---
+
+## U2 approved; U3 Code Generation Part 1
+**Timestamp**: 2026-10-20T18:30:00Z
+**User Input**: "Continue to the next stage, U3 code generation plan."
+**AI Response**: Read usage/commands.rs, app.svelte.ts, usage.svelte.ts, HomePage banners and RoutingPage draft handling. Found a U2 gap (usage_set_settings overwrites appCaps with whatever the Usage page sends) and a Routing page sync problem after a cap block; both are step 1 and step 6 of the plan. Wrote construction/plans/u3-caps-ui-code-generation-plan.md (9 steps) and asked for approval.
+**Context**: CONSTRUCTION - U3 Code Generation, Part 1 (planning)
+
+---
+
+## U3 Code Generation Part 2 complete
+**Timestamp**: 2026-10-20T19:10:00Z
+**User Input**: "U3 plan approved, generate the code."
+**AI Response**: Implemented all 9 steps: usage settings merge fix, capView/caps store, CapEditor, Apps tab and Home banner, Routing page draft sync, docs and changelog. Full checks run before commit.
+**Context**: CONSTRUCTION - U3 Code Generation Part 2
+
+---
+
+## U3 approved; U4 Code Generation Part 1
+**Timestamp**: 2026-10-20T19:40:00Z
+**User Input**: "Continue to the next stage, U4 code generation plan."
+**AI Response**: Read subscriptions.rs, settings.rs, format.ts and the tray page. Found that the 90 percent data warning, a 3-day expiry warning and the popover plan line already exist, so U4 reduces to 7/3/1-day expiry stages, an expiry check on the scheduler tick (independent of refresh), and the popover low flag at 7 days. Wrote construction/plans/u4-plan-alerts-code-generation-plan.md (5 steps) and asked for approval.
+**Context**: CONSTRUCTION - U4 Code Generation, Part 1 (planning)
+
+---
+
+## U4 Code Generation Part 2 complete
+**Timestamp**: 2026-10-20T20:10:00Z
+**User Input**: "U4 plan approved, generate the code."
+**AI Response**: Implemented 7/3/1-day expiry stages, the scheduler-tick expiry check, the popover low flag at 7 days, docs and tests. Ran the full checks before committing.
+**Context**: CONSTRUCTION - U4 Code Generation Part 2
+
+---
+
+## Build and Test (round 2)
+**Timestamp**: 2026-10-20T20:40:00Z
+**User Input**: "Continue to Build and Test."
+**AI Response**: Ran npm run build:app (ok), svelte-check, vite build, script tests (26), clippy, cargo test --lib with 4 threads (344 passed); the default-thread run again gave no result in 240 s. Rewrote the build-and-test files for round 2 and asked for approval to proceed to Operations (placeholder).
+**Context**: CONSTRUCTION - Build and Test
+
+---
+
+## Change request: move per-app controls to their own sidebar page
+**Timestamp**: 2026-10-20T21:30:00Z
+**User Input**: "can we add that app data cping and etc to the sidebar as a new nav section rather that than a tab in a routing sections , plan this , cus  the data caping etc is not related to routeing ruls right"
+**AI Response**: Read Sidebar.svelte, +page.svelte and the key handler. Wrote inception/plans/apps-page-restructure-plan.md with five questions (page contents, placement, how changes apply, shortcuts, the old tab) and a proposed 8-step plan. No code changed.
+**Context**: INCEPTION - Workflow Planning for a change request (front-end only)
+
+---
+
+## Apps page built
+**Timestamp**: 2026-10-20T22:10:00Z
+**User Input**: "Use your recommended answers and generate the code."
+**AI Response**: Added the Apps page to the sidebar (after Routing), moved the Apps tab content there with its own Save bar, removed the tab from Routing with a pointer line, extracted page order and shortcuts to pages.ts and the draft sync to reconcileDraft, updated docs. Front end only.
+**Context**: CONSTRUCTION - change request, code generation
+
+---
+
+## Wiring review
+**Timestamp**: 2026-10-21T10:00:00Z
+**User Input**: "whats remaining work in kage app , and check wether all togeleer and the dns selecters and things work corectly and wired correctly"
+**AI Response**: Traced every toggle and DNS selector from the UI to the generated sing-box config. Found 8 wiring problems (FakeIP 600 s TTL with no flush, DNS through the server in VPN idle mode, checkboxes not reverting on a failed save, kill switch changes while connected, usage alert state overwritten, cap rules missing from the page after a save, DNS provider unused in Proxy Only mode, automatic switch to Rules mode activating dormant rules) and listed remaining work. No code changed.
+**Context**: Review (no workflow stage)
+
+---
+
+## Change request: fix wiring problems 1 to 5
+**Timestamp**: 2026-10-21T10:30:00Z
+**User Input**: "Fix wiring problems 1 to 5 (FakeIP cache, DNS in VPN idle, checkbox revert, kill switch mid-session, usage alert overwrite), with tests."
+**AI Response**: Treated as isolated bug fixes (minimal depth: no new components, requirements stated by the user). Proceeding directly to code generation with tests.
+**Context**: CONSTRUCTION - bug fixes, code generation
+
+---
+
+## Wiring fixes 1 to 5 done
+**Timestamp**: 2026-10-21T11:30:00Z
+**User Input**: (none; completion of the request above)
+**AI Response**: FakeIP answers get rewrite_ttl 1 (runtime-checked against sing-box 1.14.2 on a spare port); DNS has no proxy detour in VPN idle mode; settings checkboxes go through saveToggle (src/lib/toggle.ts) and revert on a failed save; the block watch lifts a block once the kill switch is off, and set_reliability reports when turning it on waits for the next connect; merge_usage_settings keeps the stored alert state. Tests added in tests/config.rs, tests/reliability.rs, tests/usage_caps.rs and scripts/tests/toggle.test.mjs. cargo test 351 passed, clippy clean, svelte-check 0 errors, script tests 32 passed, vite build ok. Not committed; not run in the live app.
+**Context**: CONSTRUCTION - bug fixes, code generation complete
+
+---
+
+## Change request: fix wiring problems 6 to 8
+**Timestamp**: 2026-10-21T12:00:00Z
+**User Input**: "Fix wiring problems 6, 7 and 8 with tests, then commit."
+**AI Response**: Treated as isolated fixes (minimal depth). Proceeding to code generation with tests, then commit.
+**Context**: CONSTRUCTION - bug fixes, code generation
+
+---
+
+## Wiring fixes 6 to 8 done
+**Timestamp**: 2026-10-21T12:45:00Z
+**User Input**: (none; completion of the request above)
+**AI Response**: set_routing returns the stored settings and the store shows them (cap blocks included); copies are compared with routingText/sameRouting so Rust's field order and filled-in origins are not changes. The DNS note comes from dnsNote() and says the choice is unused in Proxy Only mode. ensure_rules_mode reports how many saved rules and lists a switch to Rules mode turns on; cap_block, routeApp and the Apps page save show a notice. Tests in tests/usage_caps.rs, scripts/tests/app-rules.test.mjs and scripts/tests/dns-note.test.mjs. cargo test 353 passed, clippy clean, svelte-check 0 errors, script tests 37 passed, vite build ok. Not run in the live app.
+**Context**: CONSTRUCTION - bug fixes, code generation complete
+
+---
+
+## Changelog update
+**Timestamp**: 2026-10-21T13:00:00Z
+**User Input**: "update the changelog s also check yesterdays hnages laso , add them to today if need cusy yesterday we had a release ,"
+**AI Response**: 0.2.0 was published 2026-10-20T13:47Z from main at 31f0233; every commit on this branch is later. Moved the five 20 October items written after the release (Apps page, data caps, expiry warnings, setup guide steps, Download now and Route button) to 21 October, marked 20 October as version 0.2.0 and 21 October as not released, and added entries that had none: the rename to Kage, IPv6 off by default with an IPv4-only tunnel, IPv6 refused before sniff, and the segmented toggle contrast fix. Updated the page lead, which still said nothing was tagged.
+**Context**: Documentation
+
+---
+
+## Screenshots and docs for the new pages
+**Timestamp**: 2026-10-21T14:00:00Z
+**User Input**: "dow we have the new pages images and things also , update the image s and the genaration script to get the new pages fetures and tebas also and update the docs with new ofetures pages"
+**AI Response**: Extended scripts/screenshots (demo caps, a cap-blocked app, per-app rules, known networks, made-up app icons, connection counters that grow so live speeds show; new shots apps, app-cap-editor, home-cap-offer, connections-apps, routing-lists, settings-usage, tour-apps; every picture also copied to docs-site/assets/images). Regenerated all 19 pictures and reviewed them. Docs: new user-guide page App Controls & Data Caps (moved from Routing), Network Settings on Routing, connect by network, the setup guide, overview capabilities, README features and screenshot table, image sizes in app.js. Corrected two wrong statements (Proxy Only does not set the system proxy; DNS per mode) and toned down the kill switch claim on the overview.
+**Context**: Documentation
+
+---

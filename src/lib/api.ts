@@ -132,12 +132,16 @@ export type RuleKind = 'domain' | 'domainSuffix' | 'domainKeyword' | 'ipCidr' | 
 export type RuleSetKind = 'geoip' | 'geosite';
 export type DnsProvider = 'cloudflare' | 'google' | 'quad9' | 'custom' | 'system';
 
+/** `cap` marks a block put in place by a per-app data cap. */
+export type RuleOrigin = 'manual' | 'cap';
+
 export interface Rule {
 	id: string;
 	enabled: boolean;
 	kind: RuleKind;
 	value: string;
 	action: RouteAction;
+	origin?: RuleOrigin;
 }
 
 export interface RuleSetRef {
@@ -218,6 +222,37 @@ export interface ReliabilitySettings {
 	proxyPassword: string;
 }
 
+export type CapPeriod = 'day' | 'week' | 'month';
+export type AtLimit = 'notify' | 'offerBlock';
+export type CapState = 'ok' | 'warn80' | 'over' | 'blocked' | 'dismissed' | 'notCounting';
+
+/** A data cap for one installed app, by its bundle path. */
+export interface AppCap {
+	path: string;
+	limitBytes: number;
+	period: CapPeriod;
+	atLimit: AtLimit;
+}
+
+/** A cap with what the app has used this period. `offer` is `pending` while Block now is on offer. */
+export interface CapStatus {
+	path: string;
+	name: string;
+	installed: boolean;
+	limitBytes: number;
+	period: CapPeriod;
+	atLimit: AtLimit;
+	used: number;
+	up: number;
+	down: number;
+	percent: number;
+	level: number;
+	state: CapState;
+	offer: 'none' | 'pending' | 'taken' | 'dismissed';
+	periodStart: number;
+	periodEnd: number;
+}
+
 export interface UsageSettings {
 	paused: boolean;
 	recordApps: boolean;
@@ -228,6 +263,7 @@ export interface UsageSettings {
 	quotaAction: 'notify' | 'disconnect';
 	alertCycle: number;
 	alertLevel: number;
+	appCaps: AppCap[];
 }
 
 export type Bucket = 'hour' | 'day' | 'week' | 'month';
@@ -368,12 +404,14 @@ export const api = {
 	profileQr: (id: string) => invoke<string>('profile_qr', { id }),
 	setAuto: (settings: AutoSettings) => invoke<void>('set_auto', { settings }),
 	testAll: () => invoke<NodeLatency[]>('test_all'),
-	setRouting: (settings: RoutingSettings) => invoke<void>('set_routing', { settings }),
+	/** Resolves to the settings as stored, with the data-cap blocks the sent copy may lack. */
+	setRouting: (settings: RoutingSettings) => invoke<RoutingSettings>('set_routing', { settings }),
 	ruleProviders: () => invoke<RuleProvider[]>('rule_providers'),
 	ruleSetsStatus: () => invoke<RuleSetsStatus>('rule_sets_status'),
 	downloadRuleSets: (tag: string | null) => invoke<ListResult[]>('download_rule_sets', { tag }),
 	deleteRuleSets: (tag: string | null) => invoke<void>('delete_rule_sets', { tag }),
-	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
+	/** Resolves to true when a kill switch turned on now only takes effect at the next connect. */
+	setReliability: (settings: ReliabilitySettings) => invoke<boolean>('set_reliability', { settings }),
 	setNetworkSettings: (settings: NetworkSettings) => invoke<void>('set_network_settings', { settings }),
 	currentNetwork: () => invoke<CurrentNetwork | null>('current_network'),
 	restoreNetwork: () => invoke<void>('restore_network'),
@@ -388,6 +426,7 @@ export const api = {
 	editSubscription: (id: string, name: string, url: string, options: SubscriptionOptions) =>
 		invoke<void>('edit_subscription', { id, name, url, ...options }),
 	installedApps: () => invoke<InstalledApp[]>('installed_apps'),
+	appIcon: (path: string) => invoke<string | null>('app_icon', { path }),
 	deleteProfiles: (ids: string[]) => invoke<number>('delete_profiles', { ids }),
 	exportBackup: () => invoke<string>('export_backup'),
 	restoreBackup: (text: string) => invoke<RestoreSummary>('restore_backup', { text }),
@@ -618,4 +657,14 @@ export const appUpdateApi = {
 	settings: () => invoke<AppUpdateSettings>('app_update_settings'),
 	setPolicy: (policy: UpdatePolicy) => invoke<void>('set_app_update_policy', { policy }),
 	restart: (force: boolean) => invoke<void>('app_restart', { force })
+};
+
+export const capsApi = {
+	list: () => invoke<CapStatus[]>('caps_list'),
+	set: (cap: AppCap) => invoke<void>('cap_set', { cap }),
+	remove: (path: string) => invoke<void>('cap_remove', { path }),
+	/** Blocks the app now; only allowed while its offer is pending. Reconnects the VPN once. */
+	block: (path: string) => invoke<void>('cap_block', { path }),
+	notNow: (path: string) => invoke<void>('cap_not_now', { path }),
+	unblock: (path: string) => invoke<void>('cap_unblock', { path })
 };

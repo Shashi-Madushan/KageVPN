@@ -86,15 +86,17 @@ class UsageStore {
 	}
 
 	async saveSettings(patch: Partial<UsageSettings>) {
-		if (!this.settings) return;
+		if (!this.settings) return false;
 		const next = { ...this.settings, ...patch };
 		try {
 			await usageApi.setSettings(next);
-			this.settings = next;
-			this.quota = await usageApi.quota();
 		} catch (e) {
 			app.notify(String(e));
+			return false;
 		}
+		this.settings = next;
+		this.quota = await usageApi.quota().catch(() => this.quota);
+		return true;
 	}
 
 	async exportCsv() {

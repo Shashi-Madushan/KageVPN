@@ -113,9 +113,9 @@ fn every_custom_dns_shape_passes_singbox_check() {
 }
 
 #[test]
-fn the_tunnel_carries_both_address_families_so_ipv6_cannot_skip_the_vpn() {
+fn with_ipv6_on_the_tunnel_carries_both_address_families() {
     let profiles = vec![profile()];
-    let routing = RoutingSettings::default();
+    let routing = RoutingSettings { ipv6: true, ..RoutingSettings::default() };
     let config = build(&input(&profiles, &routing, Mode::Tun)).unwrap();
     let tun = config["inbounds"].as_array().unwrap().iter().find(|i| i["type"] == "tun").expect("a tun inbound");
     let addresses: Vec<&str> = tun["address"].as_array().unwrap().iter().filter_map(|a| a.as_str()).collect();
@@ -234,7 +234,7 @@ fn app_rules_pass_singbox_check() {
         (RuleKind::App, "/Applications/Google Chrome.app", Action::Proxy),
         (RuleKind::ProcessName, "curl", Action::Block),
     ] {
-        routing.rules.push(Rule { id: value.into(), enabled: true, kind, value: value.into(), action });
+        routing.rules.push(Rule { id: value.into(), enabled: true, kind, value: value.into(), action, ..Default::default() });
     }
     let cfg = build(&input(&profiles, &routing, Mode::Proxy)).unwrap();
     let rules = cfg["route"]["rules"].as_array().unwrap();
@@ -307,13 +307,16 @@ fn the_default_log_level_is_normal_and_reads_from_old_settings() {
 #[test]
 fn ipv6_off_blocks_ipv6_and_passes_singbox_check() {
     let profiles = every_protocol();
-    let routing = RoutingSettings { ipv6: false, ..RoutingSettings::default() };
+    assert!(!RoutingSettings::default().ipv6, "IPv6 is off for new installs");
+    let routing = RoutingSettings::default();
     let cfg = build(&input(&profiles, &routing, Mode::Tun)).unwrap();
     assert_eq!(cfg["dns"]["strategy"], "ipv4_only");
-    assert!(cfg["route"]["rules"].as_array().unwrap().iter().any(|r| r["ip_version"] == 6 && r["action"] == "reject"));
-    // Still dual-stack, so v6 is captured by the tunnel and rejected rather than leaking.
-    assert_eq!(cfg["inbounds"][1]["address"].as_array().unwrap().len(), 2);
-    let on = build(&input(&profiles, &RoutingSettings::default(), Mode::Tun)).unwrap();
+    let first = &cfg["route"]["rules"][0];
+    assert!(first["ip_version"] == 6 && first["action"] == "reject", "v6 reject must come before sniff");
+    // IPv4-only tunnel, so apps never send IPv6 into a server that may not reach it.
+    assert_eq!(cfg["inbounds"][1]["address"].as_array().unwrap().len(), 1);
+    let on = build(&input(&profiles, &RoutingSettings { ipv6: true, ..RoutingSettings::default() }, Mode::Tun)).unwrap();
+    assert_eq!(on["inbounds"][1]["address"].as_array().unwrap().len(), 2);
     assert!(on["dns"].get("strategy").is_none());
     if let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) {
         let path = std::env::temp_dir().join("kage-vpn-test-ipv6off.json");
@@ -343,6 +346,43 @@ fn fake_ip_adds_a_server_and_keeps_local_names_real() {
 }
 
 #[test]
+fn fake_addresses_expire_at_once_so_none_outlive_a_disconnect() {
+    // sing-box gives them a 600 s lifetime and forgets them when it stops; a cached one would
+    // point nowhere after a disconnect or reconnect.
+    let dns = fake_ip_config(Mode::Tun, RouteMode::Global, false);
+    let rule = dns["rules"].as_array().unwrap().iter().find(|r| r["server"] == "fakeip").unwrap();
+    assert_eq!(rule["rewrite_ttl"], 1);
+}
+
+fn dns_for(route: RouteMode, provider: DnsProvider, custom: &str) -> serde_json::Value {
+    let profiles = every_protocol();
+    let routing = RoutingSettings { mode: route, dns: DnsSettings { provider, custom: custom.into(), fake_ip: false }, ..Default::default() };
+    build(&input(&profiles, &routing, Mode::Tun)).unwrap()["dns"].clone()
+}
+
+#[test]
+fn lookups_use_the_vpn_unless_the_vpn_is_idle() {
+    for (provider, custom) in [(DnsProvider::Cloudflare, ""), (DnsProvider::Quad9, ""), (DnsProvider::Custom, "tls://dns.example.com")] {
+        for route in [RouteMode::Global, RouteMode::Rule] {
+            assert_eq!(dns_for(route, provider, custom)["servers"][0]["detour"], "proxy", "{provider:?} in {route:?}");
+        }
+        let idle = dns_for(RouteMode::Direct, provider, custom);
+        assert!(idle["servers"][0].get("detour").is_none(), "{provider:?} while idle");
+        assert_eq!(idle["final"], "remote", "the chosen provider still answers");
+    }
+}
+
+#[test]
+fn an_idle_vpn_config_passes_singbox_check() {
+    let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) else { return };
+    let profiles = every_protocol();
+    let routing = RoutingSettings { mode: RouteMode::Direct, ..Default::default() };
+    let path = std::env::temp_dir().join("kage-vpn-test-idle-dns.json");
+    std::fs::write(&path, serde_json::to_vec(&build(&input(&profiles, &routing, Mode::Tun)).unwrap()).unwrap()).unwrap();
+    crate::singbox::check(&binary, &path).unwrap();
+}
+
+#[test]
 fn fake_ip_is_left_out_when_it_cannot_help() {
     for dns in [fake_ip_config(Mode::Proxy, RouteMode::Global, true), fake_ip_config(Mode::Tun, RouteMode::Direct, true)] {
         assert!(dns.get("rules").is_none());
@@ -361,4 +401,42 @@ fn fake_ip_config_passes_singbox_check() {
     let path = std::env::temp_dir().join("kage-vpn-test-fakeip.json");
     std::fs::write(&path, serde_json::to_vec(&build(&input(&profiles, &routing, Mode::Tun)).unwrap()).unwrap()).unwrap();
     crate::singbox::check(&binary, &path).unwrap();
+}
+
+// ── Per-app rules ───────────────────────────────────────────────────────────
+
+fn rule(kind: RuleKind, value: &str, action: Action, enabled: bool) -> Rule {
+    Rule { id: value.into(), enabled, kind, value: value.into(), action, ..Default::default() }
+}
+
+#[test]
+fn blocking_this_app_or_the_engine_is_refused() {
+    for (kind, value) in [
+        (RuleKind::App, "/Applications/Kage VPN.app"),
+        (RuleKind::App, "/Users/me/Applications/Kage VPN.app/"),
+        (RuleKind::ProcessName, "sing-box"),
+        (RuleKind::ProcessName, "Kage VPN"),
+    ] {
+        let err = validate_rules(&[rule(kind, value, Action::Block, true)]).unwrap_err().to_string();
+        assert!(err.contains("cannot be blocked"), "{value}: {err}");
+    }
+}
+
+#[test]
+fn other_apps_and_other_actions_are_accepted() {
+    assert!(validate_rules(&[rule(RuleKind::App, "/Applications/Slack.app", Action::Block, true)]).is_ok());
+    // Sending this app direct is harmless, and a disabled block does nothing.
+    assert!(validate_rules(&[rule(RuleKind::App, "/Applications/Kage VPN.app", Action::Direct, true)]).is_ok());
+    assert!(validate_rules(&[rule(RuleKind::ProcessName, "sing-box", Action::Block, false)]).is_ok());
+    // A domain that merely contains the name is not an app rule.
+    assert!(validate_rules(&[rule(RuleKind::Domain, "kage", Action::Block, true)]).is_ok());
+}
+
+#[test]
+fn a_rule_saved_before_origin_existed_loads_as_manual() {
+    let old: Rule = serde_json::from_str(r#"{"id":"1","enabled":true,"kind":"app","value":"/Applications/Slack.app","action":"direct"}"#).unwrap();
+    assert_eq!(old.origin, crate::settings::RuleOrigin::Manual);
+    let cap: Rule = serde_json::from_str(r#"{"id":"2","origin":"cap","kind":"app","value":"/x.app","action":"block"}"#).unwrap();
+    assert_eq!(cap.origin, crate::settings::RuleOrigin::Cap);
+    assert!(serde_json::to_string(&cap).unwrap().contains("\"origin\":\"cap\""));
 }

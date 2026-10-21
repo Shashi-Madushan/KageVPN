@@ -32,6 +32,15 @@ pub enum RuleKind {
     App,
 }
 
+/// Who made a rule: the user, or the app itself (a per-app data cap that blocked the app).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RuleOrigin {
+    #[default]
+    Manual,
+    Cap,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Rule {
@@ -40,6 +49,7 @@ pub struct Rule {
     pub kind: RuleKind,
     pub value: String,
     pub action: Action,
+    pub origin: RuleOrigin,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,7 +109,8 @@ pub struct DnsSettings {
 pub struct RoutingSettings {
     pub mode: RouteMode,
     pub bypass_lan: bool,
-    /// Whether IPv6 is allowed. Off blocks IPv6 traffic and never hands out IPv6 addresses, for servers without IPv6.
+    /// Whether IPv6 goes through the tunnel. Off by default, since many servers have no IPv6: the tunnel is
+    /// then IPv4 only and no IPv6 addresses are handed out.
     pub ipv6: bool,
     pub final_action: Action,
     pub rules: Vec<Rule>,
@@ -115,7 +126,7 @@ impl Default for RoutingSettings {
         Self {
             mode: RouteMode::Global,
             bypass_lan: true,
-            ipv6: true,
+            ipv6: false,
             final_action: Action::Proxy,
             rules: Vec::new(),
             rule_sets: Vec::new(),
@@ -156,6 +167,35 @@ pub enum QuotaAction {
     Disconnect,
 }
 
+/// How often an app's data cap starts over.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CapPeriod {
+    #[default]
+    Day,
+    Week,
+    Month,
+}
+
+/// What a cap does when the app reaches it: only tell the user, or also offer to block the app.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AtLimit {
+    #[default]
+    Notify,
+    OfferBlock,
+}
+
+/// A data cap for one installed app, identified by its bundle path.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AppCap {
+    pub path: String,
+    pub limit_bytes: u64,
+    pub period: CapPeriod,
+    pub at_limit: AtLimit,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct UsageSettings {
@@ -168,6 +208,7 @@ pub struct UsageSettings {
     pub quota_action: QuotaAction,
     pub alert_cycle: i64,
     pub alert_level: u8,
+    pub app_caps: Vec<AppCap>,
 }
 
 impl Default for UsageSettings {
@@ -182,6 +223,7 @@ impl Default for UsageSettings {
             quota_action: QuotaAction::Notify,
             alert_cycle: 0,
             alert_level: 0,
+            app_caps: Vec::new(),
         }
     }
 }

@@ -55,6 +55,12 @@ window.DOCS_NAVIGATION = [
         description: "Smart traffic splitting, GeoIP/GeoSite bypass, and custom domain rules."
       },
       {
+        slug: "user-guide/app-controls",
+        title: "App Controls & Data Caps",
+        badge: "Apps",
+        description: "VPN, Direct or Block for each installed app, and daily, weekly or monthly data caps."
+      },
+      {
         slug: "user-guide/kill-switch",
         title: "Kill Switch & Connection Health",
         badge: "Safety",

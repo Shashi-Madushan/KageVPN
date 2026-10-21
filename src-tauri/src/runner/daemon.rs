@@ -18,8 +18,8 @@ const BIN_DIR: &str = "/Library/Application Support/Kage VPN";
 const BIN: &str = "/Library/Application Support/Kage VPN/sing-box";
 const PLIST: &str = "/Library/LaunchDaemons/com.apzur.kage.daemon.plist";
 
-const INSTALL_PROMPT: &str = "Kage VPN wants to install its VPN service. After this, connecting in TUN mode will not ask for your password again.";
-const REMOVE_PROMPT: &str = "Kage VPN wants to remove its VPN service.";
+const INSTALL_PROMPT: &str = "Kage wants to install its VPN service. After this, connecting in TUN mode will not ask for your password again.";
+const REMOVE_PROMPT: &str = "Kage wants to remove its VPN service.";
 
 pub fn installed() -> bool {
     Path::new(PLIST).exists() && Path::new(SCRIPT).exists() && Path::new(BIN).exists()

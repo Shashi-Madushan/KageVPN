@@ -53,6 +53,11 @@ impl AppPaths {
         self.data_dir.join("usage.db")
     }
 
+    /// Small PNG copies of installed apps' icons, for the Apps tab.
+    pub fn app_icons_dir(&self) -> PathBuf {
+        self.data_dir.join("app-icons")
+    }
+
     /// Where the country and category lists live, one `.srs` file per list.
     pub fn rule_sets_dir(&self) -> PathBuf {
         self.data_dir.join("rule-sets")

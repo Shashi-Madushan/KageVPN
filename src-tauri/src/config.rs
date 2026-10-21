@@ -125,11 +125,11 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
     let mut inbounds = vec![mixed];
     if input.mode == Mode::Tun {
         // sing-box only routes an address family into the tunnel when the interface has an address
-        // of that family. With IPv4 alone, IPv6 traffic would skip the VPN on any network that has
-        // IPv6 and show the user's real address.
-        inbounds.push(json!({
-            "type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS_V4, TUN_ADDRESS_V6], "auto_route": true,
-        }));
+        // of that family. With IPv6 off the tunnel is IPv4 only, so apps never try IPv6 through a
+        // server that may not reach it (sites half-load). On a network with native IPv6 that
+        // traffic skips the VPN, which is the cost of the switch being off.
+        let address = if input.routing.ipv6 { json!([TUN_ADDRESS_V4, TUN_ADDRESS_V6]) } else { json!([TUN_ADDRESS_V4]) };
+        inbounds.push(json!({ "type": "tun", "tag": "tun-in", "address": address, "auto_route": true }));
     }
 
     // Lists are local files, so a missing one is left out rather than failing the connection.
@@ -173,10 +173,13 @@ fn select_nodes<'a>(input: &ConfigInput<'a>) -> Vec<&'a Profile> {
 }
 
 fn route_rules(routing: &RoutingSettings, available: &[(String, PathBuf)]) -> Vec<Value> {
-    let mut rules = vec![json!({ "action": "sniff" }), json!({ "protocol": "dns", "action": "hijack-dns" })];
+    let mut rules = Vec::new();
+    // Before sniff, so the TUN refuses the v6 SYN itself and browsers fall back to v4 at once.
+    // After sniff the handshake has already completed and the reset only lands at TLS.
     if !routing.ipv6 {
         rules.push(json!({ "ip_version": 6, "action": "reject" }));
     }
+    rules.extend([json!({ "action": "sniff" }), json!({ "protocol": "dns", "action": "hijack-dns" })]);
     if routing.bypass_lan {
         rules.push(json!({ "ip_is_private": true, "outbound": "direct" }));
     }
@@ -315,6 +318,34 @@ pub fn custom_dns_server(text: &str) -> Option<Value> {
     Some(server)
 }
 
+/// Whether a rule names this app or the engine. Blocking either would cut the app's own health
+/// checks, downloads and local proxy traffic, so it is refused rather than saved.
+fn names_the_app_itself(rule: &Rule) -> bool {
+    let value = rule.value.trim().trim_end_matches('/');
+    let name = value.rsplit('/').next().unwrap_or(value);
+    let name = name.strip_suffix(".app").unwrap_or(name).to_lowercase();
+    let own = [crate::app_config::APP_NAME.to_lowercase(), "kage vpn".into(), "kage-vpn".into(), "kage".into(), "sing-box".into()];
+    match rule.kind {
+        RuleKind::ProcessName => own.contains(&name),
+        RuleKind::App => {
+            own.contains(&name)
+                || std::env::current_exe().ok().and_then(|exe| crate::apps::bundle_of(&exe.to_string_lossy()).map(str::to_string)).is_some_and(|bundle| bundle == value)
+        }
+        _ => false,
+    }
+}
+
+/// Refuses an enabled block rule for this app or the engine.
+pub fn validate_rules(rules: &[Rule]) -> Result<()> {
+    if let Some(rule) = rules.iter().find(|r| r.enabled && r.action == Action::Block && names_the_app_itself(r)) {
+        let label = rule.value.rsplit('/').next().unwrap_or(&rule.value).trim_end_matches(".app");
+        return Err(AppError::Invalid(format!(
+            "{label} cannot be blocked: this app and its engine need the network for the VPN itself, health checks and downloads"
+        )));
+    }
+    Ok(())
+}
+
 /// Refuses a custom DNS entry that would silently turn into "use the system resolver".
 pub fn validate_dns(settings: &DnsSettings) -> Result<()> {
     if settings.provider == DnsProvider::Custom && custom_dns_server(&settings.custom).is_none() {
@@ -326,7 +357,9 @@ pub fn validate_dns(settings: &DnsSettings) -> Result<()> {
 }
 
 fn dns(routing: &RoutingSettings, mode: Mode) -> Value {
-    let mut config = dns_servers(&routing.dns);
+    // With the VPN idle no traffic uses the server, so lookups do not either: a server that is down
+    // would otherwise leave nothing able to resolve.
+    let mut config = dns_servers(&routing.dns, routing.mode != RouteMode::Direct);
     if routing.dns.fake_ip && mode == Mode::Tun && routing.mode != RouteMode::Direct {
         add_fake_ip(&mut config, routing.ipv6);
     }
@@ -335,6 +368,12 @@ fn dns(routing: &RoutingSettings, mode: Mode) -> Value {
     }
     config
 }
+
+/// How long, in seconds, apps and macOS may keep a made-up address. sing-box hands them out with
+/// a 600 s lifetime and forgets them when it stops, so a cached one would point nowhere for up to
+/// ten minutes after a disconnect or a reconnect. A name keeps its address while sing-box runs, so
+/// asking again every second costs one local lookup.
+const FAKE_IP_TTL: u32 = 1;
 
 /// Answers address lookups with made-up addresses that the tunnel maps back to the domain, so the
 /// route and the server see the name and not an address resolved on this Mac. Local names keep
@@ -349,18 +388,23 @@ fn add_fake_ip(config: &mut Value, ipv6: bool) {
     }
     config["rules"] = json!([
         { "domain_suffix": ["local", "lan", "localdomain", "home.arpa"], "server": "local" },
-        { "query_type": ["A", "AAAA"], "server": "fakeip" },
+        { "query_type": ["A", "AAAA"], "server": "fakeip", "rewrite_ttl": FAKE_IP_TTL },
     ]);
 }
 
-fn dns_servers(settings: &DnsSettings) -> Value {
-    let remote = match settings.provider {
+fn dns_servers(settings: &DnsSettings, through_vpn: bool) -> Value {
+    let mut remote = match settings.provider {
         DnsProvider::Cloudflare => Some(doh("1.1.1.1")),
         DnsProvider::Google => Some(doh("8.8.8.8")),
         DnsProvider::Quad9 => Some(doh("9.9.9.9")),
         DnsProvider::Custom => custom_dns_server(&settings.custom),
         DnsProvider::System => None,
     };
+    if !through_vpn {
+        if let Some(fields) = remote.as_mut().and_then(Value::as_object_mut) {
+            fields.remove("detour");
+        }
+    }
     match remote {
         Some(server) => json!({
             "servers": [server, { "type": "local", "tag": "local" }],

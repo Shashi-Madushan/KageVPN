@@ -78,6 +78,8 @@ pub async fn connect(app: &AppHandle) -> Result<()> {
     };
 
     begin(app, mode)?;
+    // A data-cap period that ended while the VPN was off lifts its block before the configuration is built.
+    crate::usage::caps::rollover_all(app);
     applog::info(format!("connect: starting ({mode:?})"));
     let secret = uuid::Uuid::new_v4().to_string();
     *state.clash_secret.lock().unwrap() = Some(secret.clone());

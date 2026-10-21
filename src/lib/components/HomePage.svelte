@@ -6,6 +6,9 @@
 	import PrivacyToggle from './PrivacyToggle.svelte';
 	import Sensitive from './Sensitive.svelte';
 	import { appUpdate } from '$lib/appUpdate.svelte';
+	import { onMount } from 'svelte';
+	import { caps } from '$lib/caps.svelte';
+	import { periodWord } from '$lib/capView';
 	import { core } from '$lib/core.svelte';
 	import { downloads, STAGES } from '$lib/downloads.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
@@ -23,6 +26,8 @@
 	import StatTile from './StatTile.svelte';
 	import type { Page } from './Sidebar.svelte';
 
+
+	onMount(() => caps.use());
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
 
 	const modes = [
@@ -87,6 +92,16 @@
 </script>
 
 <div class="home">
+	{#each caps.pending as c (c.path)}
+		<div class="banner card danger" role="status">
+			<div class="banner-text grow">
+				<strong>{c.name} reached its {formatBytes(c.limitBytes)} {periodWord(c.period)} data cap</strong>
+				<small>Blocking stops it using the network until the {c.period} ends. The VPN reconnects once.</small>
+			</div>
+			<button class="primary" onclick={() => caps.block(c.path)}>Block now</button>
+			<button onclick={() => caps.notNow(c.path)}>Not now</button>
+		</div>
+	{/each}
 	{#if core.downloading}
 		<div class="banner card info" role="status">
 			<div class="banner-text grow">

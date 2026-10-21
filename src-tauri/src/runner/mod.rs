@@ -213,7 +213,7 @@ fn spawn_plain(args: &[String]) -> Result<u32> {
     Ok(child.id())
 }
 
-const ADMIN_PROMPT: &str = "Kage VPN needs administrator access to create the VPN tunnel. Install the VPN service in Settings to avoid being asked each time you open the app.";
+const ADMIN_PROMPT: &str = "Kage needs administrator access to create the VPN tunnel. Install the VPN service in Settings to avoid being asked each time you open the app.";
 
 async fn spawn_privileged(args: &[String], cancel: &AtomicBool) -> Result<u32> {
     let command = format!(

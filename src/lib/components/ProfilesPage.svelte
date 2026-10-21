@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { saveToggle } from '$lib/toggle';
 	import Select from './Select.svelte';
 	import { api, type Profile, type Subscription } from '$lib/api';
 	import { clickOutside, focusOnMount } from '$lib/actions';
@@ -213,7 +214,7 @@
 		<div class="group">
 			<label class="item">
 				<span class="grow">Pick the fastest server automatically<span class="sub">Tests servers every few minutes and fails over if one stops working.</span></span>
-				<input type="checkbox" checked={app.auto.enabled} onchange={(e) => app.setAuto({ ...app.auto, enabled: e.currentTarget.checked })} />
+				<input type="checkbox" checked={app.auto.enabled} onchange={(e) => saveToggle(e, (on) => app.setAuto({ ...app.auto, enabled: on }))} />
 			</label>
 			{#if app.auto.enabled && app.groups.length}
 				<div class="item">

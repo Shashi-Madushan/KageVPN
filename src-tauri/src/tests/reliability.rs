@@ -31,3 +31,28 @@ fn a_reconnect_that_gave_up_resumes_only_when_nothing_else_is_going_on() {
     assert!(!should_resume(true, Conn::Disconnected, false, false), "the user turned auto-reconnect off");
     assert!(!should_resume(true, Conn::Disconnected, true, true), "a loop is already running");
 }
+
+#[test]
+fn a_block_is_lifted_once_the_kill_switch_is_off() {
+    assert_eq!(unwanted_block(true, false, Conn::Disconnected), Some(Lift::Stop), "held between runs");
+    assert_eq!(unwanted_block(true, false, Conn::Connected), Some(Lift::Ready), "a run is up");
+    assert_eq!(unwanted_block(true, false, Conn::Connecting), Some(Lift::Ready), "a run is starting");
+}
+
+#[test]
+fn a_wanted_block_or_no_block_is_left_alone() {
+    for state in [Conn::Disconnected, Conn::Connecting, Conn::Connected] {
+        assert_eq!(unwanted_block(true, true, state), None, "the kill switch is on");
+        assert_eq!(unwanted_block(false, false, state), None, "nothing is blocked");
+    }
+}
+
+#[test]
+fn turning_the_kill_switch_on_mid_session_waits_for_the_next_tun_connect() {
+    assert!(kill_switch_waits_for_reconnect(false, true, Conn::Connected, Mode::Tun));
+    assert!(kill_switch_waits_for_reconnect(false, true, Conn::Connecting, Mode::Tun));
+    assert!(!kill_switch_waits_for_reconnect(false, true, Conn::Disconnected, Mode::Tun), "the next connect has it anyway");
+    assert!(!kill_switch_waits_for_reconnect(false, true, Conn::Connected, Mode::Proxy), "it never applies to Proxy Only");
+    assert!(!kill_switch_waits_for_reconnect(true, true, Conn::Connected, Mode::Tun), "it was already on");
+    assert!(!kill_switch_waits_for_reconnect(true, false, Conn::Connected, Mode::Tun), "turned off");
+}

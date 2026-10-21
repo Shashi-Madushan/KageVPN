@@ -396,9 +396,16 @@ pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
     result.map_err(|e| AppError::Launch(e.to_string()))
 }
 
+/// Returns the settings as stored, which keep the data-cap blocks the page's copy may lack, so the
+/// page can show what really applies.
 #[tauri::command]
-pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSettings) -> Result<()> {
+pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: RoutingSettings) -> Result<RoutingSettings> {
+    // Blocks put in place by a data cap are managed only by the cap commands: a stale draft can
+    // neither remove nor recreate one.
+    let stored = state.store.lock().unwrap().routing();
+    settings.rules = crate::usage::caps::keep_cap_rules(&stored.rules, settings.rules);
     crate::config::validate_dns(&settings.dns)?;
+    crate::config::validate_rules(&settings.rules)?;
     crate::rulesets::validate_providers(&settings.custom_providers)?;
     let dir = state.paths.rule_sets_dir();
     let provider = crate::rulesets::provider_of(&settings);
@@ -408,7 +415,7 @@ pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSett
     if changed_source {
         missing = crate::rulesets::wanted(&settings);
     }
-    state.store.lock().unwrap().set_routing(settings)?;
+    state.store.lock().unwrap().set_routing(settings.clone())?;
     // Fetch new lists now, so connecting later does not wait for them and a failure shows up here.
     if !missing.is_empty() {
         let fetch = crate::rulesets::Fetch { provider: provider.clone(), proxy: crate::session::tunnel_proxy(&app) };
@@ -422,14 +429,19 @@ pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSett
             }
         });
     }
-    Ok(())
+    Ok(settings)
 }
 
+/// Returns true when the kill switch was turned on but only takes effect at the next connect.
+/// Turning it off needs nothing here: the block watch lifts a block that is no longer wanted.
 #[tauri::command]
-pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: ReliabilitySettings) -> Result<()> {
+pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: ReliabilitySettings) -> Result<bool> {
+    let was = state.store.lock().unwrap().reliability().kill_switch;
+    let now = settings.kill_switch;
     state.store.lock().unwrap().set_reliability(settings)?;
     reliability::apply_hotkey(&app);
-    Ok(())
+    let status = state.status.lock().unwrap();
+    Ok(reliability::kill_switch_waits_for_reconnect(was, now, status.state, status.mode))
 }
 
 #[tauri::command]
@@ -533,6 +545,15 @@ pub fn edit_subscription(
 #[tauri::command]
 pub async fn installed_apps() -> Result<Vec<crate::apps::InstalledApp>> {
     crate::apps::list().await
+}
+
+/// The icon of an installed app as a `data:` URL, or nothing when it has none.
+#[tauri::command]
+pub async fn app_icon(state: State<'_, AppState>, path: String) -> Result<Option<String>> {
+    let cache = state.paths.app_icons_dir();
+    tauri::async_runtime::spawn_blocking(move || crate::apps::icon_data_url(std::path::Path::new(&path), &cache))
+        .await
+        .map_err(|e| AppError::Launch(format!("could not read the app icon: {e}")))
 }
 
 #[tauri::command]

@@ -11,23 +11,57 @@ fn a_subscription_without_an_expiry_date_never_warns() {
 }
 
 #[test]
-fn a_far_off_expiry_is_quiet_then_warns_once_then_says_it_ended_once() {
+fn the_warnings_come_at_seven_three_and_one_days_then_at_the_end_each_once() {
     let expire = 100 * DAY;
-    // Weeks away: nothing to say.
-    assert_eq!(due_expiry_notice(expire, 50 * DAY, (0, 0)), None);
-    // Within three days: warn once.
-    assert_eq!(due_expiry_notice(expire, expire - 2 * DAY, (0, 0)), Some(Expiry::Soon));
-    assert_eq!(due_expiry_notice(expire, expire - DAY, (expire, 1)), None, "already warned for this date");
+    assert_eq!(due_expiry_notice(expire, 50 * DAY, (0, 0)), None, "weeks away");
+    assert_eq!(due_expiry_notice(expire, expire - 8 * DAY, (0, 0)), None);
+    assert_eq!(due_expiry_notice(expire, expire - 7 * DAY, (0, 0)), Some(Expiry::Week));
+    assert_eq!(due_expiry_notice(expire, expire - 5 * DAY, (expire, 1)), None, "the week warning is not repeated");
+    assert_eq!(due_expiry_notice(expire, expire - 3 * DAY, (expire, 1)), Some(Expiry::Soon));
+    assert_eq!(due_expiry_notice(expire, expire - 2 * DAY, (expire, 2)), None);
+    assert_eq!(due_expiry_notice(expire, expire - DAY, (expire, 2)), Some(Expiry::LastDay));
+    assert_eq!(due_expiry_notice(expire, expire - 3600, (expire, 3)), None);
     // Past the date: say so once, then stay quiet. This used to repeat on every refresh, forever.
-    assert_eq!(due_expiry_notice(expire, expire + 1, (expire, 1)), Some(Expiry::Expired));
-    assert_eq!(due_expiry_notice(expire, expire + 12 * 3600, (expire, 2)), None);
-    assert_eq!(due_expiry_notice(expire, expire + 30 * DAY, (expire, 2)), None);
+    assert_eq!(due_expiry_notice(expire, expire + 1, (expire, 3)), Some(Expiry::Expired));
+    assert_eq!(due_expiry_notice(expire, expire + 12 * 3600, (expire, 4)), None);
+    assert_eq!(due_expiry_notice(expire, expire + 30 * DAY, (expire, 4)), None);
+}
+
+#[test]
+fn a_plan_first_seen_close_to_the_end_announces_only_the_latest_stage() {
+    let expire = 100 * DAY;
+    assert_eq!(due_expiry_notice(expire, expire - 2 * DAY, (0, 0)), Some(Expiry::Soon));
+    assert_eq!(due_expiry_notice(expire, expire - 3600, (0, 0)), Some(Expiry::LastDay));
 }
 
 #[test]
 fn renewing_starts_the_warnings_over() {
     let (old, renewed) = (100 * DAY, 130 * DAY);
-    assert_eq!(due_expiry_notice(renewed, renewed - DAY, (old, 2)), Some(Expiry::Soon), "a new date is a new subscription period");
+    assert_eq!(due_expiry_notice(renewed, renewed - DAY, (old, 4)), Some(Expiry::LastDay), "a new date is a new subscription period");
+    assert_eq!(due_expiry_notice(renewed, renewed - 6 * DAY, (old, 4)), Some(Expiry::Week));
+}
+
+#[test]
+fn the_stored_dates_are_checked_without_a_refresh() {
+    let mut sub = subscription("s");
+    sub.user_info = Some(UserInfo { expire: 100 * DAY, ..UserInfo::default() });
+    // Refreshes keep failing, but the date is known and close.
+    sub.failures = 5;
+    let notice = expiry_pass(&mut sub, 100 * DAY - 2 * DAY);
+    assert_eq!(notice, Some(Notice::Expiry { name: "Provider".into(), expire: 100 * DAY, stage: Expiry::Soon }));
+    assert_eq!((sub.notified_expire, sub.notified_stage), (100 * DAY, 2));
+    assert_eq!(expiry_pass(&mut sub, 100 * DAY - 2 * DAY + 1800), None, "the next tick says nothing");
+    assert!(expiry_pass(&mut subscription("none"), 5).is_none(), "no figures, no warning");
+    let message = Notice::Expiry { name: "P".into(), expire: 100 * DAY, stage: Expiry::LastDay }.message(100 * DAY - 3600);
+    assert_eq!(message, "P expires in a day.");
+}
+
+#[test]
+fn older_saved_stage_numbers_cause_at_most_one_repeat() {
+    // Before the week and last-day stages existed, 1 meant "soon" and 2 meant "expired".
+    let expire = 100 * DAY;
+    assert_eq!(due_expiry_notice(expire, expire - 2 * DAY, (expire, 1)), Some(Expiry::Soon), "one repeat");
+    assert_eq!(due_expiry_notice(expire, expire + 1, (expire, 2)), Some(Expiry::Expired), "one repeat");
 }
 
 #[test]

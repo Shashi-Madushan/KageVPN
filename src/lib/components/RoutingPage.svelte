@@ -4,11 +4,16 @@
 	import AppPicker, { appLabel } from './AppPicker.svelte';
 	import RuleSources from './RuleSources.svelte';
 	import type { DnsProvider, RouteAction, RouteMode, RoutingSettings, RuleKind, RuleSetKind } from '$lib/api';
+	import { reconcileDraft, sameRouting } from '$lib/appRules';
+	import { dnsNote } from '$lib/dnsNote';
+	import type { Page } from '$lib/pages';
 	import { app } from '$lib/app.svelte';
 	import { CATEGORIES, COUNTRIES, describeList, findEntry } from '$lib/ruleCatalog';
 	import { ruleLists } from '$lib/ruleLists.svelte';
 
 	type Tab = 'rules' | 'lists' | 'test';
+
+	let { onnavigate }: { onnavigate?: (page: Page) => void } = $props();
 
 	let draft = $state<RoutingSettings | null>(null);
 	let tab = $state<Tab>('rules');
@@ -27,8 +32,14 @@
 
 	let probe = $state('');
 
+	/** The settings last copied into the draft, as text, to tell the user's edits from a change made behind the page. */
+	let synced = '';
+
 	$effect(() => {
-		if (app.routing && !draft) draft = structuredClone($state.snapshot(app.routing));
+		if (!app.routing) return;
+		const next = reconcileDraft(draft ? ($state.snapshot(draft) as RoutingSettings) : null, $state.snapshot(app.routing) as RoutingSettings, synced);
+		synced = next.synced;
+		if (next.changed) draft = next.draft;
 	});
 
 	$effect(() => {
@@ -36,7 +47,7 @@
 		ruleLists.reload();
 	});
 
-	const dirty = $derived(draft !== null && JSON.stringify(draft) !== JSON.stringify(app.routing));
+	const dirty = $derived(draft !== null && app.routing !== null && !sameRouting($state.snapshot(draft) as RoutingSettings, $state.snapshot(app.routing) as RoutingSettings));
 
 	const modes: { value: RouteMode; label: string; text: string; icon: IconName }[] = [
 		{ value: 'global', label: 'Everything through the VPN', text: 'The simplest choice. All your traffic is protected.', icon: 'shield' },
@@ -244,6 +255,12 @@
 				{#if tab === 'rules'}
 					<div class="panel" role="tabpanel">
 						<p class="lead">Rules are checked from top to bottom. The first one that matches decides.</p>
+						{#if onnavigate}
+							<p class="lead">
+								Choices for whole apps and their data limits are on the
+								<button type="button" class="link" onclick={() => onnavigate('apps')}>Apps</button> page.
+							</p>
+						{/if}
 
 						{#if draft.rules.length === 0}
 							<div class="starter">
@@ -408,11 +425,11 @@
 					<input type="checkbox" bind:checked={draft.bypassLan} />
 				</label>
 				<label class="item">
-					<span class="grow">Allow IPv6<span class="sub">Turn off if a server has no IPv6 and some apps are slow to connect. IPv6 traffic is then blocked, never sent around the VPN.</span></span>
+					<span class="grow">Allow IPv6<span class="sub">Turn on only if your server has IPv6, or some sites will half-load. While off, the VPN carries IPv4 only, and on a network with its own IPv6 that traffic goes outside the VPN.</span></span>
 					<input type="checkbox" bind:checked={draft.ipv6} />
 				</label>
 				<div class="item">
-					<span class="grow">DNS provider<span class="sub">{draft.dns.provider === 'system' ? 'Your internet provider can see which sites you look up.' : 'Lookups go through the VPN, so they stay private.'}</span></span>
+					<span class="grow">DNS provider<span class="sub">{dnsNote(draft.dns.provider, draft.mode, app.mode)}</span></span>
 					<Select bind:value={draft.dns.provider} label="DNS provider" options={dnsProviders} />
 				</div>
 				{#if draft.dns.provider === 'custom'}
@@ -806,6 +823,15 @@
 		border-left-color: var(--danger);
 	}
 
+	.link {
+		border: 0;
+		background: none;
+		padding: 0;
+		color: var(--accent);
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+	}
 	.savebar {
 		position: sticky;
 		bottom: 0;

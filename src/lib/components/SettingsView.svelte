@@ -10,6 +10,7 @@
 	import { appUpdate } from '$lib/appUpdate.svelte';
 	import { feedback } from '$lib/feedback.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
+	import { saveToggle } from '$lib/toggle';
 
 	let restoring = $state(false);
 	let backupInput: HTMLInputElement;
@@ -41,20 +42,22 @@
 
 	async function toggleRootService(install: boolean) {
 		rootBusy = true;
-		await (install ? api.installRootService() : api.uninstallRootService()).then(
+		const done = await (install ? api.installRootService() : api.uninstallRootService()).then(
 			() => {
 				rootService = install;
 				app.notify(install ? 'VPN service installed. TUN mode will not ask for your password again.' : 'VPN service removed.', 'info');
+				return true;
 			},
-			(e) => app.notify(String(e))
+			(e) => (app.notify(String(e)), false)
 		);
 		rootBusy = false;
+		return done;
 	}
 
 	function toggleProxyAuth(on: boolean) {
 		const bytes = crypto.getRandomValues(new Uint8Array(12));
 		const fresh = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-		app.saveReliability({ proxyAuth: on, proxyPassword: app.reliability.proxyPassword || fresh });
+		return app.saveReliability({ proxyAuth: on, proxyPassword: app.reliability.proxyPassword || fresh });
 	}
 
 	async function restore() {
@@ -87,15 +90,15 @@
 	<div class="settings card">
 		<label>
 			<span><strong>Launch at login</strong><small>Start in the menu bar when you sign in.</small></span>
-			<input type="checkbox" checked={app.launchAtLogin} onchange={(e) => app.setLaunchAtLogin(e.currentTarget.checked)} />
+			<input type="checkbox" checked={app.launchAtLogin} onchange={(e) => saveToggle(e, (on) => app.setLaunchAtLogin(on))} />
 		</label>
 		<label>
 			<span><strong>Connect on launch</strong><small>Connect the selected profile automatically.</small></span>
-			<input type="checkbox" checked={app.settings.autoConnect} onchange={(e) => app.updateSettings({ autoConnect: e.currentTarget.checked })} />
+			<input type="checkbox" checked={app.settings.autoConnect} onchange={(e) => saveToggle(e, (on) => app.updateSettings({ autoConnect: on }))} />
 		</label>
 		<label>
 			<span><strong>Speed in menu bar</strong><small>Show live download and upload next to the icon.</small></span>
-			<input type="checkbox" checked={app.settings.showSpeed} onchange={(e) => app.updateSettings({ showSpeed: e.currentTarget.checked })} />
+			<input type="checkbox" checked={app.settings.showSpeed} onchange={(e) => saveToggle(e, (on) => app.updateSettings({ showSpeed: on }))} />
 		</label>
 		<label>
 			<span><strong>Offer to import copied links</strong><small>While this window is focused, notice a copied vless:// link. macOS may ask to allow clipboard access.</small></span>
@@ -107,23 +110,23 @@
 	<div class="settings card">
 		<label>
 			<span><strong>Reconnect automatically</strong><small>Retry when the tunnel drops, and after your Mac wakes or changes network.</small></span>
-			<input type="checkbox" checked={app.reliability.autoReconnect} onchange={(e) => app.saveReliability({ autoReconnect: e.currentTarget.checked })} />
+			<input type="checkbox" checked={app.reliability.autoReconnect} onchange={(e) => saveToggle(e, (on) => app.saveReliability({ autoReconnect: on }))} />
 		</label>
 		<label>
 			<span><strong>Restart a dead tunnel</strong><small>The tunnel is always checked in the background. When it stops passing traffic, restart it automatically.</small></span>
-			<input type="checkbox" checked={app.reliability.watchdog} onchange={(e) => app.saveReliability({ watchdog: e.currentTarget.checked })} />
+			<input type="checkbox" checked={app.reliability.watchdog} onchange={(e) => saveToggle(e, (on) => app.saveReliability({ watchdog: on }))} />
 		</label>
 		<label>
 			<span><strong>Run as a root service</strong><small>Install a background service once so TUN mode never asks for your password again. It runs only when you connect, and sing-box still stops if the app quits. Needs your password to install or remove.</small></span>
-			<input type="checkbox" checked={rootService} disabled={rootBusy} onchange={(e) => toggleRootService(e.currentTarget.checked)} />
+			<input type="checkbox" checked={rootService} disabled={rootBusy} onchange={(e) => saveToggle(e, (on) => toggleRootService(on))} />
 		</label>
 		<label>
 			<span><strong>Global shortcut</strong><small>Toggle the VPN from anywhere with {app.hotkey.replace('CommandOrControl', '⌘').replace('Alt', '⌥').replace(/\+/g, ' ')}.</small></span>
-			<input type="checkbox" checked={app.reliability.hotkey} onchange={(e) => app.saveReliability({ hotkey: e.currentTarget.checked })} />
+			<input type="checkbox" checked={app.reliability.hotkey} onchange={(e) => saveToggle(e, (on) => app.saveReliability({ hotkey: on }))} />
 		</label>
 		<label>
 			<span><strong>Password for the local proxy</strong><small>Require a login (user <code>kage</code>) on 127.0.0.1, so other users on this Mac cannot use your tunnel. In Proxy Only mode, enter the password in each app. Applies the next time you connect.</small></span>
-			<input type="checkbox" checked={app.reliability.proxyAuth} onchange={(e) => toggleProxyAuth(e.currentTarget.checked)} />
+			<input type="checkbox" checked={app.reliability.proxyAuth} onchange={(e) => saveToggle(e, (on) => toggleProxyAuth(on))} />
 		</label>
 		{#if app.reliability.proxyAuth}
 			<div class="restore">
@@ -135,7 +138,7 @@
 				<strong>Kill switch <em>experimental</em></strong>
 				<small>TUN mode only. If sing-box stops or the tunnel stops carrying traffic, block all other internet traffic until the tunnel is verified again. Failed reconnects keep the block; Home has an Unblock internet button. For up to 20 seconds while a reconnect starts, DNS lookups are allowed so the server name can be found.</small>
 			</span>
-			<input type="checkbox" checked={app.reliability.killSwitch} onchange={(e) => app.saveReliability({ killSwitch: e.currentTarget.checked })} />
+			<input type="checkbox" checked={app.reliability.killSwitch} onchange={(e) => saveToggle(e, (on) => app.saveReliability({ killSwitch: on }))} />
 		</label>
 		{#if app.reliability.killSwitch}
 			<div class="restore">
@@ -155,7 +158,7 @@
 		</div>
 		<label>
 			<span><strong>Clear logs when disconnected</strong><small>Empty the engine's log files each time the VPN turns off, so no list of visited sites stays on this Mac.</small></span>
-			<input type="checkbox" checked={app.settings.clearLogs} onchange={(e) => app.updateSettings({ clearLogs: e.currentTarget.checked })} />
+			<input type="checkbox" checked={app.settings.clearLogs} onchange={(e) => saveToggle(e, (on) => app.updateSettings({ clearLogs: on }))} />
 		</label>
 	</div>
 
@@ -196,11 +199,28 @@
 					{#if !app.info.updatesConfigured}
 						Update checks are off because this build has no update feed (set APP_UPDATE_FEED in app_config.rs).
 					{:else}
-						{appUpdate.checkedMessage ?? 'Updates are checked once a day.'}
+						{appUpdate.restartPending
+							? `Version ${appUpdate.restartPending} is installed. Restart to start using it.${app.locked ? ' This will disconnect the VPN.' : ''}`
+							: appUpdate.installing
+								? 'Downloading the update. It installs when the download finishes; see the downloads menu for progress.'
+								: appUpdate.available
+									? (appUpdate.failure ?? `Version ${appUpdate.available.version} is available.`)
+									: (appUpdate.checkedMessage ?? 'Updates are checked once a day.')}
 					{/if}
 				</small>
 			</span>
-			<button class="btn" disabled={!app.info.updatesConfigured || appUpdate.checking} onclick={() => appUpdate.check()}>{appUpdate.checking ? 'Checking…' : 'Check now'}</button>
+			<span class="update-actions">
+				{#if appUpdate.restartPending}
+					<button class="btn primary" onclick={() => appUpdate.restart()}>Restart now</button>
+				{:else if appUpdate.installing}
+					<button class="btn" disabled>Downloading…</button>
+				{:else}
+					{#if appUpdate.available}
+						<button class="btn primary" onclick={() => appUpdate.install()}>{appUpdate.failure ? 'Try again' : 'Download now'}</button>
+					{/if}
+					<button class="btn" disabled={!app.info.updatesConfigured || appUpdate.checking} onclick={() => appUpdate.check()}>{appUpdate.checking ? 'Checking…' : 'Check now'}</button>
+				{/if}
+			</span>
 		</div>
 			<div class="restore">
 				<span><strong>When an update is available</strong><small>Automatic installs download in the background. Restarting is always your choice.</small></span>
@@ -285,5 +305,10 @@
 		background: var(--surface);
 		color: var(--danger);
 		font-weight: 600;
+	}
+	.update-actions {
+		display: flex;
+		gap: 8px;
+		flex: none;
 	}
 </style>

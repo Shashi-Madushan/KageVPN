@@ -3,6 +3,7 @@
 	import { api, type CurrentNetwork, type KnownNetwork, type NetworkAction } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import Select from './Select.svelte';
+	import { saveToggle } from '$lib/toggle';
 
 	const actions: { value: NetworkAction; label: string }[] = [
 		{ value: 'connect', label: 'Connect' },
@@ -35,7 +36,7 @@
 <div class="settings card">
 	<label>
 		<span><strong>Connect or disconnect by network</strong><small>Each network is recognised by its router's hardware address, so no location permission is needed. A network you have not used before asks once. Connecting or disconnecting by hand wins until the network changes.</small></span>
-		<input type="checkbox" checked={app.networks.enabled} onchange={(e) => app.saveNetworks({ ...app.networks, enabled: e.currentTarget.checked })} />
+		<input type="checkbox" checked={app.networks.enabled} onchange={(e) => saveToggle(e, (on) => app.saveNetworks({ ...app.networks, enabled: on }))} />
 	</label>
 	{#if app.networks.enabled}
 		{#if current && !known}

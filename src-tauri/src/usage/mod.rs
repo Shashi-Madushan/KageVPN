@@ -1,3 +1,4 @@
+pub mod caps;
 pub mod collector;
 pub mod commands;
 pub mod query;

@@ -6,6 +6,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 use tokio::time::sleep;
 
 use crate::error::{AppError, Result};
+use crate::config::Mode;
 use crate::session::State as Conn;
 use crate::state::AppState;
 use crate::{applog, notify, session};
@@ -40,6 +41,33 @@ pub fn worth_retrying(error: &AppError) -> bool {
 /// Whether a reconnect that gave up earlier should start again now that the network changed.
 pub fn should_resume(waiting: bool, state: Conn, auto_reconnect: bool, loop_running: bool) -> bool {
     waiting && state == Conn::Disconnected && auto_reconnect && !loop_running
+}
+
+/// How a kill-switch block that is no longer wanted is lifted.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Lift {
+    /// Nothing is running: the helper is holding the block between runs and reads the stop file.
+    Stop,
+    /// A run is up or starting: the helper reads the ready file while sing-box runs, and a run that
+    /// starts without the kill switch drops the block on its own.
+    Ready,
+}
+
+/// Whether a block that is up should be lifted now. The user can turn the kill switch off while it
+/// is blocking (or while a run that has it is still going, which blocks if sing-box dies), and
+/// nothing else would take that block down.
+pub fn unwanted_block(blocked: bool, kill_switch: bool, state: Conn) -> Option<Lift> {
+    match (blocked && !kill_switch, state) {
+        (false, _) => None,
+        (true, Conn::Disconnected) => Some(Lift::Stop),
+        (true, _) => Some(Lift::Ready),
+    }
+}
+
+/// Whether turning the kill switch on only takes effect at the next connect. The helper of a TUN
+/// run that started without it has no server list to let through, so it cannot block.
+pub fn kill_switch_waits_for_reconnect(was: bool, now: bool, state: Conn, mode: Mode) -> bool {
+    !was && now && state != Conn::Disconnected && mode == Mode::Tun
 }
 
 /// Records that the user connected or disconnected by hand. A reconnect in flight stands down, and
@@ -160,8 +188,8 @@ pub fn hotkey_label() -> &'static str {
 }
 
 /// Follows the root helper's `blocked` marker and publishes it in the status, so Home can say why
-/// the internet is blocked. Costs one `stat` a second, and only while the kill switch is on (or a
-/// marker is still showing).
+/// the internet is blocked, and lifts a block left over after the kill switch was turned off.
+/// Costs one `stat` a second.
 pub fn spawn_block_watch(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
@@ -169,10 +197,16 @@ pub fn spawn_block_watch(app: AppHandle) {
             let state = app.state::<AppState>();
             let shown = state.blocked.load(Ordering::SeqCst);
             let kill_switch = state.store.lock().unwrap().reliability().kill_switch;
-            if !kill_switch && !shown {
-                continue;
+            let blocked = state.paths.blocked_file().exists();
+            let connection = state.status.lock().unwrap().state;
+            let lifted = match unwanted_block(blocked, kill_switch, connection) {
+                Some(Lift::Stop) => crate::runner::request_stop(&state.paths),
+                Some(Lift::Ready) => crate::runner::signal_ready(&state.paths),
+                None => Ok(()),
+            };
+            if let Err(e) = lifted {
+                applog::warn(format!("kill switch is off but a block is up, and it could not be lifted: {e}"));
             }
-            let blocked = kill_switch && state.paths.blocked_file().exists();
             if blocked != shown {
                 state.blocked.store(blocked, Ordering::SeqCst);
                 applog::info(format!("kill switch: traffic is {}", if blocked { "blocked" } else { "released" }));
@@ -201,7 +235,7 @@ pub async fn restore_network() -> Result<()> {
         .map(|anchor| format!("pfctl -a '{anchor}' -F all"))
         .collect::<Vec<_>>()
         .join("; ");
-    crate::runner::run_admin_script(&flush, "Kage VPN wants to remove the kill switch firewall rules so your internet works again.").await.map(|_| ())
+    crate::runner::run_admin_script(&flush, "Kage wants to remove the kill switch firewall rules so your internet works again.").await.map(|_| ())
 }
 
 #[cfg(test)]
