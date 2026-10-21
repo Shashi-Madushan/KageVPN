@@ -424,7 +424,7 @@
 					<input type="checkbox" bind:checked={draft.bypassLan} />
 				</label>
 				<label class="item">
-					<span class="grow">Allow IPv6<span class="sub">Turn off if a server has no IPv6 and some apps are slow to connect. IPv6 traffic is then blocked, never sent around the VPN.</span></span>
+					<span class="grow">Allow IPv6<span class="sub">Turn on only if your server has IPv6, or some sites will half-load. While off, the VPN carries IPv4 only, and on a network with its own IPv6 that traffic goes outside the VPN.</span></span>
 					<input type="checkbox" bind:checked={draft.ipv6} />
 				</label>
 				<div class="item">

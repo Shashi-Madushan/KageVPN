@@ -113,9 +113,9 @@ fn every_custom_dns_shape_passes_singbox_check() {
 }
 
 #[test]
-fn the_tunnel_carries_both_address_families_so_ipv6_cannot_skip_the_vpn() {
+fn with_ipv6_on_the_tunnel_carries_both_address_families() {
     let profiles = vec![profile()];
-    let routing = RoutingSettings::default();
+    let routing = RoutingSettings { ipv6: true, ..RoutingSettings::default() };
     let config = build(&input(&profiles, &routing, Mode::Tun)).unwrap();
     let tun = config["inbounds"].as_array().unwrap().iter().find(|i| i["type"] == "tun").expect("a tun inbound");
     let addresses: Vec<&str> = tun["address"].as_array().unwrap().iter().filter_map(|a| a.as_str()).collect();
@@ -307,14 +307,16 @@ fn the_default_log_level_is_normal_and_reads_from_old_settings() {
 #[test]
 fn ipv6_off_blocks_ipv6_and_passes_singbox_check() {
     let profiles = every_protocol();
-    let routing = RoutingSettings { ipv6: false, ..RoutingSettings::default() };
+    assert!(!RoutingSettings::default().ipv6, "IPv6 is off for new installs");
+    let routing = RoutingSettings::default();
     let cfg = build(&input(&profiles, &routing, Mode::Tun)).unwrap();
     assert_eq!(cfg["dns"]["strategy"], "ipv4_only");
     let first = &cfg["route"]["rules"][0];
     assert!(first["ip_version"] == 6 && first["action"] == "reject", "v6 reject must come before sniff");
-    // Still dual-stack, so v6 is captured by the tunnel and rejected rather than leaking.
-    assert_eq!(cfg["inbounds"][1]["address"].as_array().unwrap().len(), 2);
-    let on = build(&input(&profiles, &RoutingSettings::default(), Mode::Tun)).unwrap();
+    // IPv4-only tunnel, so apps never send IPv6 into a server that may not reach it.
+    assert_eq!(cfg["inbounds"][1]["address"].as_array().unwrap().len(), 1);
+    let on = build(&input(&profiles, &RoutingSettings { ipv6: true, ..RoutingSettings::default() }, Mode::Tun)).unwrap();
+    assert_eq!(on["inbounds"][1]["address"].as_array().unwrap().len(), 2);
     assert!(on["dns"].get("strategy").is_none());
     if let Ok(binary) = crate::core::locate(&crate::app_config::SING_BOX) {
         let path = std::env::temp_dir().join("kage-vpn-test-ipv6off.json");

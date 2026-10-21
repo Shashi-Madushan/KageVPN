@@ -125,11 +125,11 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
     let mut inbounds = vec![mixed];
     if input.mode == Mode::Tun {
         // sing-box only routes an address family into the tunnel when the interface has an address
-        // of that family. With IPv4 alone, IPv6 traffic would skip the VPN on any network that has
-        // IPv6 and show the user's real address.
-        inbounds.push(json!({
-            "type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS_V4, TUN_ADDRESS_V6], "auto_route": true,
-        }));
+        // of that family. With IPv6 off the tunnel is IPv4 only, so apps never try IPv6 through a
+        // server that may not reach it (sites half-load). On a network with native IPv6 that
+        // traffic skips the VPN, which is the cost of the switch being off.
+        let address = if input.routing.ipv6 { json!([TUN_ADDRESS_V4, TUN_ADDRESS_V6]) } else { json!([TUN_ADDRESS_V4]) };
+        inbounds.push(json!({ "type": "tun", "tag": "tun-in", "address": address, "auto_route": true }));
     }
 
     // Lists are local files, so a missing one is left out rather than failing the connection.
