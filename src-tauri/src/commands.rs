@@ -7,7 +7,7 @@ use crate::config::Mode;
 use crate::diagnostics::{self, Diagnostics, SpeedResult};
 use crate::error::{AppError, Result};
 use crate::logs::LogLine;
-use crate::profile::{parse_many, to_link, Profile, ProfileView};
+use crate::profile::{parse_all_named, to_link, Profile, ProfileView};
 use crate::session::{self, State as ConnState, Status};
 use crate::settings::{AutoSettings, NetworkSettings, ReliabilitySettings, RoutingSettings, Subscription};
 use crate::state::AppState;
@@ -42,6 +42,8 @@ pub struct ImportSummary {
     added: usize,
     duplicates: usize,
     failed: Vec<String>,
+    /// Servers imported with something filled in, such as default speeds.
+    notes: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -98,14 +100,15 @@ pub fn snapshot(app: AppHandle, state: State<AppState>) -> Snapshot {
 }
 
 #[tauri::command]
-pub fn import_text(state: State<AppState>, text: String) -> Result<ImportSummary> {
-    let (profiles, failed) = parse_many(&text);
-    if profiles.is_empty() {
-        let reason = failed.into_iter().next().unwrap_or_else(|| "no supported server links were found".into());
+/// `file_name`: the name of a dropped file, which names a WireGuard server read from it.
+pub fn import_text(state: State<AppState>, text: String, file_name: Option<String>) -> Result<ImportSummary> {
+    let parsed = parse_all_named(&text, file_name.as_deref());
+    if parsed.profiles.is_empty() {
+        let reason = parsed.errors.into_iter().next().unwrap_or_else(|| "no supported server links were found".into());
         return Err(AppError::Invalid(reason));
     }
-    let (added, duplicates) = state.store.lock().unwrap().import_unique(profiles)?;
-    Ok(ImportSummary { added, duplicates, failed })
+    let (added, duplicates) = state.store.lock().unwrap().import_unique(parsed.profiles)?;
+    Ok(ImportSummary { added, duplicates, failed: parsed.errors, notes: parsed.notes })
 }
 
 /// A blank server of one protocol, with that protocol's defaults.

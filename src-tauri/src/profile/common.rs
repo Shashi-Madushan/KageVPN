@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 use url::Url;
 
@@ -61,6 +61,12 @@ pub struct Obfs {
     pub password: String,
 }
 
+/// For an optional text setting kept as a plain `String`: the editor sends `null` when an
+/// optional field is left empty, which reads as "".
+pub fn null_as_empty<'de, D: Deserializer<'de>>(deserializer: D) -> std::result::Result<String, D::Error> {
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
+}
+
 pub fn invalid(message: impl Into<String>) -> AppError {
     AppError::Invalid(message.into())
 }
@@ -84,6 +90,15 @@ impl Params {
     pub fn flag(&self, keys: &[&str]) -> bool {
         self.first(keys).is_some_and(|v| matches!(v.as_str(), "1" | "true"))
     }
+}
+
+/// `host:443,5000-6000` style ports: the authority's port is not a single number.
+pub fn has_port_list(link: &str) -> bool {
+    let after_scheme = link.split_once("://").map_or(link, |(_, rest)| rest);
+    let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or_default();
+    let host_and_port = authority.rsplit_once('@').map_or(authority, |(_, rest)| rest);
+    let port = host_and_port.rsplit_once(':').filter(|(host, _)| !host.ends_with(']') || host.contains('[')).map(|(_, p)| p);
+    port.is_some_and(|p| p.contains(',') || p.contains('-'))
 }
 
 pub fn server_of(url: &Url) -> Result<String> {

@@ -108,7 +108,7 @@ pub async fn probe(app: &AppHandle) -> Verdict {
 
 /// UDP-based protocols cannot be judged by a TCP connect.
 pub fn needs_tcp_check(protocol: &str) -> bool {
-    protocol != "hysteria2"
+    crate::profile::ProtocolId::lookup(protocol).is_none_or(|id| !crate::profile::def(id).over_udp())
 }
 
 /// Cheap checks before sing-box starts, so an obviously unusable server fails in seconds with a

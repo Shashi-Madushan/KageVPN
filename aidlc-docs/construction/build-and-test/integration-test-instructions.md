@@ -17,3 +17,16 @@
 7. **Stale page**: open Routing, edit a rule without saving, press Block now from Home: the page keeps your edit and shows the cap block; Save keeps the block.
 8. **Usage off**: turn app usage off: the cap editor says nothing is counted; Turn on restores counting. Clear details: the cap's usage is unchanged. Save any Usage setting: the cap remains.
 9. **Expiry**: a test subscription with an end date 6 days away gives one "expires in 6 days" notice within half an hour, also when the provider is unreachable; the popover plan line is in the warning colour.
+
+# Round 4 integration, pull request 1 (protocols)
+## Run by the assistant (spare ports, never 2080 or 19090)
+A. **All protocols in one real sing-box:** the config the app builds from every protocol's sample (written by `generated_configs_pass_singbox_check` to `$TMPDIR/kage-vpn-test-Proxy.json`) was moved to ports 21080 and 29090 and run with sing-box 1.14.2. The Clash API listed all 10 nodes (9 protocols, WireGuard as an endpoint) in the `proxy` selector. Selecting the TUIC, Hysteria, SSH and WireGuard nodes through `PUT /proxies/proxy` returned 204 and became `now`. Delay tests answered with an error (TUIC, Hysteria, SSH: the sample hosts do not resolve) or `Timeout` (WireGuard: a documentation address), which the app shows as a failed test. sing-box was stopped and both ports were free afterwards.
+B. **WireGuard endpoint alone:** same result (listed, delay answers).
+
+## To run on a real Mac with real servers (not run)
+1. **TUIC v5:** import a provider's `tuic://` link; connect in Proxy Only mode; open a site; the list shows "TUIC · BBR".
+2. **Hysteria v1:** import a link without speeds: the toast names the defaults; set the real speeds in the editor; connect.
+3. **SSH:** add a server with a pasted private key and its host key (from `ssh-keyscan`); connect; then change one character of the host key and connect again: it must fail.
+4. **WireGuard:** drop a WARP or provider `.conf`; connect in Proxy Only mode, then TUN mode; Test in the server list gives a latency.
+5. **Engine without a feature:** point the Engine page at a sing-box built without `with_wireguard`, choose a WireGuard server, connect: the Engine page message appears and nothing starts.
+6. **Subscription refresh:** a provider subscription with WireGuard entries keeps the same servers (and favourites) after a refresh that changes the local address.

@@ -128,6 +128,10 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
             <li><code>trojan://...#ServerName</code></li>
             <li><code>ss://...#ServerName</code> (SIP002 and 2022 AEAD ciphers)</li>
             <li><code>hysteria2://...#ServerName</code> (including Salamander obfuscation)</li>
+            <li><code>tuic://uuid:password@host:port?...#ServerName</code> (TUIC v5; v4 links are refused)</li>
+            <li><code>hysteria://host:port?auth=...&amp;upmbps=...&amp;downmbps=...#ServerName</code> (Hysteria v1; a link without speeds gets 10 Mbps up and 50 Mbps down, and the import says so)</li>
+            <li><code>ssh://user:password@host:port#ServerName</code> (SSH; a private key and host key can be added in the server editor)</li>
+            <li><code>wireguard://privatekey@host:port?publickey=...&amp;address=...#ServerName</code> or a WireGuard <code>.conf</code> file, pasted or dropped (the server is named after the file)</li>
           </ul>
         </div>
       </div>
@@ -405,7 +409,7 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
         A red state offers <strong>Try another server</strong>, <strong>Reconnect</strong>, <strong>Diagnostics</strong> and <strong>Disconnect</strong>. The menu bar icon switches to a warning icon and the menu shows the status on its first line. When traffic returns, the status turns green on its own.
       </p>
       <p>
-        Before connecting, Kage also checks that the server name resolves and (for TCP protocols) accepts a connection, so an unusable server fails in seconds with a clear message. Hysteria2 uses UDP and skips the TCP check.
+        Before connecting, Kage also checks that the server name resolves and (for TCP protocols) accepts a connection, so an unusable server fails in seconds with a clear message. Hysteria, Hysteria2, TUIC and WireGuard use UDP and skip the TCP check.
       </p>
 
       <h2 id="crash-log">When the VPN Stops Unexpectedly</h2>

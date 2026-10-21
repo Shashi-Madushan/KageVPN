@@ -22,8 +22,14 @@ pub fn extract(text: &str) -> Option<Vec<Found>> {
     let text = text.trim_start_matches('\u{feff}').trim();
     if text.starts_with('{') {
         let value: Value = serde_json::from_str(text).ok()?;
-        let outbounds = value.get("outbounds")?.as_array()?;
-        return Some(collect(outbounds.iter().cloned(), singbox));
+        // WireGuard sits in `endpoints` since sing-box 1.11.
+        let list = |key: &str| value.get(key).and_then(Value::as_array).cloned();
+        let (outbounds, endpoints) = (list("outbounds"), list("endpoints"));
+        if outbounds.is_none() && endpoints.is_none() {
+            return None;
+        }
+        let entries = outbounds.into_iter().flatten().chain(endpoints.into_iter().flatten());
+        return Some(collect(entries, singbox));
     }
     if text.lines().any(|line| line.starts_with("proxies:")) {
         let mut document: serde_yaml_ng::Value = serde_yaml_ng::from_str(text).ok()?;
@@ -115,11 +121,15 @@ impl Server {
         if self.name.is_empty() { &self.host } else { &self.name }
     }
 
-    fn link(&self, scheme: &str, userinfo: &str, mut query: Query) -> Entry {
+    fn link(&self, scheme: &str, userinfo: &str, query: Query) -> Entry {
+        self.link_encoded(scheme, &utf8_percent_encode(userinfo, USERINFO).to_string(), query)
+    }
+
+    /// `link` for a userinfo whose parts are already escaped, such as `user:password`.
+    fn link_encoded(&self, scheme: &str, userinfo: &str, mut query: Query) -> Entry {
         let query = query.finish();
         let query = if query.is_empty() { String::new() } else { format!("?{query}") };
         let fragment = if self.name.is_empty() { String::new() } else { format!("#{}", utf8_percent_encode(&self.name, NON_ALPHANUMERIC)) };
-        let userinfo = utf8_percent_encode(userinfo, USERINFO);
         Entry::Link(self.label().to_string(), format!("{scheme}://{userinfo}@{}:{}{query}{fragment}", format_host(&self.host), self.port))
     }
 
@@ -227,10 +237,18 @@ fn singbox(outbound: &Map<String, Value>) -> Entry {
     if matches!(kind.as_str(), "selector" | "urltest" | "direct" | "block" | "dns") {
         return Entry::Ignore;
     }
+    if kind == "wireguard" {
+        return singbox_wireguard(outbound);
+    }
+    // Name the type before the address check: an endpoint such as Tailscale has no server field.
+    if !matches!(kind.as_str(), "vless" | "vmess" | "trojan" | "shadowsocks" | "hysteria2" | "hysteria" | "tuic" | "ssh") {
+        return Entry::Skip(format!("{}: {kind} servers are not supported yet", text(outbound, "tag").unwrap_or_default()));
+    }
     let server = match Server::read(outbound, "tag", "server_port") {
         Ok(server) => server,
-        Err(_) if kind == "hysteria2" && outbound.contains_key("server_ports") => {
-            return Entry::Skip(format!("{}: Hysteria2 port hopping is not supported, use a single port", text(outbound, "tag").unwrap_or_default()));
+        Err(_) if matches!(kind.as_str(), "hysteria2" | "hysteria") && outbound.contains_key("server_ports") => {
+            let label = if kind == "hysteria" { "Hysteria" } else { "Hysteria2" };
+            return Entry::Skip(format!("{}: {label} port hopping is not supported, use a single port", text(outbound, "tag").unwrap_or_default()));
         }
         Err(reason) => return Entry::Skip(reason),
     };
@@ -280,6 +298,53 @@ fn singbox(outbound: &Map<String, Value>) -> Entry {
             let obfs = object(outbound, "obfs").map(|o| (text(o, "type").unwrap_or_default(), text(o, "password")));
             hysteria2_link(&server, &text(outbound, "password").unwrap_or_default(), &tls, obfs)
         }
+        "hysteria" => {
+            if text(outbound, "auth").is_some() && text(outbound, "auth_str").is_none() {
+                return server.skip("Hysteria with a binary (base64) auth key is not supported, use auth_str");
+            }
+            hysteria_link(
+                &server,
+                &Hysteria {
+                    auth: text(outbound, "auth_str"),
+                    up: text(outbound, "up_mbps").or_else(|| text(outbound, "up")),
+                    down: text(outbound, "down_mbps").or_else(|| text(outbound, "down")),
+                    obfs: text(outbound, "obfs"),
+                    protocol: None,
+                },
+                &tls,
+            )
+        }
+        "ssh" => {
+            if text(outbound, "private_key_path").is_some() {
+                return server.skip(SSH_KEY_FILE);
+            }
+            // sing-box takes the key as one text or as a list of its lines.
+            let private_key = match outbound.get("private_key") {
+                Some(Value::Array(lines)) => Some(lines.iter().filter_map(|l| l.as_str()).collect::<Vec<_>>().join("\n")),
+                _ => text(outbound, "private_key"),
+            };
+            ssh_link(
+                &server,
+                &Ssh {
+                    user: text(outbound, "user").unwrap_or_default(),
+                    password: text(outbound, "password"),
+                    private_key,
+                    passphrase: text(outbound, "private_key_passphrase"),
+                    host_keys: list(outbound, "host_key"),
+                },
+            )
+        }
+        "tuic" => tuic_link(
+            &server,
+            &Tuic {
+                uuid: text(outbound, "uuid").unwrap_or_default(),
+                password: text(outbound, "password").unwrap_or_default(),
+                congestion: text(outbound, "congestion_control"),
+                relay_mode: text(outbound, "udp_relay_mode"),
+                zero_rtt: flag(outbound, "zero_rtt_handshake"),
+            },
+            &tls,
+        ),
         other => server.skip(&format!("{other} servers are not supported yet")),
     }
 }
@@ -321,6 +386,9 @@ fn clash(proxy: &Map<String, Value>) -> Entry {
     let kind = text(proxy, "type").unwrap_or_default().to_lowercase();
     if matches!(kind.as_str(), "direct" | "reject" | "dns") {
         return Entry::Ignore;
+    }
+    if kind == "wireguard" {
+        return clash_wireguard(proxy);
     }
     let server = match Server::read(proxy, "name", "port") {
         Ok(server) => server,
@@ -374,15 +442,66 @@ fn clash(proxy: &Map<String, Value>) -> Entry {
             let obfs = text(proxy, "obfs").map(|kind| (kind, text(proxy, "obfs-password")));
             hysteria2_link(&server, &text(proxy, "password").unwrap_or_default(), &tls, obfs)
         }
+        "hysteria" => {
+            if text(proxy, "ports").is_some_and(|p| p.contains(',') || p.contains('-')) {
+                return server.skip("Hysteria port hopping is not supported, use a single port");
+            }
+            hysteria_link(
+                &server,
+                &Hysteria {
+                    auth: text(proxy, "auth-str").or_else(|| text(proxy, "auth_str")),
+                    up: text(proxy, "up"),
+                    down: text(proxy, "down"),
+                    obfs: text(proxy, "obfs"),
+                    protocol: text(proxy, "protocol"),
+                },
+                &tls,
+            )
+        }
+        "ssh" => {
+            let private_key = text(proxy, "private-key");
+            if private_key.as_deref().is_some_and(|k| !k.starts_with("-----BEGIN")) {
+                return server.skip(SSH_KEY_FILE);
+            }
+            ssh_link(
+                &server,
+                &Ssh {
+                    user: text(proxy, "username").unwrap_or_default(),
+                    password: text(proxy, "password"),
+                    private_key,
+                    passphrase: text(proxy, "private-key-passphrase"),
+                    host_keys: list(proxy, "host-key"),
+                },
+            )
+        }
+        "tuic" => {
+            if text(proxy, "token").is_some() {
+                return server.skip("TUIC v4 is not supported, ask for a v5 server (UUID and password)");
+            }
+            if flag(proxy, "disable-sni") {
+                return server.skip("TUIC without SNI (disable-sni) is not supported");
+            }
+            tuic_link(
+                &server,
+                &Tuic {
+                    uuid: text(proxy, "uuid").unwrap_or_default(),
+                    password: text(proxy, "password").unwrap_or_default(),
+                    congestion: text(proxy, "congestion-controller"),
+                    relay_mode: text(proxy, "udp-relay-mode"),
+                    zero_rtt: flag(proxy, "reduce-rtt"),
+                },
+                &tls,
+            )
+        }
         "" => server.skip("the entry has no type"),
         other => server.skip(&format!("{other} servers are not supported yet")),
     }
 }
 
 fn clash_tls(proxy: &Map<String, Value>, kind: &str) -> Tls {
-    // Trojan and Hysteria2 always use TLS and call the server name `sni`; VLESS and VMess have a
-    // `tls` switch and call it `servername`.
-    let always = matches!(kind, "trojan" | "hysteria2" | "hy2");
+    // Trojan, Hysteria, Hysteria2 and TUIC always use TLS and call the server name `sni`; VLESS and VMess
+    // have a `tls` switch and call it `servername`.
+    let always = matches!(kind, "trojan" | "hysteria2" | "hy2" | "hysteria" | "tuic");
     let reality = object(proxy, "reality-opts").map(|r| (text(r, "public-key").unwrap_or_default(), text(r, "short-id").unwrap_or_default()));
     Tls {
         enabled: always || flag(proxy, "tls"),
@@ -440,6 +559,194 @@ fn hysteria2_link(server: &Server, password: &str, tls: &Tls, obfs: Option<(Stri
         put(&mut q, "obfs-password", password.as_deref());
     }
     server.link("hysteria2", password, q)
+}
+
+/// The WireGuard values every format carries, under their own names.
+#[derive(Default)]
+struct WireGuard {
+    private_key: Option<String>,
+    public_key: Option<String>,
+    pre_shared_key: Option<String>,
+    addresses: Vec<String>,
+    mtu: Option<String>,
+    keepalive: Option<String>,
+    reserved: Option<Value>,
+}
+
+const MULTI_PEER: &str = "WireGuard configs with more than one peer are not supported";
+
+fn wireguard_link(server: &Server, wg: &WireGuard) -> Entry {
+    let reserved = match wg.reserved.as_ref().map(super::wireguard::reserved_of).transpose() {
+        Ok(reserved) => reserved.flatten(),
+        Err(why) => return server.skip(&why),
+    };
+    let mut q = query();
+    put(&mut q, "publickey", wg.public_key.as_deref());
+    if !wg.addresses.is_empty() {
+        q.append_pair("address", &wg.addresses.join(","));
+    }
+    put(&mut q, "mtu", wg.mtu.as_deref());
+    put(&mut q, "presharedkey", wg.pre_shared_key.as_deref());
+    put(&mut q, "keepalive", wg.keepalive.as_deref());
+    if let Some([a, b, c]) = reserved {
+        q.append_pair("reserved", &format!("{a},{b},{c}"));
+    }
+    let key = wg.private_key.as_deref().unwrap_or_default();
+    server.link_encoded("wireguard", &utf8_percent_encode(key, NON_ALPHANUMERIC).to_string(), q)
+}
+
+/// A sing-box WireGuard entry: an endpoint (1.11 and later, peers listed) or the old outbound
+/// (one peer, written flat).
+fn singbox_wireguard(entry: &Map<String, Value>) -> Entry {
+    let tag = text(entry, "tag").unwrap_or_default();
+    let label = if tag.is_empty() { "a server".to_string() } else { tag.clone() };
+    let peers = entry.get("peers").and_then(Value::as_array);
+    let (peer, server) = match peers.map(Vec::as_slice) {
+        Some([peer]) => {
+            let peer = peer.as_object().cloned().unwrap_or_default();
+            let Some(host) = text(&peer, "address").or_else(|| text(&peer, "server")) else { return Entry::Skip(format!("{label}: no server address")) };
+            let Some(port) = port(&peer, "port").or_else(|| port(&peer, "server_port")) else { return Entry::Skip(format!("{label}: no valid port")) };
+            (peer, Server { name: tag, host, port })
+        }
+        Some([]) | None => match Server::read(entry, "tag", "server_port") {
+            Ok(server) => (entry.clone(), server),
+            Err(reason) => return Entry::Skip(reason),
+        },
+        Some(_) => return Entry::Skip(format!("{label}: {MULTI_PEER}")),
+    };
+    let mut addresses = list(entry, "address");
+    addresses.extend(list(entry, "local_address"));
+    wireguard_link(
+        &server,
+        &WireGuard {
+            private_key: text(entry, "private_key"),
+            public_key: text(&peer, "public_key").or_else(|| text(&peer, "peer_public_key")),
+            pre_shared_key: text(&peer, "pre_shared_key"),
+            addresses,
+            mtu: text(entry, "mtu"),
+            keepalive: text(&peer, "persistent_keepalive_interval"),
+            reserved: peer.get("reserved").or_else(|| entry.get("reserved")).cloned(),
+        },
+    )
+}
+
+/// A Clash WireGuard proxy: flat (one peer) or with a `peers` list.
+fn clash_wireguard(proxy: &Map<String, Value>) -> Entry {
+    let name = text(proxy, "name").unwrap_or_default();
+    let label = if name.is_empty() { "a server".to_string() } else { name.clone() };
+    if proxy.contains_key("amnezia-wg-option") {
+        return Entry::Skip(format!("{label}: AmneziaWG options are not supported; sing-box runs plain WireGuard"));
+    }
+    let peers = proxy.get("peers").and_then(Value::as_array);
+    let peer = match peers.map(Vec::as_slice) {
+        Some([peer]) => peer.as_object().cloned().unwrap_or_default(),
+        Some([]) | None => proxy.clone(),
+        Some(_) => return Entry::Skip(format!("{label}: {MULTI_PEER}")),
+    };
+    let server = match Server::read(&Map::from_iter(peer.clone().into_iter().chain([("name".to_string(), Value::String(name))])), "name", "port") {
+        Ok(server) => server,
+        Err(reason) => return Entry::Skip(reason),
+    };
+    let addresses = [text(proxy, "ip"), text(proxy, "ipv6")].into_iter().flatten().collect();
+    wireguard_link(
+        &server,
+        &WireGuard {
+            private_key: text(proxy, "private-key"),
+            public_key: text(&peer, "public-key"),
+            pre_shared_key: text(&peer, "pre-shared-key"),
+            addresses,
+            mtu: text(proxy, "mtu"),
+            keepalive: text(proxy, "persistent-keepalive"),
+            reserved: peer.get("reserved").or_else(|| proxy.get("reserved")).cloned(),
+        },
+    )
+}
+
+const SSH_KEY_FILE: &str = "SSH key files on disk are not supported, paste the key into the server editor";
+
+/// The SSH values both formats carry, under their own names.
+struct Ssh {
+    user: String,
+    password: Option<String>,
+    private_key: Option<String>,
+    passphrase: Option<String>,
+    host_keys: Vec<String>,
+}
+
+fn ssh_link(server: &Server, ssh: &Ssh) -> Entry {
+    let mut q = query();
+    put(&mut q, "private_key", ssh.private_key.as_deref());
+    put(&mut q, "passphrase", ssh.passphrase.as_deref());
+    if !ssh.host_keys.is_empty() {
+        q.append_pair("host_key", &ssh.host_keys.join(","));
+    }
+    let mut userinfo = utf8_percent_encode(&ssh.user, USERINFO).to_string();
+    if let Some(password) = ssh.password.as_deref() {
+        userinfo = format!("{userinfo}:{}", utf8_percent_encode(password, USERINFO));
+    }
+    server.link_encoded("ssh", &userinfo, q)
+}
+
+/// The Hysteria v1 values both formats carry, under their own names. Speeds stay as written
+/// ("100", "100 Mbps"); the protocol reads them.
+struct Hysteria {
+    auth: Option<String>,
+    up: Option<String>,
+    down: Option<String>,
+    obfs: Option<String>,
+    protocol: Option<String>,
+}
+
+fn hysteria_link(server: &Server, hysteria: &Hysteria, tls: &Tls) -> Entry {
+    let mut q = query();
+    put(&mut q, "protocol", hysteria.protocol.as_deref());
+    put(&mut q, "auth", hysteria.auth.as_deref());
+    put(&mut q, "peer", tls.sni.as_deref());
+    if tls.insecure {
+        q.append_pair("insecure", "1");
+    }
+    put(&mut q, "upmbps", hysteria.up.as_deref());
+    put(&mut q, "downmbps", hysteria.down.as_deref());
+    if !tls.alpn.is_empty() {
+        q.append_pair("alpn", &tls.alpn.join(","));
+    }
+    if let Some(obfs) = hysteria.obfs.as_deref() {
+        q.append_pair("obfs", "xplus");
+        q.append_pair("obfsParam", obfs);
+    }
+    let query = q.finish();
+    let fragment = if server.name.is_empty() { String::new() } else { format!("#{}", utf8_percent_encode(&server.name, NON_ALPHANUMERIC)) };
+    Entry::Link(server.label().to_string(), format!("hysteria://{}:{}?{query}{fragment}", format_host(&server.host), server.port))
+}
+
+/// The TUIC v5 values both formats carry, under their own names.
+struct Tuic {
+    uuid: String,
+    password: String,
+    congestion: Option<String>,
+    relay_mode: Option<String>,
+    zero_rtt: bool,
+}
+
+fn tuic_link(server: &Server, tuic: &Tuic, tls: &Tls) -> Entry {
+    if tuic.uuid.is_empty() || tuic.password.is_empty() {
+        return server.skip("TUIC needs a UUID and a password (v4 servers are not supported)");
+    }
+    let mut q = query();
+    put(&mut q, "sni", tls.sni.as_deref());
+    if !tls.alpn.is_empty() {
+        q.append_pair("alpn", &tls.alpn.join(","));
+    }
+    put(&mut q, "congestion_control", tuic.congestion.as_deref());
+    put(&mut q, "udp_relay_mode", tuic.relay_mode.as_deref());
+    if tuic.zero_rtt {
+        q.append_pair("zero_rtt_handshake", "1");
+    }
+    if tls.insecure {
+        q.append_pair("allow_insecure", "1");
+    }
+    let userinfo = format!("{}:{}", utf8_percent_encode(&tuic.uuid, USERINFO), utf8_percent_encode(&tuic.password, USERINFO));
+    server.link_encoded("tuic", &userinfo, q)
 }
 
 #[cfg(test)]

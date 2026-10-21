@@ -1,5 +1,23 @@
 # Build and test summary
 
+## Round 4, pull request 1: TUIC, Hysteria v1, SSH, WireGuard (branch feature/protocols-and-system-proxy, units U1 to U4, at 080c53a)
+| Check | Result |
+|---|---|
+| `cargo test --lib -- --test-threads=4` | 409 passed |
+| `cargo clippy --all-targets -- -D warnings` | clean |
+| `npm run check` (svelte-check) | 0 errors, 0 warnings |
+| `npx vite build` | succeeds |
+| `npm run test:scripts` | 39 passed |
+| `npm run build:app` | builds `Kage.app` (11 MB) |
+| Real `sing-box check` (1.14.2) | passes every protocol's sample in TUN and Proxy configs, an SSH server with a pasted key, and a WARP-style WireGuard server |
+| Real sing-box run on spare ports | all 10 nodes listed by the Clash API; TUIC, Hysteria, SSH and WireGuard selectable; delay tests answer (integration A and B) |
+| Editor and Add server dialog | checked in the screenshot demo (headless Chrome): protocol dropdown, SSH key box and host key warning, port defaults, `.conf` detection |
+
+Not verified:
+- No connection to a real TUIC, Hysteria, SSH or WireGuard server (none available); integration steps 1 to 6 are for you.
+- The live app was not run, so your real VPN on 2080/19090 was not touched.
+- The engine-feature stop was tested as functions, not with an engine built without WireGuard.
+
 ## Round 2: per-app controls (branch feature/app-picker-and-usage-limits, units U1 to U4)
 | Check | Result |
 |---|---|

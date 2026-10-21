@@ -329,7 +329,15 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         }
         (spec, settings)
     };
-    let (binary, _) = core::resolve(paths, spec, &core_settings)?;
+    let (binary, source) = core::resolve(paths, spec, &core_settings)?;
+    // Build features of this engine; WireGuard and the QUIC protocols need ones that some builds
+    // lack. Unknown tags leave the decision to `sing-box check`.
+    let engine_tags = core::inspect(spec, &binary, source).ok().map(|info| info.tags);
+    if let Some(chosen) = state.store.lock().unwrap().active_profile() {
+        if let Some(feature) = crate::profile::missing_feature(chosen, engine_tags.as_deref()) {
+            return Err(AppError::Invalid(crate::profile::missing_feature_message(chosen, feature)));
+        }
+    }
     check_cancelled(app)?;
     // A sing-box this app stopped a moment ago can take a few seconds to let go of its port, so
     // that one is waited for. Any other program holding a port is moved around.
@@ -380,6 +388,15 @@ async fn launch(app: &AppHandle, mode: Mode, secret: &str) -> Result<u32> {
         _ => profiles.clone(),
     };
     let nodes = if candidates.is_empty() { &profiles } else { &candidates };
+    let (nodes, left_out) = crate::profile::usable_nodes(nodes, engine_tags.as_deref());
+    if let Some(first) = left_out.first() {
+        applog::warn(format!("connect: {} servers left out because this sing-box lacks a build feature they need", left_out.len()));
+        if nodes.is_empty() {
+            let feature = crate::profile::missing_feature(first, engine_tags.as_deref()).unwrap_or_default();
+            return Err(AppError::Invalid(crate::profile::missing_feature_message(first, feature)));
+        }
+    }
+    let nodes = &nodes;
 
     let config = config::build(&ConfigInput {
         profiles: nodes,

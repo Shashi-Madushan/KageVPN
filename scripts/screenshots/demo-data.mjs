@@ -181,9 +181,14 @@ function install(opts) {
 				trojan: { password: '', transport: tcp, tls: tls() },
 				shadowsocks: { method: 'aes-256-gcm', password: '' },
 				hysteria2: { password: '', obfs: null, tls: tls({ fingerprint: null }) },
-				vmess: { uuid: '', security: 'auto', tlsEnabled: false, transport: tcp, tls: tls() }
+				vmess: { uuid: '', security: 'auto', tlsEnabled: false, transport: tcp, tls: tls() },
+				tuic: { uuid: '', password: '', congestionControl: 'bbr', udpRelayMode: 'native', zeroRtt: false, tls: tls({ fingerprint: null, alpn: ['h3'] }) },
+				hysteria: { auth: '', upMbps: 10, downMbps: 50, obfs: null, tls: tls({ fingerprint: null, alpn: ['hysteria'] }) },
+				ssh: { user: '', password: '', privateKey: '', passphrase: '', hostKeys: [] },
+				wireguard: { privateKey: '', peerPublicKey: '', preSharedKey: '', addresses: [], mtu: 1408, keepalive: null, reserved: null }
 			}[a.protocol];
-			return { ...base, port: a.protocol === 'shadowsocks' ? 8388 : 443, settings };
+			const port = { shadowsocks: 8388, ssh: 22, wireguard: 51820 }[a.protocol] ?? 443;
+			return { ...base, port, settings };
 		},
 		snapshot: () => snapshot,
 		app_update_settings: () => ({ policy: 'ask', lastCheck: 0 }),

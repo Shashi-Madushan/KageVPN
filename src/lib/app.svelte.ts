@@ -240,9 +240,9 @@ class AppStore {
 		}
 	}
 
-	async importText(text: string): Promise<{ summary: ImportSummary | null; error: string | null }> {
+	async importText(text: string, fileName?: string): Promise<{ summary: ImportSummary | null; error: string | null }> {
 		try {
-			const summary = await api.importText(text);
+			const summary = await api.importText(text, fileName);
 			await this.reloadSnapshot();
 			return { summary, error: null };
 		} catch (e) {

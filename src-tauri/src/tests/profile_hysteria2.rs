@@ -42,9 +42,9 @@ fn rejects_what_it_cannot_run() {
 
 #[test]
 fn port_lists_are_told_apart_from_dashes_in_host_names() {
-    assert!(has_port_list("hysteria2://pw@h.example.com:5000-6000/"));
-    assert!(!has_port_list("hysteria2://pw@my-host.example.com:443/?x=1-2"));
-    assert!(!has_port_list("hysteria2://pw@[2001:db8::1]:443/"));
+    assert!(common::has_port_list("hysteria2://pw@h.example.com:5000-6000/"));
+    assert!(!common::has_port_list("hysteria2://pw@my-host.example.com:443/?x=1-2"));
+    assert!(!common::has_port_list("hysteria2://pw@[2001:db8::1]:443/"));
 }
 
 #[test]
