@@ -65,7 +65,7 @@ Extensions unchanged: Security Baseline, Property-Based Testing, Resiliency Base
 Extensions for this round: Security Baseline No, Property-Based Testing No, Resiliency Baseline No.
 
 ## Round 4: more protocols and system-proxy mode (branch feature/protocols-and-system-proxy)
-- **Current Stage**: CONSTRUCTION - U4 WireGuard Code Generation complete (awaiting approval)
+- **Current Stage**: CONSTRUCTION - Build and Test for PR 1 complete (awaiting approval)
 - [x] Workspace Detection (resumed; brownfield)
 - [x] Reverse Engineering (reused)
 - [x] Requirements Analysis (approved): inception/requirements/protocols-and-system-proxy-requirements.md (recommended answers used)
@@ -74,7 +74,7 @@ Extensions for this round: Security Baseline No, Property-Based Testing No, Resi
 - [ ] Application Design - SKIP (sysproxy.rs interface designed in U5 Functional Design)
 - [ ] Units Generation - SKIP (units listed in the execution plan)
 ### Construction (planned)
-- PR 1 protocols: [x] U1 TUIC code (approved; construction/u1-tuic/code/summary.md), [x] U2 Hysteria v1 code (approved; construction/u2-hysteria/code/summary.md), [x] U3 SSH code (approved; construction/u3-ssh/code/summary.md); U1-U3 committed (4c94355), [x] U4 WireGuard functional design (approved; construction/u4-wireguard/functional-design/), [x] U4 code (done, awaiting approval; construction/u4-wireguard/code/summary.md), [ ] Build and Test
+- PR 1 protocols: [x] U1 TUIC code (approved; construction/u1-tuic/code/summary.md), [x] U2 Hysteria v1 code (approved; construction/u2-hysteria/code/summary.md), [x] U3 SSH code (approved; construction/u3-ssh/code/summary.md); U1-U3 committed (4c94355), [x] U4 WireGuard functional design (approved; construction/u4-wireguard/functional-design/), [x] U4 code (approved, committed 080c53a), [x] Build and Test (awaiting approval; construction/build-and-test/build-and-test-summary.md)
 - PR 2 system proxy: [ ] U5 functional design, [ ] U5 code, [ ] Build and Test
 - NFR Requirements, NFR Design, Infrastructure Design: SKIP
 Extensions for this round: Security Baseline No, Property-Based Testing No, Resiliency Baseline No.

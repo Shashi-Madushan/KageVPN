@@ -418,3 +418,11 @@ keep the network exteion part for later"
 **Context**: CONSTRUCTION - U4 WireGuard Code Generation complete (awaiting approval)
 
 ---
+
+## U4 approval, commit, and Build and Test for pull request 1
+**Timestamp**: 2026-10-21T11:15:00Z
+**User Input**: "Approve the U4 WireGuard code, commit it, and continue to Build and Test for pull request 1."
+**AI Response**: Committed U4 as 080c53a. Ran cargo test (409 passed), clippy (clean), svelte-check (0 errors), script tests (39 passed), vite build, and npm run build:app (Kage.app, 11 MB). Integration: took the app-built config with every protocol's sample to spare ports 21080/29090 and ran sing-box 1.14.2: the Clash API listed all 10 nodes, TUIC, Hysteria, SSH and WireGuard were selectable, delay tests answered; sing-box stopped, ports free. Appended round 4 sections to build-instructions, unit-test, integration-test and performance-test instructions and the summary. Manual steps with real servers listed, not run.
+**Context**: CONSTRUCTION - Build and Test for PR 1 (awaiting approval)
+
+---
