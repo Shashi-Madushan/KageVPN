@@ -466,3 +466,11 @@ keep the network exteion part for later"
 **Context**: CONSTRUCTION - U5 System proxy Code Generation complete (awaiting approval)
 
 ---
+
+## U5 approval, commit, and Build and Test for pull request 2
+**Timestamp**: 2026-10-21T14:00:00Z
+**User Input**: "Approve the U5 system proxy code, commit it, and continue to Build and Test for pull request 2."
+**AI Response**: Committed U5 as db08ecc. At that commit: cargo test 424 passed (1 ignored live test), clippy clean, svelte-check 0 errors, script tests 40 passed, vite build ok (build:app ok just before, same code). Integration D: real sing-box 1.14.2 under the real supervisor on spare port 21080 with a marker restore script; killing the stand-in app made the supervisor stop sing-box, run the script and remove the files; port freed; no network settings touched. Appended round 4 PR 2 sections to the build-and-test documents. Manual steps 7 to 14 listed, not run.
+**Context**: CONSTRUCTION - Build and Test for PR 2 (awaiting approval)
+
+---

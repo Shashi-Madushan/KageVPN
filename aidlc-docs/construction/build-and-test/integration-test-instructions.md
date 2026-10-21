@@ -30,3 +30,18 @@ B. **WireGuard endpoint alone:** same result (listed, delay answers).
 4. **WireGuard:** drop a WARP or provider `.conf`; connect in Proxy Only mode, then TUN mode; Test in the server list gives a latency.
 5. **Engine without a feature:** point the Engine page at a sing-box built without `with_wireguard`, choose a WireGuard server, connect: the Engine page message appears and nothing starts.
 6. **Subscription refresh:** a provider subscription with WireGuard entries keeps the same servers (and favourites) after a refresh that changes the local address.
+
+# Round 4 integration, pull request 2 (system proxy)
+## Run by the assistant
+C. **Live set and restore (with permission, "iPhone USB" only):** set to 127.0.0.1:21080 with no password prompt; the restore script, run as the supervisor runs it, put it back; the app's restore then had nothing left; every field equal to the state read before the first change. Wi-Fi diffed before and after: identical.
+D. **Crash path with a real sing-box (no network settings touched):** the supervisor started sing-box 1.14.2 on spare port 21080 with a restore script that leaves a marker; killing the stand-in app process made the supervisor stop sing-box, run the script and delete the script and saved-settings file; the port was free afterwards.
+
+## To run on a real Mac (not run)
+7. **Connect with the option on:** Settings > Set system proxy on; connect in Proxy Only mode; Home shows "System proxy on"; System Settings > Network > Wi-Fi > Details > Proxies shows 127.0.0.1 and the port; Safari loads through the VPN (check the exit IP).
+8. **Disconnect and quit:** the proxies are as before after each.
+9. **Force-quit:** connect, force-quit Kage in Activity Monitor; within a second the proxies are as before.
+10. **Power-cut case:** connect, then `kill -9` both the app and its supervisor (`pgrep -f supervisor.sh`); the proxies still point at Kage; open Kage: they are put back at launch.
+11. **Your own change kept:** connect, turn Wi-Fi's Web proxy off by hand, disconnect: it stays off (not overwritten with the saved value).
+12. **PAC file:** with a work PAC URL set on Wi-Fi, connect and disconnect: the PAC URL is on again afterwards.
+13. **Proxy login:** turn on the proxy password while connected: the option greys out and the proxies are put back.
+14. **Ethernet while connected:** plug in an adapter while connected: its service gets the proxy within a few seconds and is put back on disconnect.
