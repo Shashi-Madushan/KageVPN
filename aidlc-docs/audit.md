@@ -490,3 +490,11 @@ keep the network exteion part for later"
 **Context**: Delivery (merge waiting on checks)
 
 ---
+
+## Merge into dev
+**Timestamp**: 2026-10-21T15:10:00Z
+**User Input**: "are all test creds" then "all done merge"
+**AI Response**: Confirmed all 5 GitGuardian findings were test values (throwaway SSH key, fake key text, random WireGuard sample keys) and asked whether to merge with GitGuardian red; the user then marked the incidents and asked to merge. Rechecked: #6 GitGuardian skipping (resolved), build pass; #7 GitGuardian and build pass. Merged #6 into dev (baffee9), retargeted #7 to dev, merged it (b653d13). Fast-forwarded local dev to origin/dev (b653d13): 424 Rust tests passed, clippy clean, svelte-check 0 errors, 40 script tests passed. Branches left in place. This state and audit update is uncommitted on dev.
+**Context**: Delivery complete (Round 4)
+
+---

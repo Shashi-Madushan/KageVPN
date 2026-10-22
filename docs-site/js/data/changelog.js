@@ -53,6 +53,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
         <li><strong>Fixed:</strong> <strong>Kill switch:</strong> turning it off while it is blocking lifts the block within a second. Turning it on while connected says it starts protecting you at the next connect.</li>
         <li><strong>Fixed:</strong> <strong>Settings:</strong> a switch that could not be saved (for example a cancelled password prompt for the root service) flips back instead of showing a change that did not happen.</li>
         <li><strong>Fixed:</strong> <strong>Data limit:</strong> changing a usage setting no longer brings back a data warning that was already shown.</li>
+        <li><strong>Fixed:</strong> <strong>Apps:</strong> app icons that were blank or went missing after a while now load again, or show the app's initial until they do.</li>
         <li><strong>Fixed:</strong> <strong>Apps:</strong> after you save, the page shows exactly what was stored, including blocks set by a data cap, instead of the copy it sent.</li>
         <li><strong>Docs:</strong> a new <strong>App Controls &amp; Data Caps</strong> page, sections on network settings (IPv6, DNS, FakeIP), connecting by network and the setup guide, and new screenshots of App controls, data caps, the Connections Apps view, ready-made lists and the data settings. Corrected: Proxy Only mode does not change the macOS system proxy settings (the docs said it did), and DNS is described as it really works in each mode.</li>
       </ul>

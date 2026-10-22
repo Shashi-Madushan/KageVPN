@@ -409,15 +409,18 @@ pub fn tick(app: &AppHandle, bytes: &HashMap<String, (u64, u64)>, counting: bool
         if change.rolled_over {
             lifted.push(cap.path.clone());
         }
+        let name = app_name(&cap.path);
+        let limit = human(cap.limit_bytes);
+        let offer_hint = if change.offer_raised { " Open Kage to block it." } else { "" };
         if let Some(lvl) = change.new_alert {
-            let name = app_name(&cap.path);
-            let limit = human(cap.limit_bytes);
             let body = if lvl >= 100 {
-                format!("{name} reached its {limit} {} data cap.", period_word(cap.period))
+                format!("{name} reached its {limit} {} data cap.{offer_hint}", period_word(cap.period))
             } else {
                 format!("{name} used 80% of its {limit} {} data cap.", period_word(cap.period))
             };
             notify::send(app, "Data cap", &body);
+        } else if change.offer_raised {
+            notify::send(app, "Data cap", &format!("{name} is over its {limit} {} data cap.{offer_hint}", period_word(cap.period)));
         }
         dirty |= change.any();
         let _ = tally;

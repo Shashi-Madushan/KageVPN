@@ -102,7 +102,7 @@ pub fn icon_data_url(bundle: &Path, cache: &Path) -> Option<String> {
         return None;
     }
     let cached = cache.join(cache_name(bundle));
-    if !cached.is_file() {
+    if std::fs::metadata(&cached).map_or(true, |m| !m.is_file() || m.len() == 0) {
         let info = plist::Value::from_file(bundle.join("Contents/Info.plist")).ok()?;
         let icns = bundle.join("Contents/Resources").join(icon_file_name(info.as_dictionary()?)?);
         std::fs::create_dir_all(cache).ok()?;
@@ -113,7 +113,7 @@ pub fn icon_data_url(bundle: &Path, cache: &Path) -> Option<String> {
             .arg(&cached)
             .output()
             .ok()?;
-        if !made.status.success() || !cached.is_file() {
+        if !made.status.success() || std::fs::metadata(&cached).map_or(true, |m| m.len() == 0) {
             let _ = std::fs::remove_file(&cached);
             return None;
         }
