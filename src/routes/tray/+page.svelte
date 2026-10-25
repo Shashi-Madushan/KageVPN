@@ -69,7 +69,7 @@
 					? 'Add a server to get started'
 					: app.connected
 						? null
-						: 'Press the button to connect'
+						: null
 	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
 	/** What the active server's provider reports: data left and days left, when it reports either. */
@@ -109,7 +109,7 @@
 		</div>
 
 		<section class="hero {tone}">
-			<MascotButton size={104} />
+			<MascotButton size={92} />
 			<div class="hero-text">
 				<h1 class="headline {tone}">{headline}</h1>
 				{#if sub}<p class="sub">{sub}</p>{/if}
@@ -276,13 +276,15 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 4px;
+		gap: 6px;
 		min-width: 0;
+		flex: 1;
 	}
 	.cta {
 		min-height: 44px;
-		margin-top: 4px;
-		padding: 0 18px;
+		align-self: stretch;
+		margin-top: 6px;
+		padding: 0 14px;
 		border: 0;
 		border-radius: 9px;
 		background: var(--accent);
