@@ -27,6 +27,8 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppsPage from '$lib/components/AppsPage.svelte';
 	import { pageForKey, type Page } from '$lib/pages';
+	import WhatsNewPage from '$lib/components/WhatsNewPage.svelte';
+	import { whatsNew } from '$lib/whatsNew.svelte';
 	import UsagePage from '$lib/components/UsagePage.svelte';
 
 	const titles: Record<Page, string> = {
@@ -39,7 +41,8 @@
 		diagnostics: 'Diagnostics',
 		core: 'Engine',
 		logs: 'Logs',
-		settings: 'Settings'
+		settings: 'Settings',
+		whatsnew: "What's new"
 	};
 
 	const subtitles: Record<Page, string> = {
@@ -52,7 +55,8 @@
 		diagnostics: 'Speed, leak and connectivity checks',
 		core: 'The sing-box engine that powers the tunnel',
 		logs: 'Technical output for troubleshooting',
-		settings: 'Startup, reliability, data limit and shortcuts'
+		settings: 'Startup, reliability, data limit and shortcuts',
+		whatsnew: 'Recent changes and new features'
 	};
 
 	let page = $state<Page>('home');
@@ -94,7 +98,14 @@
 		else if (error) app.notify(error);
 	}
 
-	const badges = $derived<Partial<Record<Page, string>>>(core.updateAvailable ? { core: '1' } : {});
+	const badges = $derived<Partial<Record<Page, string>>>({
+		...(core.updateAvailable ? { core: '1' } : {}),
+		...(whatsNew.unread && page !== 'whatsnew' ? { whatsnew: 'New' } : {})
+	});
+
+	$effect(() => {
+		if (page === 'whatsnew') whatsNew.markSeen();
+	});
 </script>
 
 <svelte:window {onkeydown} />
@@ -144,6 +155,8 @@
 				<CorePage />
 			{:else if page === 'logs'}
 				<LogView />
+			{:else if page === 'whatsnew'}
+				<WhatsNewPage onnavigate={(p) => (page = p)} />
 			{:else}
 				<SettingsView />
 			{/if}

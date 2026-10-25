@@ -40,7 +40,8 @@
 			items: [
 				{ page: 'core', label: 'Engine', icon: 'core' },
 				{ page: 'logs', label: 'Logs', icon: 'logs' },
-				{ page: 'settings', label: 'Settings', icon: 'settings' }
+				{ page: 'settings', label: 'Settings', icon: 'settings' },
+				{ page: 'whatsnew', label: "What's new", icon: 'sparkle' }
 			]
 		}
 	];
