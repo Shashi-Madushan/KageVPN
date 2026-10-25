@@ -78,6 +78,9 @@
 		const info = app.subscriptions.find((s) => s.id === subId)?.userInfo;
 		return info ? planSummary(info, now) : null;
 	});
+	const statusText = $derived(
+		app.disconnecting ? 'Disconnecting…' : app.tunnelDown ? 'No internet' : app.verifying ? 'Checking…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not connected'
+	);
 	const activeName = $derived(
 		app.auto.enabled ? 'Auto (fastest)' : (app.activeProfile?.name.replace(/^\p{RI}{2}\s*/u, '') ?? null)
 	);
@@ -96,15 +99,26 @@
 			<Skeleton height="34px" radius="10px" />
 		</div>
 	{:else}
-		<section class="hero">
-			<MascotButton size={120} />
-			<h1 class="headline {tone}">{headline}</h1>
-			{#if sub}<p class="sub">{sub}</p>{/if}
+		<div class="statusbar {tone}">
+			<span class="dot"></span><strong>{statusText}</strong>{#if elapsed}<span class="tabular dim">· {elapsed}</span>{/if}
 			{#if app.profiles.length}
 				<button class="pill {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
-					<Icon name="bolt" size={13} />{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test latency'}
+					<Icon name="bolt" size={12} />{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test latency'}
 				</button>
 			{/if}
+		</div>
+
+		<section class="hero {tone}">
+			<MascotButton size={104} />
+			<div class="hero-text">
+				<h1 class="headline {tone}">{headline}</h1>
+				{#if sub}<p class="sub">{sub}</p>{/if}
+				{#if app.profiles.length}
+					<button class="cta" class:stop={app.connected || app.busy} disabled={app.disconnecting} onclick={() => app.toggle()}>
+						{app.disconnecting ? 'Disconnecting…' : app.busy ? 'Cancel' : app.connected ? 'Disconnect' : 'Connect'}
+					</button>
+				{/if}
+			</div>
 		</section>
 
 		{#if app.profiles.length}
@@ -115,42 +129,35 @@
 				<!-- While connected the server changes in place; only the mode needs a disconnect. -->
 				<div class="pick" title={app.connected ? 'Switch server without disconnecting' : undefined}>{@render serverPicker()}</div>
 			{/if}
-			{#if app.locked}
-				<div class="strip" class:compact={app.connected} aria-label="Connection details">
-					{#if !app.connected}
-						<span class="cell grow" title={activeName ?? ''}>
-							<span class="flag">{app.activeProfile ? profileFlag(app.activeProfile.name, app.activeProfile.server) : '↯'}</span>
-							<span class="two"><small>Server</small><strong>{activeName ?? '—'}</strong></span>
-						</span>
+			{#if app.connected}
+				<div class="ipline" aria-label="Exit IP">
+					<small>Exit IP</small>
+					{#if app.exitIp}
+						<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
+						<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
+					{:else if app.tunnelDown}
+						<small>No IP</small>
+					{:else}
+						<Skeleton width="84px" height="14px" />
 					{/if}
-					<span class="cell"><strong class="tabular">{elapsed ?? '—'}</strong></span>
-					<span class="cell ip">
-						{#if app.exitIp}
-							<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
-							<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
-						{:else if app.tunnelDown}
-							<small>No IP</small>
-						{:else}
-							<Skeleton width="84px" height="14px" />
-						{/if}
-					</span>
 				</div>
 			{/if}
 
+			<div class="tiles">
+				<div class="tile"><small>Download</small><strong class="down tabular">{formatRate(app.traffic.down)}</strong></div>
+				<div class="tile"><small>Upload</small><strong class="up tabular">{formatRate(app.traffic.up)}</strong></div>
+			</div>
+
 			<section class="card usage" class:with-plan={plan} aria-label="Data usage">
-				<span class="label">Data usage</span>
-				<div class="rates">
-					<span class="down tabular">↓ {formatRate(app.traffic.down)}</span>
-					<span class="up tabular">↑ {formatRate(app.traffic.up)}</span>
-					<span class="today tabular">
-						Today: {#if usage.todayLoading}<Skeleton width="36px" height="11px" />{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}
-					</span>
+				<div class="today-row">
+					<span>Today</span>
+					<strong class="tabular">{#if usage.todayLoading}<Skeleton width="36px" height="11px" />{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</strong>
 				</div>
-				{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
 				<div class="graph">
 					<Sparkline samples={app.history} height={72} fill />
 					{#if !app.connected}<span class="graph-empty">Connect to see live traffic</span>{/if}
 				</div>
+				{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
 			</section>
 
 			<div title={app.connected ? 'Disconnect to change mode' : undefined}>
@@ -219,18 +226,111 @@
 		display: grid;
 		gap: 10px;
 	}
-	.hero {
-		display: grid;
-		justify-items: center;
-		gap: 4px;
-		padding-top: 6px;
+	.statusbar {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 13px;
+		color: var(--fg-muted);
+		padding-right: 32px;
 	}
-	.headline {
-		margin: 8px 0 0;
-		font-size: 17px;
-		font-weight: 800;
-		letter-spacing: 0.03em;
+	.statusbar .dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: currentColor;
+	}
+	.statusbar.ok {
+		color: var(--ok-text);
+	}
+	.statusbar.checking {
+		color: var(--warn);
+	}
+	.statusbar.down {
+		color: var(--danger);
+	}
+	.statusbar .dim {
+		color: var(--fg-muted);
+	}
+	.statusbar .pill {
+		margin: 0 0 0 auto;
+	}
+	.hero {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 12px 8px 4px;
+		border: 1px solid var(--hairline);
+		border-radius: 14px;
+		background: var(--surface);
+	}
+	.hero.ok {
+		background: linear-gradient(135deg, color-mix(in srgb, var(--ok) 13%, var(--surface)), var(--surface) 75%);
+	}
+	.hero-text {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+		min-width: 0;
+	}
+	.cta {
+		min-height: 44px;
+		margin-top: 4px;
+		padding: 0 18px;
+		border: 0;
+		border-radius: 9px;
+		background: var(--accent);
+		color: #fff;
+		font-size: 13px;
+		font-weight: 600;
+	}
+	.cta.stop {
+		background: var(--danger);
+	}
+	.cta:disabled {
+		opacity: 0.6;
+	}
+	.ipline {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 0 4px;
+		font-size: 11px;
+		color: var(--fg-muted);
+		user-select: text;
+	}
+	.tiles {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+	}
+	.tile {
+		display: grid;
+		gap: 2px;
+		padding: 8px 12px;
+		border: 1px solid var(--hairline);
+		border-radius: 12px;
+		background: var(--surface);
+	}
+	.tile small {
+		font-size: 10px;
 		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--fg-muted);
+	}
+	.tile strong {
+		font-size: 16px;
+	}
+	.today-row {
+		display: flex;
+		justify-content: space-between;
+		width: 100%;
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
+	.today-row strong {
+		color: var(--fg);
 	}
 	.headline.ok {
 		color: var(--ok-text);
@@ -244,74 +344,14 @@
 	.sub {
 		margin: 0;
 		max-width: 100%;
-		text-align: center;
 		font-size: 12px;
 		color: var(--fg-muted);
-	}
-	.strip {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.1fr);
-		align-items: stretch;
-		overflow: hidden;
-		border: 1px solid var(--hairline);
-		border-radius: 12px;
-		background: var(--surface);
-		font-size: 12px;
-	}
-	.cell {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 7px 8px;
-		min-width: 0;
-	}
-	.cell:nth-child(2) strong {
-		font-size: 11.5px;
-	}
-	.cell + .cell {
-		border-left: 1px solid var(--hairline);
-	}
-	.cell.grow {
-		overflow: hidden;
-	}
-	.two {
-		display: grid;
-		min-width: 0;
-		line-height: 1.25;
-	}
-	.two small {
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--fg-muted);
-	}
-	.two strong {
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-		overflow-wrap: break-word;
-		font-size: 12px;
-	}
-	.flag {
-		font-size: 20px;
-	}
-	.ip {
-		font-size: 10px;
-		gap: 0;
-		justify-content: space-between;
-		color: var(--fg-muted);
-		user-select: text;
 	}
 	.ip-text {
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-	.ip :global(button) {
-		flex: none;
 	}
 	.pick {
 		display: flex;
@@ -370,31 +410,11 @@
 		justify-items: center;
 		padding-bottom: 10px;
 	}
-	.rates {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		width: 100%;
-		font-size: 14px;
-		font-weight: 700;
-	}
 	.down {
 		color: var(--down);
 	}
 	.up {
 		color: var(--up);
-	}
-	.today {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		padding: 2px 9px;
-		border-radius: 999px;
-		background: var(--accent);
-		color: #fff;
-		font-size: 11px;
-		font-weight: 600;
 	}
 	.usage.with-plan {
 		grid-template-rows: auto auto auto minmax(48px, 1fr);
@@ -409,9 +429,6 @@
 	.plan.low {
 		color: var(--warn);
 		font-weight: 600;
-	}
-	.strip.compact {
-		grid-template-columns: auto minmax(0, 1fr);
 	}
 	.graph {
 		position: relative;
