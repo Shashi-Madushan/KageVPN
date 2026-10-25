@@ -233,6 +233,7 @@
 		font-size: 13px;
 		color: var(--fg-muted);
 		padding-right: 32px;
+		white-space: nowrap;
 	}
 	.statusbar .dot {
 		width: 8px;
@@ -254,6 +255,10 @@
 	}
 	.statusbar .pill {
 		margin: 0 0 0 auto;
+		min-height: 24px;
+		padding: 2px 9px;
+		font-size: 11.5px;
+		white-space: nowrap;
 	}
 	.hero {
 		display: flex;
@@ -332,6 +337,11 @@
 	.today-row strong {
 		color: var(--fg);
 	}
+	.headline {
+		margin: 0;
+		font-size: 17px;
+		font-weight: 700;
+	}
 	.headline.ok {
 		color: var(--ok-text);
 	}
@@ -405,7 +415,7 @@
 		flex: 1 1 auto;
 		min-height: 0;
 		display: grid;
-		grid-template-rows: auto auto minmax(56px, 1fr);
+		grid-template-rows: auto minmax(56px, 1fr);
 		gap: 8px;
 		justify-items: center;
 		padding-bottom: 10px;
@@ -417,7 +427,7 @@
 		color: var(--up);
 	}
 	.usage.with-plan {
-		grid-template-rows: auto auto auto minmax(48px, 1fr);
+		grid-template-rows: auto minmax(48px, 1fr) auto;
 	}
 	.plan {
 		width: 100%;
