@@ -7,9 +7,9 @@ window.DOCS_PAGES = window.DOCS_PAGES || {};
 window.DOCS_PAGES["changelog/changelog"] = {
   category: "Changelog",
   title: "Changelog",
-  lead: "What changed in Kage, newest first, grouped by date. A heading names the release a date's changes shipped in; the newest date lists what is not released yet.",
+  lead: "What changed in Kage, newest first, grouped by date. A heading names the release a date's changes shipped in; the newest entry may list changes not released yet.",
   toc: [
-    { id: "oct-21", label: "21 Oct 2026 (unreleased)" },
+    { id: "oct-21", label: "25 Oct 2026 (0.3.0)" },
     { id: "oct-20", label: "20 Oct 2026 (0.2.0)" },
     { id: "oct-19", label: "19 Oct 2026" },
     { id: "oct-16", label: "16 Oct 2026" },
@@ -27,7 +27,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
-      <h2 id="oct-21">21 October 2026 (not released yet)</h2>
+      <h2 id="oct-21">25 October 2026: version 0.3.0</h2>
       <p>Everything since the 0.2.0 release on 20 October.</p>
       <ul>
         <li><strong>New:</strong> <strong>Set system proxy</strong> (Settings) for Proxy Only mode: while connected, the macOS proxy settings point at the VPN, so apps that follow them need no setup. Your previous settings, including a PAC file, are saved first and come back when you disconnect, quit or turn it off, and also if the app quits unexpectedly or at the next launch after a power cut. A change you make yourself while connected is kept. Add hosts that should skip the proxy under the option. Unavailable while the proxy password is on. Home shows when it is set, and offers Repair if restoring fails.</li>
@@ -53,7 +53,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
         <li><strong>Fixed:</strong> <strong>Kill switch:</strong> turning it off while it is blocking lifts the block within a second. Turning it on while connected says it starts protecting you at the next connect.</li>
         <li><strong>Fixed:</strong> <strong>Settings:</strong> a switch that could not be saved (for example a cancelled password prompt for the root service) flips back instead of showing a change that did not happen.</li>
         <li><strong>Fixed:</strong> <strong>Data limit:</strong> changing a usage setting no longer brings back a data warning that was already shown.</li>
-        <li><strong>Fixed:</strong> <strong>Apps:</strong> app icons that were blank or went missing after a while now load again, or show the app's initial until they do.</li>
+        <li><strong>Fixed:</strong> <strong>Apps:</strong> app icons were never shown because the window blocked the pictures; they now appear for every installed app, and retry or show the initial if one cannot be read.</li>
         <li><strong>Fixed:</strong> <strong>Apps:</strong> after you save, the page shows exactly what was stored, including blocks set by a data cap, instead of the copy it sent.</li>
         <li><strong>Docs:</strong> a new <strong>App Controls &amp; Data Caps</strong> page, sections on network settings (IPv6, DNS, FakeIP), connecting by network and the setup guide, and new screenshots of App controls, data caps, the Connections Apps view, ready-made lists and the data settings. Corrected: Proxy Only mode does not change the macOS system proxy settings (the docs said it did), and DNS is described as it really works in each mode.</li>
       </ul>
