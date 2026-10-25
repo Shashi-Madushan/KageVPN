@@ -14,6 +14,8 @@ pub enum Kind {
     Toggle,
     /// Comma-separated values stored as a list.
     List,
+    /// Several lines of text kept exactly as typed, such as a private key.
+    Multiline,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -57,15 +59,16 @@ pub struct Field {
     pub optional: bool,
     pub mono: bool,
     pub placeholder: Option<&'static str>,
-    /// Shown under the field while it is switched on or filled in.
+    /// Shown under the field while it is switched on, or while it is empty when `warn_when_empty`.
     pub warning: Option<&'static str>,
+    pub warn_when_empty: bool,
     pub show_when: Option<ShowWhen>,
     pub pattern: Option<Pattern>,
 }
 
 impl Field {
     fn new(kind: Kind, key: &'static str, label: &'static str, section: Section) -> Self {
-        Self { key, label, kind, section, choices: Vec::new(), optional: false, mono: false, placeholder: None, warning: None, show_when: None, pattern: None }
+        Self { key, label, kind, section, choices: Vec::new(), optional: false, mono: false, placeholder: None, warning: None, warn_when_empty: false, show_when: None, pattern: None }
     }
 
     pub fn text(key: &'static str, label: &'static str, section: Section) -> Self {
@@ -78,6 +81,10 @@ impl Field {
 
     pub fn toggle(key: &'static str, label: &'static str, section: Section) -> Self {
         Self::new(Kind::Toggle, key, label, section)
+    }
+
+    pub fn multiline(key: &'static str, label: &'static str, section: Section) -> Self {
+        Self { mono: true, ..Self::new(Kind::Multiline, key, label, section) }
     }
 
     pub fn list(key: &'static str, label: &'static str, section: Section) -> Self {
@@ -109,6 +116,13 @@ impl Field {
 
     pub fn warning(mut self, text: &'static str) -> Self {
         self.warning = Some(text);
+        self
+    }
+
+    /// A warning shown while the field is left empty, for an optional value that is risky to skip.
+    pub fn warning_when_empty(mut self, text: &'static str) -> Self {
+        self.warning = Some(text);
+        self.warn_when_empty = true;
         self
     }
 

@@ -17,6 +17,7 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
     { id: "modes-comparison", label: "Mode Comparison" },
     { id: "tun-mode-deep-dive", label: "Full System TUN Mode" },
     { id: "proxy-only-mode", label: "Proxy Only Mode" },
+    { id: "system-proxy", label: "Set system proxy" },
     { id: "dns-handling", label: "DNS Hijacking & Resolution" }
   ],
   contentHtml: `
@@ -79,13 +80,24 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
       </p>
       <ul>
         <li>Kage launches sing-box with a mixed SOCKS5/HTTP inbound listener on <code>127.0.0.1:2080</code>. If another program already uses that port, Kage picks the next free one and shows the address on the Home page.</li>
-        <li>It utilizes macOS <code>networksetup</code> to toggle the HTTP and SOCKS proxy state on the active network adapter (e.g. Wi-Fi).</li>
-        <li>When disconnected, Kage automatically turns off proxy settings in System Settings.</li>
+        <li>By default Kage does not change the proxy settings in System Settings: point each app (a browser, a terminal tool) at the address yourself, as a SOCKS5 or HTTP proxy.</li>
+        <li>With <strong>Set system proxy</strong> on (Settings), Kage points the macOS proxy settings at the VPN while you are connected, so apps that follow them (Safari, most browsers, many other apps) use it without any setup. Details below.</li>
+        <li>With <strong>Password for the local proxy</strong> on (Settings), apps must log in as <code>kage</code> with the password shown there. The system proxy option is unavailable then, because apps that follow the system proxy usually ignore the login.</li>
       </ul>
+
+      <h3 id="system-proxy">Set system proxy</h3>
+      <p>When you connect in Proxy Only mode with this option on, Kage:</p>
+      <ul>
+        <li>saves the current proxy settings of every network service (Wi-Fi, Ethernet and so on), including an automatic proxy (PAC) file if you use one;</li>
+        <li>sets the Web, Secure Web and SOCKS proxies to the local address, and turns off automatic proxy configuration while connected (it would take precedence);</li>
+        <li>skips the proxy for localhost, <code>*.local</code> and private address ranges, plus any hosts you add under the option (one per line, such as <code>*.corp.example</code> or <code>10.20.0.0/16</code>).</li>
+      </ul>
+      <p>Your saved settings come back when you disconnect or quit, when you turn the option off, and when a reconnect gives up. A reconnect keeps the proxy set. If the app quits unexpectedly, the background process that runs sing-box puts them back; if even that is stopped (a power cut), Kage puts them back the next time it opens. Kage only puts back a service that still points at it, so a change you made yourself while connected is kept.</p>
+      <p>Home shows <em>System proxy on</em> while it is set. If setting or restoring fails, Home shows a warning with a <strong>Repair</strong> button, which puts back the settings Kage saved. A network service whose proxy needs a login is left alone (macOS keeps that password where Kage cannot put it back). No administrator password is needed: macOS allows its own <code>networksetup</code> tool to change these settings.</p>
 
       <h2 id="dns-handling">DNS Hijacking & Resolution</h2>
       <p>
-        In TUN mode, sing-box captures port 53 traffic, eliminating DNS poisoning and ISP snooping. All DNS queries are routed directly through your remote outbound server via DNS-over-HTTPS (DoH) or DNS-over-TLS (DoT).
+        In TUN mode, sing-box captures DNS lookups (port 53) from every app and answers them with the provider chosen under <strong>Routing, Network</strong> (Cloudflare by default, over HTTPS), asked through the VPN so your internet provider cannot see or tamper with them. While routing is set to <em>VPN idle</em>, the same provider is asked over your normal connection. With <em>System resolver</em> chosen, lookups use your Mac's own resolver. In Proxy Only mode apps hand site names to the server, which looks them up, so the provider choice is not used. See <a href="#/user-guide/routing-rules">Network Settings</a> for FakeIP and IPv6.
       </p>
     </div>
   `
@@ -128,6 +140,10 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
             <li><code>trojan://...#ServerName</code></li>
             <li><code>ss://...#ServerName</code> (SIP002 and 2022 AEAD ciphers)</li>
             <li><code>hysteria2://...#ServerName</code> (including Salamander obfuscation)</li>
+            <li><code>tuic://uuid:password@host:port?...#ServerName</code> (TUIC v5; v4 links are refused)</li>
+            <li><code>hysteria://host:port?auth=...&amp;upmbps=...&amp;downmbps=...#ServerName</code> (Hysteria v1; a link without speeds gets 10 Mbps up and 50 Mbps down, and the import says so)</li>
+            <li><code>ssh://user:password@host:port#ServerName</code> (SSH; a private key and host key can be added in the server editor)</li>
+            <li><code>wireguard://privatekey@host:port?publickey=...&amp;address=...#ServerName</code> or a WireGuard <code>.conf</code> file, pasted or dropped (the server is named after the file)</li>
           </ul>
         </div>
       </div>
@@ -151,7 +167,7 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
       </p>
       <ul>
         <li><strong>Refresh:</strong> subscriptions refresh every 12 hours on their own; <strong>Refresh</strong> does it now. A subscription that keeps failing is retried less and less often.</li>
-        <li><strong>Your plan:</strong> when the provider reports it, the subscription shows how much data is used and when it ends, and the menu bar popover shows what is left for the server you use. You get one notification at 90% of the data, one when it runs out, and one three days before the end date.</li>
+        <li><strong>Your plan:</strong> when the provider reports it, the subscription shows how much data is used and when it ends, and the menu bar popover shows what is left for the server you use. You get one notification at 90% of the data and one when it runs out. For the end date there are notifications 7 days, 3 days and 1 day before it, and one when the plan ends; each is sent once, and the end date is checked every half hour even if the subscription itself cannot be refreshed. The plan line in the popover turns to the warning colour at 10% of the data or 7 days left.</li>
         <li><strong>Edit:</strong> change the name or the link (for example after your provider gives you a new one), and the options below. Saving refreshes the subscription.</li>
         <li><strong>Ask as:</strong> some providers send a different list, or none, depending on the app asking. If a subscription comes back empty, try <em>v2rayN</em>, <em>sing-box</em> or <em>Clash Meta</em>, or type the client name your provider expects.</li>
         <li><strong>Send device ID:</strong> some providers limit how many devices may use one subscription and refuse apps that do not identify the device. Turn this on for them. Kage sends a random ID made for this Mac (not a hardware serial), the macOS version and the Mac model, and only to that subscription's address. If the provider says its device limit is reached, remove a device you no longer use in the provider's panel.</li>
@@ -194,6 +210,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
     { id: "built-in-rules", label: "Ready-made Lists" },
     { id: "list-sources", label: "List Sources & Downloads" },
     { id: "custom-rules", label: "Your Own Rules" },
+    { id: "network-settings", label: "Network Settings" },
     { id: "dns-resolution-rules", label: "Route Precedence" }
   ],
   contentHtml: `
@@ -205,7 +222,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
 
       <h2 id="routing-modes">Choosing a Mode</h2>
       <p>
-        <strong>Routing</strong> opens with three cards: <strong>Everything through the VPN</strong> (the simplest choice), <strong>Choose by rules</strong>, and <strong>VPN idle</strong> (the VPN stays on but nothing uses it, which is handy for testing). In rules mode, an <strong>Everything else</strong> card decides what happens to traffic that no rule or list matches: <em>Use the VPN</em> or <em>Go direct</em>. Below it, three tabs hold <strong>Your rules</strong>, <strong>Ready-made lists</strong> and <strong>Try a website</strong>. <strong>Network</strong>, at the bottom, has the local-network and DNS settings that apply in every mode. Changes apply when you press <strong>Save changes</strong> and connect again.
+        <strong>Routing</strong> opens with three cards: <strong>Everything through the VPN</strong> (the simplest choice), <strong>Choose by rules</strong>, and <strong>VPN idle</strong> (the VPN stays on but nothing uses it, which is handy for testing). In rules mode, an <strong>Everything else</strong> card decides what happens to traffic that no rule or list matches: <em>Use the VPN</em> or <em>Go direct</em>. Below it, three tabs hold <strong>Your rules</strong>, <strong>Ready-made lists</strong> and <strong>Try a website</strong>. Choices for whole apps and data caps are on their own <strong>App controls</strong> page in the sidebar. <strong>Network</strong>, at the bottom, has the local-network and DNS settings that apply in every mode. Changes apply when you press <strong>Save changes</strong> and connect again.
       </p>
 
       <h2 id="built-in-rules">Ready-made Lists</h2>
@@ -217,6 +234,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
         <li><strong>Websites &amp; services:</strong> advertising and trackers, local and private networks, Google, YouTube, Apple, Microsoft, GitHub, OpenAI, Anthropic, Netflix, Disney+, Spotify, Telegram, WhatsApp, Discord, X, Facebook, TikTok, Steam, PayPal, Amazon and more. Each one suggests a sensible action, such as <em>Block</em> for advertising.</li>
         <li><strong>Other&hellip;</strong> accepts any list name the chosen source publishes.</li>
       </ul>
+      <figure class="shot"><img src="assets/images/routing-lists.png" alt="The Ready-made lists tab with three lists and their download state" decoding="async"></figure>
       <p>
         Each list shows whether it is <strong>Ready</strong> or <strong>Not downloaded</strong>. A list that could not be downloaded is left out and the connection still starts, so a blocked download never stops you from connecting.
       </p>
@@ -249,9 +267,75 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
         You can also add an app rule from <strong>Connections &rarr; Apps</strong>: click an app and choose <strong>Through VPN</strong>, <strong>Direct</strong> or <strong>Block</strong>. If routing was in Global or Direct mode, it switches to Rules mode with the same default for everything else, so only that app changes. The VPN reconnects to apply it.
       </p>
 
+      <p>
+        Choices for whole apps (VPN, Direct or Block) and their data caps have their own page: see <a href="#/user-guide/app-controls">App Controls &amp; Data Caps</a>.
+      </p>
+
+      <h2 id="network-settings">Network Settings</h2>
+      <p>
+        <strong>Network</strong>, at the bottom of Routing, applies in every routing mode:
+      </p>
+      <ul>
+        <li><strong>Keep my local network reachable:</strong> printers, routers and other devices on your home or office network are reached directly, not through the VPN.</li>
+        <li><strong>Allow IPv6</strong> (off for new installs): turn it on only if your server has IPv6. While it is off the tunnel carries IPv4 only and IPv6 connections are refused at once, so browsers fall back to IPv4 straight away and sites do not half-load. On a network with its own IPv6, that IPv6 traffic goes outside the VPN while the switch is off.</li>
+        <li><strong>DNS provider:</strong> Cloudflare, Google, Quad9, a custom server, or the system resolver. A custom server can be a host (<code>dns.example.com</code>, asked over HTTPS) or a link such as <code>https://dns.nextdns.io/your-id</code>, <code>tls://</code>, <code>quic://</code>, <code>udp://</code> or <code>tcp://</code>; an entry that cannot work is refused when you save. Lookups go through the VPN, except while the VPN is idle, when they go to the same provider over your normal connection. In Proxy Only mode the choice is not used: apps hand site names to the server, which looks them up.</li>
+        <li><strong>Route by site name (FakeIP):</strong> Full System mode only. Apps get made-up addresses that the tunnel maps back to the site name, so domain rules stay exact and your local resolver's answers do not matter. The made-up addresses expire after a second, so nothing breaks after you disconnect. Turn it off if an app that remembers addresses misbehaves.</li>
+      </ul>
+
       <h2 id="dns-resolution-rules">Route Precedence</h2>
       <p>
         Your rules are evaluated from top to bottom and the first one that matches decides. Ready-made lists come after your rules. Anything still unmatched follows <strong>Everything else</strong>.
+      </p>
+    </div>
+  `
+};
+
+window.DOCS_PAGES["user-guide/app-controls"] = {
+  category: "User Guide",
+  title: "App Controls & Data Caps",
+  featureBadge: "Apps",
+  lead: "Choose for each installed app whether it uses the VPN, goes direct or is blocked, and give any app its own daily, weekly or monthly data limit.",
+  heroImage: {
+    src: "assets/images/apps.png",
+    alt: "The App controls page listing installed apps with VPN, Direct and Block buttons and data cap bars",
+    title: "App Controls"
+  },
+  toc: [
+    { id: "app-rules", label: "Choosing by App" },
+    { id: "app-caps", label: "Data Caps for Apps" },
+    { id: "from-connections", label: "From the Connections Page" },
+    { id: "rules-mode", label: "How It Fits with Routing" }
+  ],
+  contentHtml: `
+    <div class="docs-prose">
+      <h2 id="app-rules">Choosing by App</h2>
+      <p>
+        The <strong>App controls</strong> page (in the sidebar's <strong>Apps</strong> section, with Connections) lists the apps installed on your Mac. Next to each one, choose <em>VPN</em>, <em>Direct</em> or <em>Block</em>, or press the reset arrow to follow the default again. A bright button is a rule you made; a quiet outline is what the app does by default, because it has no rule. A bar under the app's name shows its data cap when it has one. An app you have not chosen for follows the default set under <strong>Routing</strong>, <strong>Everything else</strong>. Blocked apps are listed above the search box with an <em>Unblock</em> button, and each row shows how much data the app used through the VPN this billing period when app tracking is on. Programs without an app icon, and rules for apps you have since removed, appear at the bottom and are edited under <strong>Your rules</strong>. This app and its engine cannot be blocked, because the VPN itself needs the network. Changes apply when you press <strong>Save changes</strong>.
+      </p>
+
+      <figure class="shot"><img src="assets/images/app-cap-editor.png" alt="The data cap editor open under Slack, with limit, period and what happens at the limit" decoding="async"></figure>
+
+      <h2 id="app-caps">Data Caps for Apps</h2>
+      <p>
+        Open <strong>App controls</strong> in the sidebar and press <strong>Set cap</strong> next to an app (or click anywhere on its row) to give it its own data limit. To change or remove a cap later, press <strong>Edit cap</strong> (or click the bar under the app's name): the editor has <strong>Save cap</strong> and <strong>Remove cap</strong>. Choose the size (in MB or GB), how often it starts over (<em>Day</em>, <em>Week</em> or <em>Month</em>, always from midnight, from Monday for weeks and the 1st for months) and what happens at the limit: <em>Tell me</em> or <em>Offer to block</em>. You get a notification at 80% and again at 100%.
+      </p>
+      <figure class="shot"><img src="assets/images/home-cap-offer.png" alt="Home with a card saying Discord reached its monthly data cap, with Block now and Not now" decoding="async"></figure>
+      <p>
+        With <em>Offer to block</em>, a card on Home and the app's row show <strong>Block now</strong> and <strong>Not now</strong> at 100%. Block now stops the app using the network until the period ends and reconnects the VPN once; it is lifted by itself when the period starts over (with a notification), or any time with <strong>Unblock</strong>. Nothing is blocked unless you press Block now.
+      </p>
+      <p>
+        Caps count only what the app sends through the VPN, taken from the connection list every few seconds, so figures are approximate: very short connections can be missed. Counting needs <em>app usage</em> to be on (Settings, Usage); the cap editor offers to turn it on. Clearing your usage history does not change a cap. Kage and its engine cannot be capped.
+      </p>
+
+      <h2 id="from-connections">From the Connections Page</h2>
+      <p>
+        <strong>Connections</strong>, in the same sidebar section, opens on its <strong>Apps</strong> view: every app sending or receiving data right now, with live upload and download speeds, what it moved since you opened the page, and a bar showing how busy it is. The <strong>Route</strong> button on each row shows the app's current choice and sets it to <em>Through VPN</em>, <em>Direct</em> or <em>Block</em> in one click; the VPN reconnects to apply it. The <strong>Connections</strong> view lists every open connection with its destination, rule and traffic.
+      </p>
+      <figure class="shot"><img src="assets/images/connections-apps.png" alt="The Connections page Apps view with live speeds and a Route button on each app" decoding="async"></figure>
+
+      <h2 id="rules-mode">How It Fits with Routing</h2>
+      <p>
+        A choice for one app is a routing rule, placed at the top of <strong>Your rules</strong> so it wins over broader ones. Per-app choices only work in <strong>Choose by rules</strong> mode, so choosing one while routing is set to <em>Everything through the VPN</em> or <em>VPN idle</em> switches to rules mode with the same default for everything else: only that app changes. If you had saved rules or lists earlier that the other mode ignored, they start applying too, and a notice says how many so you can check them under Routing.
       </p>
     </div>
   `
@@ -275,6 +359,7 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
     { id: "watchdog-monitoring", label: "Process Watchdog Loop" },
     { id: "connection-health", label: "Connection Health Monitor" },
     { id: "crash-log", label: "When the VPN Stops Unexpectedly" },
+    { id: "by-network", label: "Connect or Disconnect by Network" },
     { id: "manual-recovery", label: "Emergency Network Recovery" }
   ],
   contentHtml: `
@@ -336,12 +421,17 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
         A red state offers <strong>Try another server</strong>, <strong>Reconnect</strong>, <strong>Diagnostics</strong> and <strong>Disconnect</strong>. The menu bar icon switches to a warning icon and the menu shows the status on its first line. When traffic returns, the status turns green on its own.
       </p>
       <p>
-        Before connecting, Kage also checks that the server name resolves and (for TCP protocols) accepts a connection, so an unusable server fails in seconds with a clear message. Hysteria2 uses UDP and skips the TCP check.
+        Before connecting, Kage also checks that the server name resolves and (for TCP protocols) accepts a connection, so an unusable server fails in seconds with a clear message. Hysteria, Hysteria2, TUIC and WireGuard use UDP and skip the TCP check.
       </p>
 
       <h2 id="crash-log">When the VPN Stops Unexpectedly</h2>
       <p>
         If sing-box exits on its own, or the tunnel stops answering while sing-box is still running, Kage shows a notification with the reason (for example the exit status and the last error), a red banner on the home screen, and writes an entry to <code>crashes.log</code> in the data folder. Open it in the app from the banner's <strong>View crash log</strong> button or the <strong>Crash log</strong> button on the Logs page. It has Copy and Clear buttons.
+      </p>
+
+      <h2 id="by-network">Connect or Disconnect by Network</h2>
+      <p>
+        <strong>Settings, Networks</strong> can connect or disconnect the VPN by itself when your Mac joins a network you know, for example connect on café Wi-Fi and do nothing at home. Each network is recognised by its router's hardware address, so no location permission is needed. The first time you join a network the app asks once; afterwards choose <em>Connect</em>, <em>Disconnect</em> or <em>Do nothing</em> for it, rename it or forget it. Connecting or disconnecting by hand wins until the network changes.
       </p>
 
       <h2 id="manual-recovery">Emergency Network Recovery</h2>
@@ -452,6 +542,7 @@ window.DOCS_PAGES["user-guide/data-usage"] = {
       <p>
         The data limit and tracking options live in <strong>Settings</strong>, under <em>Data usage</em> and <em>Usage privacy</em>:
       </p>
+      <figure class="shot"><img src="assets/images/settings-usage.png" alt="Settings with the monthly data limit and usage privacy options" decoding="async"></figure>
       <ul>
         <li><strong>Monthly data limit</strong>, the day the month starts, and what happens when the limit is reached (notify, or notify and disconnect).</li>
         <li><strong>Track apps</strong> and <strong>Track websites</strong> (off by default), <strong>Pause counting</strong>, and how long app and website history is kept.</li>

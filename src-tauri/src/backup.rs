@@ -33,7 +33,7 @@ pub fn envelope(data: Value, created: u64) -> Value {
 
 /// The setup inside a backup. A plain data file copied from another Mac is accepted too.
 pub fn unwrap(text: &str) -> Result<Value> {
-    let not_backup = || AppError::Invalid("this file is not a Kage VPN backup".into());
+    let not_backup = || AppError::Invalid("this file is not a Kage backup".into());
     let mut value: Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).map_err(|_| not_backup())?;
     match value.get("kind").and_then(Value::as_str) {
         Some(KIND) => {

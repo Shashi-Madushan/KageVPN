@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { privacy, privacyKey } from '$lib/privacy.svelte';
 	import { protocols } from '$lib/protocols.svelte';
@@ -6,6 +7,9 @@
 	import PrivacyToggle from './PrivacyToggle.svelte';
 	import Sensitive from './Sensitive.svelte';
 	import { appUpdate } from '$lib/appUpdate.svelte';
+	import { onMount } from 'svelte';
+	import { caps } from '$lib/caps.svelte';
+	import { periodWord } from '$lib/capView';
 	import { core } from '$lib/core.svelte';
 	import { downloads, STAGES } from '$lib/downloads.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
@@ -23,6 +27,8 @@
 	import StatTile from './StatTile.svelte';
 	import type { Page } from './Sidebar.svelte';
 
+
+	onMount(() => caps.use());
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
 
 	const modes = [
@@ -41,6 +47,16 @@
 			clearInterval(refresh);
 		};
 	});
+
+	let repairing = $state(false);
+	async function repairSystemProxy() {
+		repairing = true;
+		await api.repairSystemProxy().then(
+			() => app.notify('Your proxy settings are back as they were.', 'info'),
+			(e) => app.notify(String(e))
+		);
+		repairing = false;
+	}
 
 	const isConnecting = $derived(app.status.state === 'connecting');
 	const statusText = $derived(
@@ -87,6 +103,25 @@
 </script>
 
 <div class="home">
+	{#each caps.pending as c (c.path)}
+		<div class="banner card danger" role="status">
+			<div class="banner-text grow">
+				<strong>{c.name} reached its {formatBytes(c.limitBytes)} {periodWord(c.period)} data cap</strong>
+				<small>Blocking stops it using the network until the {c.period} ends. The VPN reconnects once.</small>
+			</div>
+			<button class="primary" onclick={() => caps.block(c.path)}>Block now</button>
+			<button onclick={() => caps.notNow(c.path)}>Not now</button>
+		</div>
+	{/each}
+	{#if app.status.systemProxy?.state === 'failed'}
+		<div class="banner card danger" role="status">
+			<div class="banner-text grow">
+				<strong>{app.status.systemProxy.action === 'set' ? 'Could not set the system proxy' : 'Your proxy settings may still point at Kage'}</strong>
+				<small>{app.status.systemProxy.reason}</small>
+			</div>
+			<button class="primary" disabled={repairing} onclick={repairSystemProxy}>{repairing ? 'Repairing…' : 'Repair'}</button>
+		</div>
+	{/if}
 	{#if core.downloading}
 		<div class="banner card info" role="status">
 			<div class="banner-text grow">
@@ -154,6 +189,9 @@
 				<div class="chips">
 					{#if app.connected && app.status.mode === 'proxy' && app.status.proxyPort}
 						<span class="chip mono" title={app.reliability.proxyAuth ? 'Point apps at this address (SOCKS5 or HTTP). Login: user kage, password in Settings' : 'Point apps at this address (SOCKS5 or HTTP)'}>127.0.0.1:{app.status.proxyPort}</span>
+					{/if}
+					{#if app.connected && app.status.systemProxy?.state === 'set'}
+						<span class="chip" title="The macOS proxy settings point at the VPN; they come back when you disconnect">System proxy on</span>
 					{/if}
 					{#if app.reliability.killSwitch}
 						<span class="chip" title="Kill switch is armed"><Icon name="shield" size={12} /> Kill switch</span>

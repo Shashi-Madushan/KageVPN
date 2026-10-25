@@ -167,7 +167,7 @@ fn ask(app: &AppHandle, network: CurrentNetwork) {
 fn question(name: &str) -> Option<String> {
     let name: String = name.chars().filter(|c| !matches!(c, '"' | '\\')).collect();
     let script = format!(
-        "display dialog \"New network: {name}. Connect the VPN whenever you are on it? You can change this in Settings, Networks.\" with title \"Kage VPN\" buttons {{\"Ignore\", \"Connect\"}} default button \"Connect\" giving up after {ASK_SECONDS}"
+        "display dialog \"New network: {name}. Connect the VPN whenever you are on it? You can change this in Settings, Networks.\" with title \"Kage\" buttons {{\"Ignore\", \"Connect\"}} default button \"Connect\" giving up after {ASK_SECONDS}"
     );
     let text = run("/usr/bin/osascript", &["-e", &script])?;
     // Output looks like: button returned:Connect, gave up:false

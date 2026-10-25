@@ -9,6 +9,10 @@ fn sample_links() -> Vec<String> {
         "trojan://secret@b.example.com:443?security=tls&type=tcp#trojan".into(),
         "ss://YWVzLTI1Ni1nY206cGE1NXdvcmQ@c.example.com:8388#ss".into(),
         "hysteria2://auth@d.example.com:443/?sni=d.example.com#hy2".into(),
+        format!("tuic://{ID}:pw@e.example.com:443?alpn=h3#tuic"),
+        "hysteria://f.example.com:443?auth=pw&upmbps=10&downmbps=50#hy1".into(),
+        "ssh://root:pw@g.example.com:22#ssh".into(),
+        format!("wireguard://{}@h.example.com:51820?publickey={}&address=10.0.0.2#wg", crate::profile::TestKey(0xfb).url(), crate::profile::TestKey(0xfe).url()),
     ]
 }
 
@@ -17,7 +21,7 @@ fn one_paste_can_mix_every_protocol() {
     let (profiles, errors) = parse_many(&sample_links().join("\n"));
     assert!(errors.is_empty(), "{errors:?}");
     let kinds: Vec<_> = profiles.iter().map(|p| p.protocol.as_str()).collect();
-    assert_eq!(kinds, ["vless", "trojan", "shadowsocks", "hysteria2"]);
+    assert_eq!(kinds, ["vless", "trojan", "shadowsocks", "hysteria2", "tuic", "hysteria", "ssh", "wireguard"]);
 }
 
 #[test]
@@ -65,7 +69,7 @@ fn different_protocols_at_one_address_are_not_duplicates() {
 
 #[test]
 fn an_unknown_protocol_in_saved_data_is_an_error_not_a_silent_vless() {
-    let saved = r#"{"id":"1","protocol":"wireguard","name":"n","server":"s","port":1}"#;
+    let saved = r#"{"id":"1","protocol":"anytls","name":"n","server":"s","port":1}"#;
     assert!(serde_json::from_str::<Profile>(saved).is_err());
 }
 
@@ -107,6 +111,7 @@ fn fuzz_seeds() -> Vec<String> {
         "ss://YWVzLTI1Ni1nY206cGFzc0BoLmV4YW1wbGUuY29tOjgzODg#legacy".to_string(),
         "hysteria2://pw@h.example.com:443?obfs=salamander&obfs-password=x&insecure=1&sni=s.example.com#hy".to_string(),
         "hysteria2://pw@h.example.com:443,5000-6000?sni=s.example.com#ports".to_string(),
+        format!("tuic://{ID}:p%40w@[2001:db8::1]:443?congestion_controller=cubic&udp_relay_mode=quic&reduce_rtt=1&allow_insecure=1#t6"),
         "trojan://p%40ss@h.example.com:443?security=tls&type=grpc&serviceName=svc&allowInsecure=1#t".to_string(),
     ]);
     seeds
@@ -188,8 +193,32 @@ fn a_byte_order_mark_does_not_hide_the_first_link() {
 
 #[test]
 fn links_this_app_cannot_run_are_reported_not_silently_dropped() {
-    let text = format!("tuic://u:p@a.example.com:443?alpn=h3#T\nvless://{ID}@b.example.com:443?security=tls#V\nHYSTERIA://x@c.example.com:1#H\nwireguard://k@d.example.com:51820");
+    let text = format!("socks5://u:p@a.example.com:1080#S\nvless://{ID}@b.example.com:443?security=tls#V\nSSR://x@c.example.com:1#H\nanytls://k@d.example.com:443");
     let (profiles, errors) = parse_many(&text);
     assert_eq!(profiles.len(), 1);
-    assert_eq!(errors, ["tuic:// links are not supported yet", "hysteria:// links are not supported yet", "wireguard:// links are not supported yet"]);
+    assert_eq!(errors, ["socks5:// links are not supported yet", "ssr:// links are not supported yet", "anytls:// links are not supported yet"]);
+}
+
+#[test]
+fn servers_imported_with_a_default_come_with_a_note() {
+    let parsed = parse_all("hysteria://h.example.com:443?auth=pw#Speedless\nhysteria://h.example.com:444?auth=pw&upmbps=5&downmbps=5#Full\ntrojan://x@t.example.com:443#T");
+    assert_eq!((parsed.profiles.len(), parsed.errors.len()), (3, 0));
+    assert_eq!(parsed.notes.len(), 1);
+    assert!(parsed.notes[0].starts_with("Speedless: no speeds in the link"), "{:?}", parsed.notes);
+}
+
+#[test]
+fn a_wireguard_file_is_one_server_named_after_the_file() {
+    let conf = format!(
+        "[Interface]\nPrivateKey = {}\nAddress = 10.0.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = {}\nAllowedIPs = 0.0.0.0/0\nEndpoint = wg.example.com:51820\n",
+        crate::profile::TestKey(0xfb),
+        crate::profile::TestKey(0xfe)
+    );
+    let conf = conf.as_str();
+    let parsed = parse_all_named(conf, Some("warp-tokyo.conf"));
+    assert_eq!((parsed.profiles.len(), parsed.errors.len()), (1, 0));
+    assert_eq!((parsed.profiles[0].protocol.as_str(), parsed.profiles[0].name.as_str()), ("wireguard", "warp-tokyo"));
+    assert_eq!(parsed.notes, ["warp-tokyo: DNS from the file is not used; Kage's DNS and routing settings decide"]);
+    let refused = parse_all(&conf.replace("Endpoint = wg.example.com:51820\n", ""));
+    assert_eq!(refused.errors, ["the file has no Endpoint for its peer"]);
 }

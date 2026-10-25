@@ -15,6 +15,9 @@
 	let lists = $state<Record<string, string>>({});
 	let error = $state<string | null>(null);
 	let saving = $state(false);
+	/** The port the current protocol's blank server came with, so switching protocol moves an
+	 * untouched port to the new protocol's default (SSH uses 22) but keeps one the user typed. */
+	let blankPort = $state<number | null>(null);
 
 	const creating = $derived(!draft.id);
 	const info = $derived(protocols.find(draft.protocol));
@@ -28,6 +31,7 @@
 
 	function load(source: Profile) {
 		draft = structuredClone($state.snapshot(source)) as Profile;
+		blankPort = source.id ? null : source.port;
 		lists = {};
 		for (const field of protocols.find(draft.protocol)?.fields ?? []) {
 			if (field.kind === 'list') lists[field.key] = ((getPath(draft.settings, field.key) as string[] | undefined) ?? []).join(',');
@@ -47,6 +51,7 @@
 		return field.showWhen.values.includes(String(getPath(draft.settings, field.showWhen.key) ?? ''));
 	};
 	const text = (field: FormField) => String(getPath(draft.settings, field.key) ?? '');
+	const empty = (field: FormField) => (field.kind === 'list' ? (lists[field.key] ?? '') : text(field)).trim() === '';
 	const set = (field: FormField, value: unknown) => setPath(draft.settings, field.key, value);
 	const inSection = (section: FieldSection) => fields.filter((f) => f.section === section && visible(f));
 	const advanced = $derived(inSection('advanced'));
@@ -60,8 +65,10 @@
 	async function switchProtocol(id: string) {
 		try {
 			const next = await api.newProfile(id);
-			const { name, server, port, group } = draft;
+			const { name, server, group } = draft;
+			const port = draft.port === blankPort ? next.port : draft.port;
 			load({ ...next, name, server, port, group });
+			blankPort = next.port;
 		} catch (e) {
 			error = String(e);
 		}
@@ -73,9 +80,10 @@
 		for (const field of fields.filter(visible)) {
 			if (field.kind === 'list') {
 				setPath(next.settings, field.key, lists[field.key].split(',').map((v) => v.trim()).filter(Boolean));
-			} else if (field.kind === 'text' || field.kind === 'select' || field.kind === 'secret') {
+			} else if (field.kind === 'text' || field.kind === 'select' || field.kind === 'secret' || field.kind === 'multiline') {
 				const raw = getPath(next.settings, field.key);
-				const value = field.kind === 'secret' ? String(raw ?? '') : String(raw ?? '').trim();
+				const kept = field.kind === 'secret' || field.kind === 'multiline';
+				const value = kept ? String(raw ?? '') : String(raw ?? '').trim();
 				if (value !== '' || raw !== undefined) setPath(next.settings, field.key, value === '' && field.optional ? null : value);
 			}
 		}
@@ -113,6 +121,17 @@
 		{#if field.warning && getPath(draft.settings, field.key) === true}<p class="warn">{field.warning}</p>{/if}
 	{:else if field.kind === 'list'}
 		<input class="input mono" bind:value={lists[field.key]} placeholder={field.placeholder ?? ''} spellcheck="false" aria-label={field.label} />
+	{:else if field.kind === 'multiline'}
+		<textarea
+			class="input mono"
+			rows="5"
+			value={text(field)}
+			oninput={(e) => set(field, e.currentTarget.value)}
+			placeholder={field.placeholder ?? ''}
+			spellcheck="false"
+			autocomplete="off"
+			aria-label={field.label}
+		></textarea>
 	{:else}
 		<input
 			class="input"
@@ -127,6 +146,7 @@
 		/>
 		{#if bad(field)}<span class="field-error">{bad(field)}</span>{/if}
 	{/if}
+	{#if field.warnWhenEmpty && field.warning && empty(field)}<p class="warn">{field.warning}</p>{/if}
 {/snippet}
 
 {#snippet fieldRow(field: FormField)}
@@ -157,7 +177,8 @@
 						{#if creating}
 							<div class="field">
 								<span class="field-label">Protocol</span>
-								<Segmented options={protocolOptions} value={draft.protocol} label="Protocol" onchange={switchProtocol} />
+								<!-- Eight protocols no longer fit in one row of buttons. -->
+								<Select options={protocolOptions} value={draft.protocol} label="Protocol" grow onchange={switchProtocol} />
 							</div>
 						{/if}
 						<label class="field">

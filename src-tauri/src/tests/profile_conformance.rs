@@ -49,8 +49,13 @@ fn the_outbound_has_an_address_and_no_tag() {
     for def in REGISTRY {
         let outbound = def.outbound(&parsed(*def));
         assert!(outbound["type"].is_string(), "{}: no outbound type", def.id());
-        assert_eq!(outbound["server_port"], parsed(*def).port, "{}: wrong port", def.id());
-        assert!(outbound["server"].is_string(), "{}: no server", def.id());
+        // An endpoint (WireGuard) names its server in its peer.
+        let (server, port) = match def.kind() {
+            ServerKind::Outbound => (&outbound["server"], &outbound["server_port"]),
+            ServerKind::Endpoint => (&outbound["peers"][0]["address"], &outbound["peers"][0]["port"]),
+        };
+        assert_eq!(*port, parsed(*def).port, "{}: wrong port", def.id());
+        assert!(server.is_string(), "{}: no server", def.id());
         assert!(outbound.get("tag").is_none(), "{}: the tag is added by the caller", def.id());
     }
 }
@@ -90,7 +95,9 @@ fn the_editor_fields_point_at_real_settings() {
 
 #[test]
 fn a_blank_server_of_this_protocol_needs_its_credentials() {
-    for def in REGISTRY {
+    // Hysteria v1 servers may accept anyone, so its password is optional.
+    const OPTIONAL_CREDENTIALS: &[&str] = &["hysteria"];
+    for def in REGISTRY.iter().filter(|d| !OPTIONAL_CREDENTIALS.contains(&d.id())) {
         let mut blank = def.blank();
         assert_eq!(blank.protocol, def.id());
         blank.name = "n".into();
@@ -116,5 +123,17 @@ fn lists_get_a_description() {
     for def in REGISTRY {
         assert!(!def.summary(&parsed(*def)).is_empty(), "{}: empty summary", def.id());
         assert!(!def.label().is_empty());
+    }
+}
+
+#[test]
+fn only_udp_protocols_need_quic_and_endpoints_are_wireguard() {
+    for def in REGISTRY {
+        if def.feature() == Some("with_quic") {
+            assert!(def.over_udp(), "{}: QUIC is UDP", def.id());
+        }
+        if def.kind() == ServerKind::Endpoint {
+            assert_eq!(def.feature(), Some("with_wireguard"), "{}", def.id());
+        }
     }
 }

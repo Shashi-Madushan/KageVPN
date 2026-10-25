@@ -7,9 +7,10 @@ window.DOCS_PAGES = window.DOCS_PAGES || {};
 window.DOCS_PAGES["changelog/changelog"] = {
   category: "Changelog",
   title: "Changelog",
-  lead: "What changed in Kage VPN, newest first. The app is pre-1.0 and not yet tagged, so entries are grouped by date.",
+  lead: "What changed in Kage, newest first, grouped by date. A heading names the release a date's changes shipped in; the newest entry may list changes not released yet.",
   toc: [
-    { id: "oct-20", label: "20 Oct 2026" },
+    { id: "oct-21", label: "25 Oct 2026 (0.3.0)" },
+    { id: "oct-20", label: "20 Oct 2026 (0.2.0)" },
     { id: "oct-19", label: "19 Oct 2026" },
     { id: "oct-16", label: "16 Oct 2026" },
     { id: "oct-15", label: "15 Oct 2026" },
@@ -26,9 +27,40 @@ window.DOCS_PAGES["changelog/changelog"] = {
   ],
   contentHtml: `
     <div class="docs-prose">
-      <h2 id="oct-20">20 October 2026</h2>
+      <h2 id="oct-21">25 October 2026: version 0.3.0</h2>
+      <p>Everything since the 0.2.0 release on 20 October.</p>
       <ul>
-        <li><strong>Improved:</strong> <strong>Connections</strong> (Apps tab) is redesigned. Columns are wide enough that numbers no longer get cut off, each app has an initial and a connection count, and a thin bar shows how busy it is compared with the others. Click a column heading to sort.</li>
+        <li><strong>New:</strong> <strong>Set system proxy</strong> (Settings) for Proxy Only mode: while connected, the macOS proxy settings point at the VPN, so apps that follow them need no setup. Your previous settings, including a PAC file, are saved first and come back when you disconnect, quit or turn it off, and also if the app quits unexpectedly or at the next launch after a power cut. A change you make yourself while connected is kept. Add hosts that should skip the proxy under the option. Unavailable while the proxy password is on. Home shows when it is set, and offers Repair if restoring fails.</li>
+        <li><strong>New:</strong> <strong>TUIC</strong> servers (v5): import <code>tuic://</code> links and TUIC entries in sing-box and Clash subscriptions, or add one by hand. TUIC v4 servers are listed as skipped with the reason.</li>
+        <li><strong>New:</strong> <strong>Hysteria (v1)</strong> servers: <code>hysteria://</code> links and Hysteria entries in sing-box and Clash subscriptions. A link without upload and download speeds is imported with 10 and 50 Mbps, the import result says so, and the server list shows the speeds so you can change them.</li>
+        <li><strong>New:</strong> <strong>SSH</strong> servers: sign in with a password or a private key pasted into the server editor, and add the server's host key so its identity is checked (without one, the editor and the server list warn you). <code>ssh://</code> links and SSH entries in sing-box and Clash subscriptions are read too; key files on disk are not.</li>
+        <li><strong>New:</strong> <strong>WireGuard</strong> servers, including Cloudflare WARP: paste a <code>wireguard://</code> link, or paste or drop a WireGuard <code>.conf</code> file (the server takes the file's name). WireGuard entries in sing-box (old and new form) and Clash subscriptions are read too. <code>DNS</code> and other lines Kage does not use are listed after the import; configs with several peers and AmneziaWG are refused with the reason.</li>
+        <li><strong>Improved:</strong> If your sing-box was built without WireGuard or QUIC support, connecting to a WireGuard, TUIC or Hysteria server says so and points to the Engine page, and servers the engine cannot run are left out of automatic selection.</li>
+        <li><strong>Improved:</strong> The server editor picks the protocol from a list instead of a row of buttons, and a new server's port follows the protocol (22 for SSH, 51820 for WireGuard) until you change it.</li>
+        <li><strong>New:</strong> A new <strong>Apps</strong> section in the sidebar, with an <strong>App controls</strong> page and the Connections page, lists your installed apps, each with <em>VPN</em>, <em>Direct</em> and <em>Block</em> buttons, app icons, and the data the app used this period. Blocked apps are listed with an <em>Unblock</em> button. This app and its engine cannot be blocked.</li>
+        <li><strong>New:</strong> <strong>Data caps for apps.</strong> Give any installed app a daily, weekly or monthly limit. You are told at 80% and 100%, and can choose to have a <em>Block now</em> offered at the limit. Blocking reconnects the VPN once and lifts itself when the period starts over. Counting is approximate and needs app usage turned on.</li>
+        <li><strong>Improved:</strong> Subscription expiry warnings now come <strong>7 days, 3 days and 1 day</strong> before the end, then when it ends (each once; a plan first seen close to the end says so once). The date is checked every half hour from the saved figures, so the warning still arrives when the provider cannot be reached. The popover plan line turns to the warning colour at 7 days left.</li>
+        <li><strong>Improved:</strong> The <strong>setup guide</strong> has three new steps: routing rules, per-app controls (VPN, Direct or Block for each app) and data limits for apps.</li>
+        <li><strong>Improved:</strong> Settings, App updates: when a new version is found, a <strong>Download now</strong> button appears next to <em>Check now</em> (and <em>Restart now</em> once it is installed). The Connections page now shows a <strong>Route</strong> button on every app row, with the app's current choice, to send it through the VPN, direct or block it.</li>
+        <li><strong>Improved:</strong> The app is now called <strong>Kage</strong>: the menu bar, the window title and the app itself (<code>Kage.app</code>) use the new name.</li>
+        <li><strong>Improved:</strong> <strong>Allow IPv6</strong> is now off for new installs, and while it is off the tunnel carries IPv4 only. If a server has no IPv6, sites no longer half-load. On a network with its own IPv6, that IPv6 traffic now goes outside the VPN while the switch is off (in 0.2.0 it was blocked), so turn it on if your server has IPv6. Existing installs keep their setting.</li>
+        <li><strong>Improved:</strong> <strong>Apps:</strong> when a per-app choice or a data-cap block switches routing to Rules mode, a notice names the saved rules and lists that now apply too.</li>
+        <li><strong>Improved:</strong> <strong>DNS:</strong> in Proxy Only mode the DNS provider says it is not used there, since the server looks up site names.</li>
+        <li><strong>Fixed:</strong> With IPv6 off, some sites (Pinterest, speedtest.net and others that load from CloudFront) half-loaded, because IPv6 connections were cut only after they had started. They are now refused at once, so browsers switch to IPv4 straight away.</li>
+        <li><strong>Fixed:</strong> The chosen option of a two- or three-way switch was hard to see in the dark and light themes.</li>
+        <li><strong>Fixed:</strong> <strong>Route by site name (FakeIP):</strong> sites no longer fail for up to ten minutes after you disconnect or the VPN reconnects. The made-up addresses now expire after one second instead of ten minutes.</li>
+        <li><strong>Fixed:</strong> <strong>VPN idle:</strong> DNS lookups now go to your chosen provider over your normal connection, so a server that is down no longer stops every site from loading.</li>
+        <li><strong>Fixed:</strong> <strong>Kill switch:</strong> turning it off while it is blocking lifts the block within a second. Turning it on while connected says it starts protecting you at the next connect.</li>
+        <li><strong>Fixed:</strong> <strong>Settings:</strong> a switch that could not be saved (for example a cancelled password prompt for the root service) flips back instead of showing a change that did not happen.</li>
+        <li><strong>Fixed:</strong> <strong>Data limit:</strong> changing a usage setting no longer brings back a data warning that was already shown.</li>
+        <li><strong>Fixed:</strong> <strong>Apps:</strong> app icons were never shown because the window blocked the pictures; they now appear for every installed app, and retry or show the initial if one cannot be read.</li>
+        <li><strong>Fixed:</strong> <strong>Apps:</strong> after you save, the page shows exactly what was stored, including blocks set by a data cap, instead of the copy it sent.</li>
+        <li><strong>Docs:</strong> a new <strong>App Controls &amp; Data Caps</strong> page, sections on network settings (IPv6, DNS, FakeIP), connecting by network and the setup guide, and new screenshots of App controls, data caps, the Connections Apps view, ready-made lists and the data settings. Corrected: Proxy Only mode does not change the macOS system proxy settings (the docs said it did), and DNS is described as it really works in each mode.</li>
+      </ul>
+
+      <h2 id="oct-20">20 October 2026: version 0.2.0</h2>
+      <ul>
+        <li><strong>Improved:</strong> <strong>Connections</strong> (the Apps view) is redesigned. Columns are wide enough that numbers no longer get cut off, each app has an initial and a connection count, and a thin bar shows how busy it is compared with the others. Click a column heading to sort.</li>
         <li><strong>Fixed:</strong> Speeds under 1 KB could show as long raw numbers such as <code>896.0519740&hellip;</code>. They are now rounded, and an idle app shows a dash.</li>
         <li><strong>Improved:</strong> Checking for and downloading app updates goes through the VPN while it is connected, so a network that blocks GitHub no longer stops updates. It falls back to a direct request if that fails. When no release has been published yet, the message now says so.</li>
       </ul>

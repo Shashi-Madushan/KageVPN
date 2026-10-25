@@ -116,7 +116,20 @@ export function importMessage(summary: ImportSummary): string {
 	if (summary.added) parts.push(`Imported ${summary.added} profile${summary.added === 1 ? '' : 's'}`);
 	if (summary.duplicates) parts.push(summary.added ? `${summary.duplicates} already saved` : 'Already imported');
 	if (summary.failed.length) parts.push(`${summary.failed.length} skipped${skippedReason(summary.failed[0])}`);
+	const notes = summary.notes ?? [];
+	if (notes.length) parts.push(notes.length === 1 ? `note${skippedReason(notes[0])}` : `${notes.length} notes${skippedReason(notes[0])}`);
 	return (parts.join(', ') || 'Nothing to import') + '.';
+}
+
+/** The extra bypass entries typed in Settings: one per line (commas also split), blanks dropped. */
+export function bypassLines(text: string): string[] {
+	return text.split(/[\n,]/).map((l) => l.trim()).filter(Boolean);
+}
+
+/** Whether text is a WireGuard (wg-quick) file: its first section is [Interface] and it has a [Peer]. */
+export function isWireGuardFile(text: string): boolean {
+	const first = text.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('#') && !l.startsWith(';'));
+	return first?.toLowerCase() === '[interface]' && /^\s*\[peer\]\s*$/im.test(text);
 }
 
 /** Drops a leading emoji flag from a name, since the flag is shown separately. */
@@ -124,7 +137,8 @@ export const stripFlag = (name: string) => name.replace(/^\p{RI}{2}\s*/u, '');
 
 /**
  * A provider's plan in a few words, such as "Plan: 12.4 GB left · 9 days left", from the figures
- * its subscription reports. `total` 0 means unlimited data. `low` is set near the end of either.
+ * its subscription reports. `total` 0 means unlimited data. `low` is set near the end of either:
+ * at 10 percent of the data left, or 7 days before the plan ends (when the first warning comes).
  */
 export function planSummary(info: UserInfo, nowSeconds: number): { text: string; low: boolean } | null {
 	const parts: string[] = [];
@@ -137,7 +151,7 @@ export function planSummary(info: UserInfo, nowSeconds: number): { text: string;
 	if (info.expire > 0) {
 		const days = Math.ceil((info.expire - nowSeconds) / 86400);
 		parts.push(days <= 0 ? 'expired' : days === 1 ? '1 day left' : `${days} days left`);
-		low ||= days <= 3;
+		low ||= days <= 7;
 	}
 	return parts.length ? { text: `Plan: ${parts.join(' · ')}`, low } : null;
 }

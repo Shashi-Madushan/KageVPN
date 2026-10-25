@@ -55,6 +55,12 @@ window.DOCS_NAVIGATION = [
         description: "Smart traffic splitting, GeoIP/GeoSite bypass, and custom domain rules."
       },
       {
+        slug: "user-guide/app-controls",
+        title: "App Controls & Data Caps",
+        badge: "Apps",
+        description: "VPN, Direct or Block for each installed app, and daily, weekly or monthly data caps."
+      },
+      {
         slug: "user-guide/kill-switch",
         title: "Kill Switch & Connection Health",
         badge: "Safety",
@@ -197,6 +203,30 @@ window.DOCS_NAVIGATION = [
         title: "Hysteria 2 (Salamander)",
         badge: "Protocol",
         description: "High-throughput QUIC/UDP protocol with Salamander port obfuscation."
+      },
+      {
+        slug: "protocol-reference/tuic",
+        title: "TUIC v5",
+        badge: "Protocol",
+        description: "QUIC-based proxy with a UUID and password, selectable congestion control and UDP relay."
+      },
+      {
+        slug: "protocol-reference/hysteria",
+        title: "Hysteria (v1)",
+        badge: "Protocol",
+        description: "The first Hysteria: QUIC with declared speeds and optional xplus obfuscation."
+      },
+      {
+        slug: "protocol-reference/ssh",
+        title: "SSH",
+        badge: "Protocol",
+        description: "Use an SSH server as a proxy, with a password or a private key and a checked host key."
+      },
+      {
+        slug: "protocol-reference/wireguard",
+        title: "WireGuard",
+        badge: "Protocol",
+        description: "Links and .conf files, including Cloudflare WARP; one peer per server."
       }
     ]
   },

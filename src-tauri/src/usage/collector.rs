@@ -116,7 +116,10 @@ pub fn spawn_connection_poll(app: AppHandle, pid: u32) {
                 break;
             }
             let settings = state.store.lock().unwrap().usage_settings();
+            let counting = settings.record_apps && !settings.paused;
             if settings.paused || !(settings.record_apps || settings.record_domains) {
+                // Nothing is counted, but a cap whose period ended must still start over.
+                super::caps::tick(&app, &HashMap::new(), false);
                 continue;
             }
             let Ok(connections) = clash::connections(&app).await else { continue };
@@ -124,6 +127,7 @@ pub fn spawn_connection_poll(app: AppHandle, pid: u32) {
 
             let mut seen = state.usage.seen.lock().unwrap();
             let mut live = HashMap::new();
+            let mut cap_bytes: HashMap<String, (u64, u64)> = HashMap::new();
             for connection in connections {
                 let previous = seen.get(&connection.id).copied().unwrap_or((0, 0));
                 let up = connection.up.saturating_sub(previous.0);
@@ -131,6 +135,13 @@ pub fn spawn_connection_poll(app: AppHandle, pid: u32) {
                 live.insert(connection.id.clone(), (connection.up, connection.down));
                 if up == 0 && down == 0 {
                     continue;
+                }
+                if counting {
+                    if let Some(path) = &connection.app_path {
+                        let entry = cap_bytes.entry(path.clone()).or_default();
+                        entry.0 += up;
+                        entry.1 += down;
+                    }
                 }
                 if settings.record_apps && !connection.process.is_empty() {
                     state.usage.record_dim(&profile, KIND_APP, connection.process.clone(), up, down);
@@ -143,6 +154,8 @@ pub fn spawn_connection_poll(app: AppHandle, pid: u32) {
                 }
             }
             *seen = live;
+            drop(seen);
+            super::caps::tick(&app, &cap_bytes, counting);
         }
     });
 }

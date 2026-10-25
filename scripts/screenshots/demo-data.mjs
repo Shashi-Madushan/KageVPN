@@ -7,8 +7,9 @@ import { readFileSync } from 'node:fs';
 const protocols = JSON.parse(readFileSync(new URL('./protocols.json', import.meta.url), 'utf8'));
 
 /** Returns JavaScript that installs a fake Tauri backend before the app loads. */
-export function demoScript({ connected = true, withServers = true, name = 'Kage VPN', version = '0.1.0' } = {}) {
-	return `(${install.toString()})(${JSON.stringify({ connected, withServers, name, version, protocols })});`;
+/** `systemProxy`: connected in Proxy Only mode with the macOS system proxy set. */
+export function demoScript({ connected = true, withServers = true, capOffer = false, systemProxy = false, name = 'Kage', version = '0.2.0' } = {}) {
+	return `(${install.toString()})(${JSON.stringify({ connected, withServers, capOffer, systemProxy, name, version, protocols })});`;
 }
 
 function install(opts) {
@@ -49,6 +50,7 @@ function install(opts) {
 	const status = opts.connected
 		? { state: 'connected', mode: 'tun', since: now - 5400, error: null, health: 'healthy', reason: null, latencyMs: 38, failure: null, proxyPort: null }
 		: { state: 'disconnected', mode: 'tun', since: null, error: null, health: 'idle', reason: null, latencyMs: null, failure: null, proxyPort: null };
+	if (opts.connected && opts.systemProxy) Object.assign(status, { mode: 'proxy', proxyPort: 2080, systemProxy: { state: 'set', port: 2080, services: ['Wi-Fi', 'USB 10/100 LAN'] } });
 	const logLine = (level, text) => ({ level, text, hint: null });
 	const logs = opts.connected
 		? [
@@ -68,18 +70,22 @@ function install(opts) {
 		: [];
 
 	const snapshot = {
-		profiles, activeId: profiles.length ? 'p1' : null, mode: 'tun', status, logs,
+		profiles, activeId: profiles.length ? 'p1' : null, mode: status.mode, status, logs,
 		traffic: opts.connected ? { up: 96000, down: 1750000, totalUp: 74 * MB, totalDown: 612 * MB } : { up: 0, down: 0, totalUp: 0, totalDown: 0 },
 		history: opts.connected ? history : [],
 		settings: { showSpeed: true, autoConnect: false, logLevel: 'normal', clearLogs: false }, launchAtLogin: true, auto: { enabled: false, group: null },
 		subscriptions: [{ id: 's1', name: 'Example provider', url: 'https://example.com/sub', intervalHours: 24, lastUpdated: now - 7200, lastError: null, userInfo: { upload: 8e9, download: 41e9, total: 200e9, expire: now + 86400 * 18 }, userAgent: null, sendDeviceId: false }],
 		routing: {
-			mode: 'rule', bypassLan: true, finalAction: 'proxy',
+			mode: 'rule', bypassLan: true, ipv6: false, finalAction: 'proxy',
 			rules: [
-				{ id: 'r1', enabled: true, kind: 'domainSuffix', value: 'netflix.com', action: 'proxy' },
-				{ id: 'r2', enabled: true, kind: 'app', value: '/Applications/Spotify.app', action: 'direct' },
-				{ id: 'r3', enabled: true, kind: 'domainKeyword', value: 'doubleclick', action: 'block' },
-				{ id: 'r4', enabled: true, kind: 'ipCidr', value: '192.168.50.0/24', action: 'direct' }
+				// Put in place by Telegram's data cap; the Apps page shows it as "blocked by its data cap".
+				{ id: 'cap:/Applications/Telegram.app', enabled: true, kind: 'app', value: '/Applications/Telegram.app', action: 'block', origin: 'cap' },
+				{ id: 'r1', enabled: true, kind: 'domainSuffix', value: 'netflix.com', action: 'proxy', origin: 'manual' },
+				{ id: 'r2', enabled: true, kind: 'app', value: '/Applications/Spotify.app', action: 'direct', origin: 'manual' },
+				{ id: 'r5', enabled: true, kind: 'app', value: '/Applications/Slack.app', action: 'proxy', origin: 'manual' },
+				{ id: 'r6', enabled: true, kind: 'app', value: '/Applications/zoom.us.app', action: 'direct', origin: 'manual' },
+				{ id: 'r3', enabled: true, kind: 'domainKeyword', value: 'doubleclick', action: 'block', origin: 'manual' },
+				{ id: 'r4', enabled: true, kind: 'ipCidr', value: '192.168.50.0/24', action: 'direct', origin: 'manual' }
 			],
 			ruleSets: [
 				{ id: 'g1', enabled: true, kind: 'geoip', country: 'lk', action: 'direct' },
@@ -87,9 +93,17 @@ function install(opts) {
 				{ id: 'g3', enabled: true, kind: 'geosite', country: 'netflix', action: 'proxy' }
 			],
 			ruleProvider: 'sagernet', customProviders: [],
-			dns: { provider: 'cloudflare', custom: '' }
+			dns: { provider: 'cloudflare', custom: '', fakeIp: false }
 		},
-		reliability: { autoReconnect: true, watchdog: true, killSwitch: false, hotkey: true }, hotkey: '⌥⌘V'
+		reliability: { autoReconnect: true, watchdog: true, killSwitch: true, hotkey: true, proxyAuth: false, proxyPassword: '', systemProxy: !!opts.systemProxy, bypass: opts.systemProxy ? ['*.corp.example', '10.20.0.0/16'] : [] },
+		networks: {
+			enabled: true,
+			networks: [
+				{ id: 'gw-home', name: 'Home Wi-Fi', action: 'ignore', lastSeen: now - 600 },
+				{ id: 'gw-cafe', name: 'Café Wi-Fi', action: 'connect', lastSeen: now - 86400 * 2 }
+			]
+		},
+		hotkey: '⌥⌘V'
 	};
 
 	// Usage over the last 30 days, with a weekly rhythm.
@@ -122,19 +136,39 @@ function install(opts) {
 		settings: { managedVersion: '1.12.9', channel: 'stable', autoCheck: true, lastCheck: now - 3600, updatePolicy: 'ask', pendingVersion: null }, busy: false
 	};
 
-	const appPaths = { Spotify: '/Applications/Spotify.app', 'Slack Helper': '/Applications/Slack.app' };
+	const appPaths = { Spotify: '/Applications/Spotify.app', 'Slack Helper': '/Applications/Slack.app', Discord: '/Applications/Discord.app', Mail: '/System/Applications/Mail.app', zoom: '/Applications/zoom.us.app' };
 	const conns = [
 		['www.youtube.com', '142.250.0.1', '443', 'Safari', 'tcp', 18 * MB, 0.6 * MB, 'proxy', 'domain_suffix: youtube.com'],
 		['netflix.com', '198.51.100.20', '443', 'Safari', 'tcp', 42 * MB, 1 * MB, 'proxy', 'domain_suffix: netflix.com'],
 		['api.spotify.com', '198.51.100.31', '443', 'Spotify', 'tcp', 6 * MB, 0.2 * MB, 'direct', 'process_path_regex: ^/Applications/Spotify\\.app/'],
 		['github.com', '140.82.0.4', '22', 'ssh', 'tcp', 0.4 * MB, 0.3 * MB, 'proxy', 'final'],
-		['slack-edge.com', '198.51.100.44', '443', 'Slack Helper', 'tcp', 2.2 * MB, 0.9 * MB, 'proxy', 'final']
+		['slack-edge.com', '198.51.100.44', '443', 'Slack Helper', 'tcp', 2.2 * MB, 0.9 * MB, 'proxy', 'final'],
+		['gateway.discord.gg', '198.51.100.52', '443', 'Discord', 'tcp', 9 * MB, 1.4 * MB, 'proxy', 'final'],
+		['imap.example.com', '198.51.100.61', '993', 'Mail', 'tcp', 3.1 * MB, 0.5 * MB, 'proxy', 'final'],
+		['zoom.us', '198.51.100.70', '443', 'zoom', 'udp', 26 * MB, 11 * MB, 'direct', 'process_path_regex: ^/Applications/zoom\\.us\\.app/']
 	].map((c, i) => ({ id: 'c' + i, host: c[0], destinationIp: c[1], destinationPort: c[2], process: c[3], appPath: appPaths[c[3]] ?? null, network: c[4], down: Math.round(c[5]), up: Math.round(c[6]), start: new Date((now - 120 - i * 300) * 1000).toISOString(), chain: c[7], rule: c[8] }));
 	const apps = [
 		['App Store', '/System/Applications/App Store.app'], ['Discord', '/Applications/Discord.app'], ['Google Chrome', '/Applications/Google Chrome.app'],
 		['Mail', '/System/Applications/Mail.app'], ['Safari', '/Applications/Safari.app'], ['Slack', '/Applications/Slack.app'],
 		['Spotify', '/Applications/Spotify.app'], ['Telegram', '/Applications/Telegram.app'], ['Xcode', '/Applications/Xcode.app'], ['Zoom', '/Applications/zoom.us.app']
 	].map(([name, path]) => ({ name, path, bundleId: null }));
+
+	// Data caps for three apps: one close to its limit, one blocked by its cap, and one that reached
+	// its limit and offers a block (only with capOffer, so the main Home picture stays plain).
+	const GB = 1024 * MB;
+	const week = now - (now % day) - 3 * day;
+	const cap = (name, path, limit, period, atLimit, used, state, offer, periodStart, periodEnd) => ({
+		path, name, installed: true, limitBytes: limit, period, atLimit, used, up: Math.round(used * 0.2), down: Math.round(used * 0.8),
+		percent: Math.min(100, (used / limit) * 100), level: state === 'ok' ? 0 : state === 'warn80' ? 80 : 100, state, offer, periodStart, periodEnd
+	});
+	const today = now - (now % day);
+	const caps = [
+		cap('Slack', '/Applications/Slack.app', 5 * GB, 'week', 'notify', 4.3 * GB, 'warn80', 'none', week, week + 7 * day),
+		cap('Telegram', '/Applications/Telegram.app', 1 * GB, 'day', 'offerBlock', 1.02 * GB, 'blocked', 'taken', today, today + day),
+		opts.capOffer
+			? cap('Discord', '/Applications/Discord.app', 2 * GB, 'month', 'offerBlock', 2.05 * GB, 'over', 'pending', start, start + 30 * day)
+			: cap('Discord', '/Applications/Discord.app', 2 * GB, 'month', 'offerBlock', 0.8 * GB, 'ok', 'none', start, start + 30 * day)
+	];
 
 	const cbs = {}; const listeners = {}; let nextId = 1;
 	const emit = (ev, payload) => (listeners[ev] || []).forEach((h) => cbs[h] && cbs[h]({ event: ev, id: 0, payload }));
@@ -149,9 +183,14 @@ function install(opts) {
 				trojan: { password: '', transport: tcp, tls: tls() },
 				shadowsocks: { method: 'aes-256-gcm', password: '' },
 				hysteria2: { password: '', obfs: null, tls: tls({ fingerprint: null }) },
-				vmess: { uuid: '', security: 'auto', tlsEnabled: false, transport: tcp, tls: tls() }
+				vmess: { uuid: '', security: 'auto', tlsEnabled: false, transport: tcp, tls: tls() },
+				tuic: { uuid: '', password: '', congestionControl: 'bbr', udpRelayMode: 'native', zeroRtt: false, tls: tls({ fingerprint: null, alpn: ['h3'] }) },
+				hysteria: { auth: '', upMbps: 10, downMbps: 50, obfs: null, tls: tls({ fingerprint: null, alpn: ['hysteria'] }) },
+				ssh: { user: '', password: '', privateKey: '', passphrase: '', hostKeys: [] },
+				wireguard: { privateKey: '', peerPublicKey: '', preSharedKey: '', addresses: [], mtu: 1408, keepalive: null, reserved: null }
 			}[a.protocol];
-			return { ...base, port: a.protocol === 'shadowsocks' ? 8388 : 443, settings };
+			const port = { shadowsocks: 8388, ssh: 22, wireguard: 51820 }[a.protocol] ?? 443;
+			return { ...base, port, settings };
 		},
 		snapshot: () => snapshot,
 		app_update_settings: () => ({ policy: 'ask', lastCheck: 0 }),
@@ -160,11 +199,31 @@ function install(opts) {
 		latency_history: () => Object.fromEntries(profiles.map((p) => [p.id, Array.from({ length: 12 }, () => Math.round(pings[p.id] * (0.85 + 0.3 * rnd())))])),
 		test_connection: () => 38, exit_ip: () => '203.0.113.42',
 		core_status: () => coreStatus, core_check: () => releases,
-		usage_get_settings: () => ({ paused: false, recordApps: true, recordDomains: true, detailRetentionDays: 30, quotaBytes: 500 * 1024 * MB, cycleDay: 1, quotaAction: 'notify', alertCycle: 0 }),
+		usage_get_settings: () => ({ paused: false, recordApps: true, recordDomains: true, detailRetentionDays: 30, quotaBytes: 500 * 1024 * MB, cycleDay: 1, quotaAction: 'notify', alertCycle: 0, alertLevel: 0, appCaps: caps.map(({ path, limitBytes, period, atLimit }) => ({ path, limitBytes, period, atLimit })) }),
+		caps_list: () => caps,
+		// Made-up icons (a coloured tile with the initial), so no real app's artwork is shown.
+		app_icon: (a) => {
+			const name = a.path.split('/').pop().replace(/\.app$/, '');
+			const hue = [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+			const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><defs><linearGradient id="g" x2="0" y2="1"><stop offset="0" stop-color="hsl(${hue} 70% 62%)"/><stop offset="1" stop-color="hsl(${hue} 65% 46%)"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="10" fill="url(#g)"/><text x="24" y="31" font-family="-apple-system,Helvetica" font-size="20" font-weight="600" fill="#fff" text-anchor="middle">${name.charAt(0).toUpperCase()}</text></svg>`;
+			return 'data:image/svg+xml;base64,' + btoa(svg);
+		},
+		current_network: () => ({ id: 'gw-home', name: 'Home Wi-Fi' }),
+		root_service_installed: () => true,
+		set_routing: (a) => a.settings,
+		set_reliability: () => false,
 		usage_quota: () => ({ limit: 500 * 1024 * MB, used: sum.down + sum.up, up: sum.up, down: sum.down, cycleStart: start, cycleEnd: start + 30 * day, percent: ((sum.down + sum.up) / (500 * 1024 * MB)) * 100 }),
 		usage_report: () => ({ series, total: sum, previous: null, peak: series.reduce((a, b) => (b.down + b.up > a.down + a.up ? b : a)), connectedSecs: 86400 * 11 }),
 		usage_top: (a) => (a.args.kind === 'app' ? topApps : a.args.kind === 'domain' ? topDomains : topProfiles),
-		connections_list: () => conns,
+		// Byte counters grow between polls, so the page measures live speeds.
+		connections_list: () => {
+			conns.forEach((c, i) => {
+				const rate = [520, 1900, 260, 12, 90, 340, 60, 1400][i] * 1024;
+				c.down += Math.round(rate * 2 * (0.7 + 0.6 * rnd()));
+				c.up += Math.round(rate * 0.25 * (0.6 + 0.8 * rnd()));
+			});
+			return conns.map((c) => ({ ...c }));
+		},
 		installed_apps: () => apps,
 		export_backup: () => '~/Downloads/kage-vpn-backup-demo.json',
 		run_diagnostics: () => ({

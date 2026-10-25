@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use super::common::{self, invalid, Params, Reality, Tls, Transport};
 use super::form::{Field, Section};
-use super::{Profile, ProtocolDef, ProtocolId, Secret};
+use super::{Profile, ProtocolDef, ProtocolId, Secret, ServerKind};
 use crate::error::Result;
 
 pub const ID: ProtocolId = ProtocolId("vless");
@@ -43,6 +43,18 @@ impl ProtocolDef for Vless {
 
     fn schemes(&self) -> &'static [&'static str] {
         &["vless"]
+    }
+
+    fn over_udp(&self) -> bool {
+        false
+    }
+
+    fn kind(&self) -> ServerKind {
+        ServerKind::Outbound
+    }
+
+    fn feature(&self) -> Option<&'static str> {
+        None
     }
 
     fn parse(&self, link: &str) -> Result<Profile> {

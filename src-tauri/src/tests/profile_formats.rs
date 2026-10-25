@@ -25,7 +25,13 @@ fn every_protocol_round_trips_through_a_singbox_config() {
         let original = def.parse(def.sample()).unwrap();
         let mut exported = original.outbound(&original.name);
         exported["tag"] = json!(original.name);
-        let config = json!({ "outbounds": [exported, { "type": "direct", "tag": "direct" }] }).to_string();
+        let list = match original.kind() {
+            crate::profile::ServerKind::Outbound => "outbounds",
+            crate::profile::ServerKind::Endpoint => "endpoints",
+        };
+        let mut config = json!({ "outbounds": [{ "type": "direct", "tag": "direct" }] });
+        config[list] = json!([exported]);
+        let config = config.to_string();
 
         let imported = only(&config);
         assert_eq!(imported.protocol, original.protocol, "{}", def.id());
@@ -68,11 +74,87 @@ fn singbox_configs_skip_groups_quietly_and_explain_the_rest() {
     assert_eq!(
         errors,
         [
-            "Tokyo TUIC: tuic servers are not supported yet",
+            "Tokyo TUIC: TUIC needs a UUID and a password (v4 servers are not supported)",
             "Chained: servers that connect through another server are not supported",
             "No port: no valid port",
         ]
     );
+}
+
+#[test]
+fn singbox_tuic_outbounds_import_with_their_options() {
+    let config = json!({ "outbounds": [{
+        "type": "tuic", "tag": "TUIC", "server": "tuic.example.com", "server_port": 443,
+        "uuid": "11111111-2222-4333-8444-555555555555", "password": "secret",
+        "congestion_control": "new_reno", "udp_relay_mode": "quic", "zero_rtt_handshake": true,
+        "tls": { "enabled": true, "server_name": "front.example.com", "alpn": ["h3"] }
+    }] });
+    let out = outbound(&only(&config.to_string()));
+    assert_eq!((out["congestion_control"].as_str(), out["udp_relay_mode"].as_str()), (Some("new_reno"), Some("quic")));
+    assert_eq!(out["zero_rtt_handshake"], true);
+    assert_eq!(out["tls"]["server_name"], "front.example.com");
+}
+
+#[test]
+fn singbox_hysteria_outbounds_import_and_explain_what_they_cannot() {
+    let config = json!({ "outbounds": [
+        { "type": "hysteria", "tag": "HY", "server": "hy.example.com", "server_port": 443, "up": "20 Mbps", "down_mbps": 80, "auth_str": "pw", "tls": { "enabled": true, "alpn": ["hysteria"] } },
+        { "type": "hysteria", "tag": "Binary", "server": "b.example.com", "server_port": 443, "up_mbps": 1, "down_mbps": 1, "auth": "c2VjcmV0", "tls": { "enabled": true } },
+        { "type": "hysteria", "tag": "Hop", "server": "h.example.com", "server_ports": ["1000:2000"], "up_mbps": 1, "down_mbps": 1, "tls": { "enabled": true } }
+    ] });
+    let (profiles, errors) = parse_many(&config.to_string());
+    assert_eq!(profiles.len(), 1);
+    let out = outbound(&profiles[0]);
+    assert_eq!((out["up_mbps"].as_u64(), out["down_mbps"].as_u64(), out["auth_str"].as_str()), (Some(20), Some(80), Some("pw")));
+    assert_eq!(
+        errors,
+        [
+            "Binary: Hysteria with a binary (base64) auth key is not supported, use auth_str",
+            "Hop: Hysteria port hopping is not supported, use a single port",
+        ]
+    );
+}
+
+#[test]
+fn singbox_ssh_outbounds_take_the_key_as_text_or_lines_but_not_a_file() {
+    let config = json!({ "outbounds": [
+        { "type": "ssh", "tag": "Lines", "server": "a.example.com", "server_port": 22, "user": "root",
+          "private_key": crate::profile::fake_private_key("AAAA", "\n").trim_end().split('\n').collect::<Vec<_>>() },
+        { "type": "ssh", "tag": "File", "server": "b.example.com", "server_port": 22, "user": "root", "private_key_path": "/root/.ssh/id" }
+    ] });
+    let (profiles, errors) = parse_many(&config.to_string());
+    assert_eq!(profiles.len(), 1);
+    assert_eq!(outbound(&profiles[0])["private_key"], crate::profile::fake_private_key("AAAA", "\n"));
+    assert_eq!(errors, ["File: SSH key files on disk are not supported, paste the key into the server editor"]);
+}
+
+#[test]
+fn singbox_wireguard_reads_endpoints_and_the_old_outbound_form() {
+    let private = crate::profile::TestKey(0xfb).to_string();
+    let public = crate::profile::TestKey(0xfe).to_string();
+    let config = json!({
+        "outbounds": [
+            { "type": "wireguard", "tag": "Old", "server": "old.example.com", "server_port": 2408, "local_address": ["172.16.0.2/32"],
+              "private_key": private, "peer_public_key": public, "reserved": "AQID", "mtu": 1280 },
+            { "type": "direct", "tag": "direct" }
+        ],
+        "endpoints": [
+            { "type": "wireguard", "tag": "New", "address": ["10.0.0.2/32"], "private_key": private,
+              "peers": [{ "address": "new.example.com", "port": 51820, "public_key": public, "persistent_keepalive_interval": 25, "allowed_ips": ["0.0.0.0/0"] }] },
+            { "type": "wireguard", "tag": "Two", "address": ["10.0.0.3/32"], "private_key": private,
+              "peers": [{ "address": "a.example.com", "port": 1, "public_key": public }, { "address": "b.example.com", "port": 1, "public_key": public }] },
+            { "type": "tailscale", "tag": "TS" }
+        ]
+    });
+    let (profiles, errors) = parse_many(&config.to_string());
+    let names: Vec<&str> = profiles.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["Old", "New"]);
+    let old = outbound(&profiles[0]);
+    assert_eq!((old["peers"][0]["port"].as_u64(), &old["peers"][0]["reserved"]), (Some(2408), &json!([1, 2, 3])));
+    assert_eq!(outbound(&profiles[1])["peers"][0]["persistent_keepalive_interval"], 25);
+    assert_eq!(errors, ["Two: WireGuard configs with more than one peer are not supported", "TS: tailscale servers are not supported yet"]);
+    // A file with only endpoints is still a sing-box file.
+    assert!(extract(&json!({ "endpoints": [] }).to_string()).is_some());
 }
 
 #[test]
@@ -127,7 +209,19 @@ proxies:
   - { name: Hy2, type: hysteria2, server: hy.example.com, port: 443, password: secret, sni: hy.example.com, obfs: salamander, obfs-password: salt, skip-cert-verify: true }
   - { name: Hopping, type: hysteria2, server: hop.example.com, port: 443, ports: "20000-30000", password: secret }
   - { name: Plain VLESS, type: vless, server: plain.example.com, port: 80, uuid: 11111111-2222-4333-8444-555555555555 }
-  - { name: WireGuard, type: wireguard, server: wg.example.com, port: 51820 }
+  - { name: TUIC, type: tuic, server: tuic.example.com, port: 8443, uuid: 11111111-2222-4333-8444-555555555555, password: "p@ss", sni: tuic.example.com, alpn: [h3], congestion-controller: cubic, udp-relay-mode: quic, reduce-rtt: true, skip-cert-verify: true }
+  - { name: TUIC v4, type: tuic, server: v4.example.com, port: 443, token: abc }
+  - { name: HY1, type: hysteria, server: hy1.example.com, port: 443, auth-str: secret, up: "30 Mbps", down: 200, obfs: mask, sni: hy1.example.com, alpn: [hysteria] }
+  - { name: SSH, type: ssh, server: ssh.example.com, port: 2222, username: deploy, password: pw, host-key: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE58h0urP4jPA6D6Ee+UnCVCbe6FbFtJbHa8Nh7CW/r"] }
+  - { name: SSH file, type: ssh, server: ssh.example.com, port: 22, username: root, private-key: ~/.ssh/id_ed25519 }
+  - { name: HY1 faketcp, type: hysteria, server: fake.example.com, port: 443, protocol: faketcp, up: 10, down: 10 }
+  - { name: WireGuard, type: wireguard, server: wg.example.com, port: 51820, private-key: "WG_PRIVATE", public-key: "WG_PUBLIC", ip: 172.16.0.2, ipv6: "fd01::2", mtu: 1280, reserved: [1, 2, 3] }
+  - name: WG peers
+    type: wireguard
+    private-key: "WG_PRIVATE"
+    ip: 10.0.0.2/32
+    peers: [{ server: a.example.com, port: 51820, public-key: "WG_PUBLIC" }, { server: b.example.com, port: 51820, public-key: "WG_PUBLIC" }]
+  - { name: AWG, type: wireguard, server: awg.example.com, port: 51820, amnezia-wg-option: { jc: 4 } }
   - { name: Direct, type: direct }
 proxy-groups:
   - { name: Proxy, type: select, proxies: ["🇺🇸 VLESS Reality", VMess WS] }
@@ -137,16 +231,22 @@ rules:
 
 #[test]
 fn clash_configs_import_every_supported_server() {
-    let (profiles, errors) = parse_many(CLASH);
+    // The WireGuard keys are made now, not written in the file above.
+    let clash = CLASH.replace("WG_PRIVATE", &crate::profile::TestKey(0xfb).to_string()).replace("WG_PUBLIC", &crate::profile::TestKey(0xfe).to_string());
+    let (profiles, errors) = parse_many(&clash);
     let names: Vec<&str> = profiles.iter().map(|p| p.name.as_str()).collect();
-    assert_eq!(names, ["🇺🇸 VLESS Reality", "VMess WS", "Trojan gRPC", "Upgrade", "SS 2022", "Hy2"]);
+    assert_eq!(names, ["🇺🇸 VLESS Reality", "VMess WS", "Trojan gRPC", "Upgrade", "SS 2022", "Hy2", "TUIC", "HY1", "SSH", "WireGuard"]);
     assert_eq!(
         errors,
         [
             "SS obfs: Shadowsocks plugins are not supported",
             "Hopping: Hysteria2 port hopping is not supported, use a single port",
             "Plain VLESS: only security=tls or reality is supported",
-            "WireGuard: wireguard servers are not supported yet",
+            "TUIC v4: TUIC v4 is not supported, ask for a v5 server (UUID and password)",
+            "SSH file: SSH key files on disk are not supported, paste the key into the server editor",
+            "HY1 faketcp: Hysteria over faketcp is not supported, only udp",
+            "WG peers: WireGuard configs with more than one peer are not supported",
+            "AWG: AmneziaWG options are not supported; sing-box runs plain WireGuard",
         ]
     );
 
@@ -177,6 +277,25 @@ fn clash_configs_import_every_supported_server() {
     let hy2 = by_name("Hy2");
     assert_eq!(hy2["obfs"], json!({ "type": "salamander", "password": "salt" }));
     assert_eq!(hy2["tls"]["insecure"], true);
+
+    let tuic = by_name("TUIC");
+    assert_eq!((tuic["server_port"].as_u64(), tuic["password"].as_str()), (Some(8443), Some("p@ss")));
+    assert_eq!((tuic["congestion_control"].as_str(), tuic["udp_relay_mode"].as_str()), (Some("cubic"), Some("quic")));
+    assert_eq!(tuic["zero_rtt_handshake"], true);
+    assert_eq!(tuic["tls"]["insecure"], true);
+
+    let hy1 = by_name("HY1");
+    assert_eq!((hy1["up_mbps"].as_u64(), hy1["down_mbps"].as_u64()), (Some(30), Some(200)));
+    assert_eq!((hy1["auth_str"].as_str(), hy1["obfs"].as_str()), (Some("secret"), Some("mask")));
+
+    let ssh = by_name("SSH");
+    assert_eq!((ssh["server_port"].as_u64(), ssh["user"].as_str(), ssh["password"].as_str()), (Some(2222), Some("deploy"), Some("pw")));
+    assert!(ssh["host_key"][0].as_str().unwrap().starts_with("ssh-ed25519 AAAA"));
+
+    let wg = by_name("WireGuard");
+    assert_eq!((wg["type"].as_str(), wg["mtu"].as_u64()), (Some("wireguard"), Some(1280)));
+    assert_eq!(wg["address"], json!(["172.16.0.2/32", "fd01::2/128"]));
+    assert_eq!((wg["peers"][0]["address"].as_str(), &wg["peers"][0]["reserved"]), (Some("wg.example.com"), &json!([1, 2, 3])));
 }
 
 #[test]

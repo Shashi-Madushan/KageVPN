@@ -52,3 +52,39 @@ fn a_process_belongs_to_its_outermost_app() {
     // Non-ASCII names are cut on a character boundary.
     assert_eq!(bundle_of("/Applications/Café.app/Contents/MacOS/Café"), Some("/Applications/Café.app"));
 }
+
+#[test]
+fn the_icon_file_name_gets_its_ending() {
+    let dict = |value: &str| {
+        let mut d = plist::Dictionary::new();
+        d.insert("CFBundleIconFile".into(), plist::Value::String(value.into()));
+        d
+    };
+    assert_eq!(icon_file_name(&dict("AppIcon")).as_deref(), Some("AppIcon.icns"));
+    assert_eq!(icon_file_name(&dict("AppIcon.icns")).as_deref(), Some("AppIcon.icns"));
+    assert_eq!(icon_file_name(&dict("Logo.ICNS")).as_deref(), Some("Logo.ICNS"));
+    assert_eq!(icon_file_name(&dict("  ")), None);
+    assert_eq!(icon_file_name(&plist::Dictionary::new()), None);
+}
+
+#[test]
+fn no_icon_for_a_path_that_is_not_an_app() {
+    let cache = std::env::temp_dir().join("kage-icon-test");
+    assert_eq!(icon_data_url(Path::new("/usr/bin"), &cache), None);
+    assert_eq!(icon_data_url(Path::new("/Applications/Does Not Exist.app"), &cache), None);
+    assert_eq!(cache_name(Path::new("/Applications/Slack.app")), "_Applications_Slack_app.png");
+}
+
+#[test]
+fn a_real_app_icon_comes_back_as_a_png() {
+    // Safari ships with every Mac; skip where it is missing.
+    let safari = Path::new("/Applications/Safari.app");
+    if !safari.is_dir() {
+        return;
+    }
+    let cache = std::env::temp_dir().join(format!("kage-icon-real-{}", std::process::id()));
+    let url = icon_data_url(safari, &cache).expect("an icon");
+    assert!(url.starts_with("data:image/png;base64,"));
+    assert!(icon_data_url(safari, &cache).is_some(), "second call uses the cache");
+    std::fs::remove_dir_all(cache).unwrap();
+}

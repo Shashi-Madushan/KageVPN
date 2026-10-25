@@ -37,6 +37,7 @@ mod speed_icon;
 mod state;
 mod store;
 mod subscriptions;
+mod sysproxy;
 mod tray;
 mod traffic;
 mod usage;
@@ -92,10 +93,12 @@ pub fn run() {
             warn_if_data_was_recovered(app.handle());
             logs::spawn_tailer(app.handle().clone());
             tray::setup(app.handle())?;
+            sysproxy::restore_at_launch(&app.state::<AppState>().paths);
             auto_connect(app.handle());
             core::commands::spawn_background_check(app.handle().clone());
             app_update::spawn_background_check(app.handle().clone());
             usage::collector::spawn_maintenance(app.handle().clone());
+            usage::caps::rollover_all(app.handle());
             subscriptions::spawn_scheduler(app.handle().clone());
             reliability::apply_hotkey(app.handle());
             network_watch::spawn(app.handle().clone());
@@ -140,6 +143,7 @@ pub fn run() {
             commands::test_all,
             commands::set_routing,
             commands::set_reliability,
+            commands::repair_system_proxy,
             networks::set_network_settings,
             networks::current_network,
             commands::restore_network,
@@ -155,6 +159,7 @@ pub fn run() {
             commands::edit_subscription,
             commands::refresh_subscription,
             commands::installed_apps,
+            commands::app_icon,
             commands::delete_profiles,
             backup::export_backup,
             backup::restore_backup,
@@ -173,6 +178,12 @@ pub fn run() {
             usage::commands::usage_quota,
             usage::commands::usage_reset,
             usage::commands::usage_clear_details,
+            usage::caps::caps_list,
+            usage::caps::cap_set,
+            usage::caps::cap_remove,
+            usage::caps::cap_block,
+            usage::caps::cap_not_now,
+            usage::caps::cap_unblock,
             usage::commands::latency_history,
             commands::delete_profile,
             commands::select_profile,

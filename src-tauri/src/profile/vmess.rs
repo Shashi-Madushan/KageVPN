@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use super::common::{self, invalid, Tls, Transport, TransportKind};
 use super::form::{Field, Section};
-use super::{Profile, ProtocolDef, ProtocolId, Secret};
+use super::{Profile, ProtocolDef, ProtocolId, Secret, ServerKind};
 use crate::error::Result;
 
 pub const ID: ProtocolId = ProtocolId("vmess");
@@ -43,6 +43,18 @@ impl ProtocolDef for Vmess {
 
     fn schemes(&self) -> &'static [&'static str] {
         &["vmess"]
+    }
+
+    fn over_udp(&self) -> bool {
+        false
+    }
+
+    fn kind(&self) -> ServerKind {
+        ServerKind::Outbound
+    }
+
+    fn feature(&self) -> Option<&'static str> {
+        None
     }
 
     fn parse(&self, link: &str) -> Result<Profile> {

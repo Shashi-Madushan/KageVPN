@@ -60,9 +60,19 @@ window.DOCS_PAGES["getting-started/overview"] = {
               <td>Choose between 100% whole-system encryption or selective proxying.</td>
             </tr>
             <tr>
-              <td><strong>macOS pfctl Kill Switch</strong></td>
+              <td><strong>macOS pfctl Kill Switch</strong> (experimental)</td>
               <td>Kernel packet filter anchor integration</td>
-              <td>Guarantees 0-byte packet leaks if the proxy tunnel unexpectedly drops.</td>
+              <td>Blocks other traffic while the tunnel is down or reconnecting. Tested against a stand-in firewall so far; try it on your Mac before relying on it.</td>
+            </tr>
+            <tr>
+              <td><strong>Routing Rules</strong></td>
+              <td>Sites, IP ranges, apps, and ready-made country and service lists</td>
+              <td>Send only what you choose through the VPN, let the rest go direct, or block it.</td>
+            </tr>
+            <tr>
+              <td><strong>App Controls &amp; Data Caps</strong></td>
+              <td>VPN, Direct or Block per installed app; daily, weekly or monthly limits</td>
+              <td>Split tunneling by app without typing executable names, and a warning (or a block, if you choose) before an app eats your data plan.</td>
             </tr>
             <tr>
               <td><strong>Memory Footprint</strong></td>
@@ -243,6 +253,7 @@ window.DOCS_PAGES["getting-started/first-run"] = {
   toc: [
     { id: "interface-layout", label: "Dual Interface Architecture" },
     { id: "menu-bar-controller", label: "Menu Bar Quick Popover" },
+    { id: "setup-guide", label: "The Setup Guide" },
     { id: "main-dashboard", label: "Full Dashboard Window" },
     { id: "permission-setup", label: "Initial Permission Setup" }
   ],
@@ -266,6 +277,12 @@ window.DOCS_PAGES["getting-started/first-run"] = {
         <li><strong>Menu bar menu:</strong> Right-click the icon for a status line, Connect, Ping Server and Quit.</li>
       </ul>
 
+      <h2 id="setup-guide">The Setup Guide</h2>
+      <p>
+        On first launch a short setup guide gets the engine, adds your first server and chooses a connection mode, then introduces the mascot, the menu bar popover, data usage, routing rules, per-app controls and data caps for apps. Each of the last steps shows the real controls you will find in the app. Replay it any time from <strong>Settings, Help, Run setup again</strong>.
+      </p>
+      <figure class="shot"><img src="assets/images/tour-apps.png" alt="The setup guide step about controlling each app, showing VPN, Direct and Block choices" decoding="async"></figure>
+
       <h2 id="main-dashboard">Full Dashboard Window</h2>
       <p>
         Clicking <strong>Open Dashboard</strong> or selecting it from the menu bar launches the complete management console:
@@ -273,10 +290,12 @@ window.DOCS_PAGES["getting-started/first-run"] = {
       <ul>
         <li><strong>Servers:</strong> Comprehensive node organizer, latency pings, and subscription manager.</li>
         <li><strong>Routing:</strong> Rule-based traffic routing editor with direct GeoIP / GeoSite bypasses.</li>
+        <li><strong>App controls:</strong> VPN, Direct or Block for each installed app, and data caps for apps. See <a href="#/user-guide/app-controls">App Controls &amp; Data Caps</a>.</li>
         <li><strong>Connections:</strong> An <em>Apps</em> view showing which apps are sending and receiving data right now (with live speeds), and a <em>Connections</em> view with every open socket, powered by sing-box's Clash API.</li>
         <li><strong>Diagnostics:</strong> One-click comparison of the tunnel with your normal route, DNS resolver check and latency graphs.</li>
         <li><strong>Data usage:</strong> This month's total, a day-by-day chart and what used the data.</li>
-        <li><strong>Settings:</strong> Kill switch, reliability, data limit, usage privacy and app updates.</li>
+        <li><strong>Settings:</strong> Kill switch, reliability, connecting by network, logs, the monthly data limit, usage privacy, backup and app updates.</li>
+        <li><strong>Engine</strong> and <strong>Logs:</strong> sing-box versions and update policy, and the engine's log with filters and hints.</li>
       </ul>
 
       <h2 id="permission-setup">Initial Permission Authorization</h2>

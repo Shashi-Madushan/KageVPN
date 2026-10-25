@@ -6,8 +6,13 @@
 	import PoweredBy from './PoweredBy.svelte';
 	import Icon from './Icon.svelte';
 	import Mascot from './Mascot.svelte';
+	import AppIcon from './AppIcon.svelte';
+	import CapBar from './CapBar.svelte';
 	import Segmented from './Segmented.svelte';
+	import Select from './Select.svelte';
+	import { installedApps } from './AppPicker.svelte';
 	import { importMessage } from '$lib/format';
+	import type { InstalledApp, RouteAction } from '$lib/api';
 	import type { Page } from './Sidebar.svelte';
 
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
@@ -17,12 +22,15 @@
 	const slides = $derived([
 		{ id: 'welcome', title: `Welcome to ${app.info.name}`, text: 'A simple way to run a private, encrypted connection on your Mac. Meet the Kage mascot: it is your connect button and your status light. Three quick steps get you set up.' },
 		{ id: 'engine', title: 'Get the engine', text: 'The engine is the program that carries your traffic. It is downloaded once from its official release page and checked before use.' },
-		{ id: 'add', title: 'Add a server', text: 'Your VPN provider gives you a server link (vless://, trojan://, ss:// or hysteria2://) or a subscription URL. Paste it here and the app saves and keeps it for you.' },
+		{ id: 'add', title: 'Add a server', text: 'Your VPN provider gives you a server link (vless://, vmess://, trojan://, ss://, hysteria://, hysteria2://, tuic://, ssh:// or wireguard://, or a WireGuard .conf file) or a subscription URL. Paste it here and the app saves and keeps it for you.' },
 		{ id: 'mode', title: 'Choose how to connect', text: 'Full system sends every app through the VPN and asks for your password once to set it up. Proxy only protects just the apps you point at the local proxy. You can change this later.' },
 		{ id: 'tap', title: 'Tap the mascot to connect', text: 'Pick a server, then tap the mascot to start the VPN. Tap it again any time to disconnect. A sleeping mascot means you are not connected; a smiling one means you are protected.' },
 		{ id: 'face', title: 'Read the mascot’s face', text: 'The mascot shows what is happening. “Protected” appears only after a real request has gone through the tunnel. If it looks worried, you are connected but no internet is getting through. Open Home to see why and use the one-click fix.' },
 		{ id: 'tray', title: 'Always within reach', text: 'Click the menu bar icon to open the popover. Tap the mascot there too, check your latency, switch mode and watch live traffic, without opening the window.' },
 		{ id: 'usage', title: 'See what uses your data', text: 'Data usage tells you in plain words how much you used this month. Connections shows which apps are sending and receiving data right now.' },
+		{ id: 'rules', title: 'Decide what uses the VPN', text: 'Under Routing you can send some sites through the VPN, let others go direct, or block them. Add your own rules, pick ready-made lists (a country, streaming, ads), or type a website to see what would happen to it.' },
+		{ id: 'apps', title: 'Control each app', text: 'App controls lists the apps on your Mac. For each one choose VPN, Direct or Block, and see what it does right now. The Connections page has the same Route button on every app that is sending data.' },
+		{ id: 'caps', title: 'Set a data limit for an app', text: 'Give any app a daily, weekly or monthly limit. You are told at 80% and 100%, and can choose to block the app until the period ends. Nothing is blocked unless you say so.' },
 		{ id: 'done', title: "You're all set", text: 'Here is where your setup stands.' }
 	]);
 	const id = $derived(slides[step].id);
@@ -46,6 +54,38 @@
 		if (!addError) pasted = '';
 	}
 
+
+	// The app steps show three of this Mac's own apps with their real icons.
+	const FALLBACK_APPS: InstalledApp[] = ['Safari', 'Mail', 'Notes'].map((name) => ({ name, path: `/Applications/${name}.app`, bundleId: null }));
+	const PREFERRED = ['Safari', 'Mail', 'Notes', 'Messages', 'Calendar', 'Maps', 'Music', 'Photos'];
+	let sample = $state<InstalledApp[]>([]);
+	const demoApps = $derived(sample.length === 3 ? sample : FALLBACK_APPS);
+
+	$effect(() => {
+		if (!onboarding.open) return;
+		installedApps().then((list) => {
+			const known = PREFERRED.map((name) => list.find((a) => a.name === name)).filter((a): a is InstalledApp => !!a);
+			const rest = list.filter((a) => !known.includes(a));
+			sample = [...known, ...rest].slice(0, 3);
+		});
+	});
+
+	const appChoices: { value: RouteAction; label: string }[] = [
+		{ value: 'proxy', label: 'VPN' },
+		{ value: 'direct', label: 'Direct' },
+		{ value: 'block', label: 'Block' }
+	];
+	const demoChoice: RouteAction[] = ['proxy', 'direct', 'block'];
+	const ruleActions: { value: RouteAction; label: string }[] = [
+		{ value: 'proxy', label: 'Use the VPN' },
+		{ value: 'direct', label: 'Go direct' },
+		{ value: 'block', label: 'Block' }
+	];
+	let demoRules = $state<{ value: string; action: RouteAction }[]>([
+		{ value: 'netflix.com', action: 'direct' },
+		{ value: 'company.internal', action: 'proxy' },
+		{ value: 'ads.example.com', action: 'block' }
+	]);
 
 	const last = $derived(slides.length - 1);
 	const hasServer = $derived(app.profiles.length > 0);
@@ -153,6 +193,47 @@
 								<div><span>Safari</span><i style="width: 90%"></i><b>5.4 GB</b></div>
 								<div><span>Slack</span><i style="width: 46%"></i><b>2.5 GB</b></div>
 								<div><span>Spotify</span><i style="width: 30%"></i><b>1.6 GB</b></div>
+							</div>
+						</div>
+					{:else if id === 'rules'}
+						<div class="d-card d-rules">
+							<div class="d-title">Your rules</div>
+							{#each demoRules as rule, i (rule.value)}
+								<div class="d-rule">
+									<span class="d-num">{i + 1}</span>
+									<span class="mono grow">{rule.value}</span>
+									<Select bind:value={rule.action} label="What to do with {rule.value}" options={ruleActions} />
+								</div>
+							{/each}
+							<div class="d-rule">
+								<span class="d-num">·</span>
+								<span class="grow">Everything else</span>
+								<span class="d-pill-choice"><i class="on">Use the VPN</i><i>Go direct</i></span>
+							</div>
+						</div>
+					{:else if id === 'apps'}
+						<div class="d-card d-appctl">
+							<div class="d-title">App controls</div>
+							{#each demoApps as a, i (a.path)}
+								<div class="d-app">
+									<AppIcon path={a.path} name={a.name} />
+									<span class="grow d-name">{a.name}</span>
+									<Segmented options={appChoices} value={demoChoice[i]} label="What {a.name} does" onchange={() => {}} />
+								</div>
+							{/each}
+						</div>
+					{:else if id === 'caps'}
+						<div class="d-card d-capdemo">
+							<div class="d-app">
+								<AppIcon path={demoApps[0].path} name={demoApps[0].name} />
+								<span class="grow d-name">{demoApps[0].name}<small>No rule, follows the default (the VPN)</small></span>
+								<span class="d-edit">Edit cap</span>
+							</div>
+							<CapBar percent={100} tone="over" label="Data cap used" height={8} />
+							<small>2 GB of 2 GB today · resets at midnight</small>
+							<div class="d-notice">
+								<span>{demoApps[0].name} reached its cap. Blocking reconnects the VPN once.</span>
+								<span class="d-pair"><span class="btn small danger">Block now</span><span class="btn small">Not now</span></span>
 							</div>
 						</div>
 					{:else}
@@ -671,5 +752,85 @@
 	}
 	.brand {
 		margin-top: 14px;
+	}
+	.d-rules,
+	.d-appctl,
+	.d-capdemo {
+		width: min(100%, 420px);
+		gap: 9px;
+		text-align: left;
+	}
+	.d-rule,
+	.d-app {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 12.5px;
+	}
+	.grow {
+		flex: 1;
+		min-width: 0;
+	}
+	.d-num {
+		width: 16px;
+		text-align: center;
+		font-size: 11px;
+		color: var(--fg-muted);
+	}
+	.d-name {
+		display: grid;
+		font-weight: 600;
+	}
+	.d-name small,
+	.d-capdemo small {
+		font-weight: 400;
+		font-size: 11px;
+		color: var(--fg-muted);
+	}
+	.d-pill-choice {
+		display: inline-flex;
+		gap: 2px;
+		padding: 2px;
+		border-radius: 999px;
+		background: var(--hairline);
+	}
+	.d-pill-choice i {
+		font-style: normal;
+		font-size: 11px;
+		padding: 2px 9px;
+		border-radius: 999px;
+		color: var(--fg-muted);
+	}
+	.d-pill-choice i.on {
+		border: 1px solid var(--accent);
+		color: var(--accent);
+	}
+	.d-edit {
+		padding: 3px 12px;
+		border-radius: 999px;
+		border: 1px solid var(--hairline);
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
+	.d-notice {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--danger) 14%, transparent);
+		font-size: 12px;
+	}
+	.d-pair {
+		display: flex;
+		gap: 6px;
+		flex: none;
+	}
+	.d-notice .btn.small {
+		min-height: 24px;
+		padding: 2px 10px;
+		font-size: 12px;
+		margin: 0;
 	}
 </style>

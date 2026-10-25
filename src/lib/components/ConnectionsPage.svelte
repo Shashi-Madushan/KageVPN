@@ -215,6 +215,7 @@
 						{col.label}{#if sortKey === col.key}<span class="arrow" aria-hidden="true">{sortDesc ? '▾' : '▴'}</span>{/if}
 					</button>
 				{/each}
+				<span class="th route-th">Route</span>
 			</div>
 			{#each sortedApps as a (a.name)}
 				<button class="row app-row" onclick={() => (expanded = expanded === a.name ? null : a.name)} aria-expanded={expanded === a.name}>
@@ -227,6 +228,7 @@
 					<span class="num tabular down" class:idle={a.rate.down < 1}>{formatRateOrDash(a.rate.down)}</span>
 					<span class="num tabular dim">{formatBytes(a.total.up)}</span>
 					<span class="num tabular dim">{formatBytes(a.total.down)}</span>
+					<span class="routehint" aria-hidden="true">{currentRule(a) ? actionWords[currentRule(a)!.action].short : 'Route'} ▾</span>
 					<span class="meter" aria-hidden="true"><i style="width:{Math.min(100, ((a.rate.up + a.rate.down) / peak) * 100)}%"></i></span>
 				</button>
 				{#if expanded === a.name}
@@ -312,7 +314,7 @@
 	}
 	.apps .head,
 	.apps .row {
-		grid-template-columns: minmax(140px, 2fr) 56px repeat(4, minmax(92px, 1fr));
+		grid-template-columns: minmax(140px, 2fr) 56px repeat(4, minmax(92px, 1fr)) 92px;
 		column-gap: 12px;
 	}
 	.apps .head {
@@ -338,6 +340,23 @@
 	.th:hover,
 	.th.on {
 		color: var(--fg);
+	}
+	.route-th {
+		text-align: right;
+	}
+	.routehint {
+		justify-self: end;
+		padding: 2px 8px;
+		border-radius: 999px;
+		border: 1px solid var(--hairline);
+		color: var(--fg-muted);
+		font-size: 11px;
+		white-space: nowrap;
+	}
+	.app-row:hover .routehint,
+	.app-row[aria-expanded='true'] .routehint {
+		color: var(--fg);
+		border-color: var(--fg-muted);
 	}
 	.arrow {
 		margin-left: 4px;
@@ -457,7 +476,7 @@
 	@container (max-width: 560px) {
 		.apps .head,
 		.apps .row {
-			grid-template-columns: minmax(0, 1fr) 76px 76px;
+			grid-template-columns: minmax(0, 1fr) 76px 76px 84px;
 		}
 		.apps .head > :nth-child(2),
 		.apps .head > :nth-child(5),

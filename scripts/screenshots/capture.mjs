@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// Regenerates the README screenshots in docs/images from fake demo data.
+// Regenerates the screenshots in docs/images (README) and docs-site/assets/images (docs site)
+// from fake demo data.
 //
 //   npm run screenshots
 //
 // Needs a Chromium-based browser (Brave, Chrome or Edge); set BROWSER_PATH to pick one.
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
@@ -14,6 +15,7 @@ import { demoScript } from './demo-data.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const out = join(root, 'docs', 'images');
+const siteOut = join(root, 'docs-site', 'assets', 'images');
 const PORT = 1479;
 const candidates = [
 	process.env.BROWSER_PATH,
@@ -24,6 +26,7 @@ const candidates = [
 const executablePath = candidates.find((p) => existsSync(p));
 if (!executablePath) throw new Error('No Chromium-based browser found. Set BROWSER_PATH.');
 mkdirSync(out, { recursive: true });
+mkdirSync(siteOut, { recursive: true });
 
 const dev = spawn('npx', ['vite', 'dev', '--port', String(PORT), '--strictPort'], { cwd: root, stdio: 'ignore' });
 const stop = () => dev.kill();
@@ -64,10 +67,10 @@ async function frame(png, [w, h], theme) {
 	return out;
 }
 
-async function shot(file, { path = '/', framed = true, connected = true, withServers = true, theme = 'light', tourSeen = true, size = [1280, 800], act, selector } = {}) {
+async function shot(file, { path = '/', framed = true, connected = true, withServers = true, capOffer = false, theme = 'light', tourSeen = true, size = [1280, 800], act, selector } = {}) {
 	const context = await browser.newContext({ viewport: { width: size[0], height: size[1] }, deviceScaleFactor: 2, colorScheme: theme });
 	const page = await context.newPage();
-	await page.addInitScript(demoScript({ connected, withServers }));
+	await page.addInitScript(demoScript({ connected, withServers, capOffer }));
 	await page.addInitScript(([t, seen]) => {
 		try {
 			localStorage.setItem('kage-vpn.theme', t);
@@ -82,6 +85,8 @@ async function shot(file, { path = '/', framed = true, connected = true, withSer
 	let png = await target.screenshot();
 	if (framed) png = await frame(png, size, theme);
 	writeFileSync(join(out, file), png);
+	// The docs site serves its own copy of each picture.
+	copyFileSync(join(out, file), join(siteOut, file));
 	console.log('wrote', file);
 	await context.close();
 }
@@ -103,6 +108,29 @@ try {
 	});
 	await shot('usage.png', { size: [1280, 1180], act: nav('Data usage') });
 	await shot('routing.png', { size: [1280, 900], act: nav('Routing') });
+	await shot('routing-lists.png', {
+		size: [1280, 1000],
+		act: async (page) => {
+			await nav('Routing')(page);
+			await page.getByRole('tab', { name: /Ready-made lists/ }).click();
+		}
+	});
+	await shot('apps.png', { size: [1280, 900], act: nav('App controls') });
+	await shot('app-cap-editor.png', {
+		size: [1280, 900],
+		act: async (page) => {
+			await nav('App controls')(page);
+			await page.getByRole('button', { name: 'Edit the data cap for Slack' }).click();
+		}
+	});
+	// Discord has reached its cap and offers a block, which Home shows as a card.
+	await shot('home-cap-offer.png', { size: [1280, 860], capOffer: true, act: nav('Home') });
+	await shot('connections-apps.png', {
+		act: async (page) => {
+			await nav('Connections')(page);
+			await page.waitForTimeout(5000);
+		}
+	});
 	await shot('connections.png', {
 		act: async (page) => {
 			await nav('Connections')(page);
@@ -129,9 +157,30 @@ try {
 	});
 	await shot('logs.png', { act: nav('Logs') });
 	await shot('settings.png', { size: [1280, 1100], act: nav('Settings') });
+	// The lower half of Settings: logs, the monthly data limit and usage privacy.
+	await shot('settings-usage.png', {
+		size: [1280, 1100],
+		act: async (page) => {
+			await nav('Settings')(page);
+			await page.getByText('Keep app and website history').scrollIntoViewIfNeeded();
+		}
+	});
 	await shot('menu-bar-popover.png', { path: '/tray', framed: false, size: [320, 550] });
 	// First launch with no servers: the welcome tour opens by itself.
 	await shot('welcome.png', { connected: false, withServers: false, tourSeen: false, size: [1280, 860] });
+	// The setup guide's per-app step: Settings, Run setup again, then Next until it shows.
+	await shot('tour-apps.png', {
+		size: [1280, 860],
+		act: async (page) => {
+			await nav('Settings')(page);
+			await page.getByRole('button', { name: 'Run setup again' }).click();
+			await page.waitForTimeout(400);
+			for (let i = 0; i < 12 && !(await page.getByText('Control each app').isVisible()); i++) {
+				await page.getByRole('button', { name: 'Next' }).click();
+				await page.waitForTimeout(250);
+			}
+		}
+	});
 } finally {
 	await browser.close();
 	stop();

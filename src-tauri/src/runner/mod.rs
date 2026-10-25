@@ -162,6 +162,10 @@ fn start_plain(paths: &AppPaths, binary: &Path) -> Result<u32> {
         paths.config_file().display().to_string(),
         paths.stop_file().display().to_string(),
         std::process::id().to_string(),
+        // No kill switch in this mode; then where the system proxy settings are put back from.
+        String::new(),
+        paths.system_proxy_script().display().to_string(),
+        paths.system_proxy_snapshot().display().to_string(),
     ];
     spawn_plain(&args)
 }
@@ -213,7 +217,7 @@ fn spawn_plain(args: &[String]) -> Result<u32> {
     Ok(child.id())
 }
 
-const ADMIN_PROMPT: &str = "Kage VPN needs administrator access to create the VPN tunnel. Install the VPN service in Settings to avoid being asked each time you open the app.";
+const ADMIN_PROMPT: &str = "Kage needs administrator access to create the VPN tunnel. Install the VPN service in Settings to avoid being asked each time you open the app.";
 
 async fn spawn_privileged(args: &[String], cancel: &AtomicBool) -> Result<u32> {
     let command = format!(

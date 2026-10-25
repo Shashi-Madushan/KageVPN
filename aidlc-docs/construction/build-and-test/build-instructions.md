@@ -7,3 +7,12 @@ npm run build          # vite build
 cd src-tauri && cargo clippy --all-targets -- -D warnings
 npm run build:app      # full app bundle (src-tauri/target/release/bundle)
 ```
+
+## Round 2 (per-app controls, branch feature/app-picker-and-usage-limits)
+No new dependencies or environment variables. `npm run build:app` was run on this branch and produced `Kage VPN.app` (10.4 MiB). The Apps tab needs `/usr/bin/sips` (part of macOS) to make app icons; without it the tab shows each app's initial instead.
+
+## Round 4, pull request 1 (TUIC, Hysteria v1, SSH, WireGuard; branch feature/protocols-and-system-proxy)
+No new dependencies or environment variables. `npm run build:app` was run on this branch at `080c53a` and produced `Kage.app` (11 MB). Running the new protocols needs a sing-box built `with_quic` (TUIC, Hysteria, Hysteria2) and `with_wireguard` (WireGuard); the official releases and Homebrew have both. An engine without them still builds and connects to the other protocols; choosing a server it cannot run stops with a message naming the Engine page.
+
+## Round 4, pull request 2 (system proxy; branch feature/system-proxy)
+No new dependencies or environment variables. The feature uses `/usr/sbin/networksetup` (part of macOS) at run time; it needs no administrator password. `npm run build:app` was run at `db08ecc` and produced `Kage.app` (11 MB).

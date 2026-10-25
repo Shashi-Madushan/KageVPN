@@ -5,7 +5,8 @@ export type Mode = 'tun' | 'proxy';
 export type ConnState = 'disconnected' | 'connecting' | 'connected';
 export type Level = 'debug' | 'info' | 'warn' | 'error';
 
-export type Protocol = 'vless' | 'trojan' | 'shadowsocks' | 'hysteria2';
+/** A registered protocol id; the list comes from the backend (`protocols`). */
+export type Protocol = 'vless' | 'vmess' | 'trojan' | 'shadowsocks' | 'hysteria2' | 'hysteria' | 'tuic' | 'ssh' | 'wireguard';
 
 /** One server. Everything specific to its protocol is in `settings`; the editor reads and writes
  *  it by the key paths each protocol lists (see `FormField`), so no per-protocol types are needed. */
@@ -40,6 +41,7 @@ export interface Status {
 	blocked: boolean;
 	/** A stop was asked for and sing-box has not exited yet; `state` is still 'connected' until it has. */
 	disconnecting: boolean;
+	systemProxy?: SystemProxyState;
 }
 
 export interface ErrorInfo {
@@ -132,12 +134,16 @@ export type RuleKind = 'domain' | 'domainSuffix' | 'domainKeyword' | 'ipCidr' | 
 export type RuleSetKind = 'geoip' | 'geosite';
 export type DnsProvider = 'cloudflare' | 'google' | 'quad9' | 'custom' | 'system';
 
+/** `cap` marks a block put in place by a per-app data cap. */
+export type RuleOrigin = 'manual' | 'cap';
+
 export interface Rule {
 	id: string;
 	enabled: boolean;
 	kind: RuleKind;
 	value: string;
 	action: RouteAction;
+	origin?: RuleOrigin;
 }
 
 export interface RuleSetRef {
@@ -216,6 +222,47 @@ export interface ReliabilitySettings {
 	hotkey: boolean;
 	proxyAuth: boolean;
 	proxyPassword: string;
+	/** Set the macOS system proxy while connected in Proxy Only mode. */
+	systemProxy: boolean;
+	/** Extra hosts and address ranges that skip the system proxy. */
+	bypass: string[];
+}
+
+/** What Kage did to the macOS proxy settings. */
+export type SystemProxyState =
+	| { state: 'off' }
+	| { state: 'set'; port: number; services: string[] }
+	| { state: 'failed'; action: 'set' | 'restore'; reason: string };
+
+export type CapPeriod = 'day' | 'week' | 'month';
+export type AtLimit = 'notify' | 'offerBlock';
+export type CapState = 'ok' | 'warn80' | 'over' | 'blocked' | 'dismissed' | 'notCounting';
+
+/** A data cap for one installed app, by its bundle path. */
+export interface AppCap {
+	path: string;
+	limitBytes: number;
+	period: CapPeriod;
+	atLimit: AtLimit;
+}
+
+/** A cap with what the app has used this period. `offer` is `pending` while Block now is on offer. */
+export interface CapStatus {
+	path: string;
+	name: string;
+	installed: boolean;
+	limitBytes: number;
+	period: CapPeriod;
+	atLimit: AtLimit;
+	used: number;
+	up: number;
+	down: number;
+	percent: number;
+	level: number;
+	state: CapState;
+	offer: 'none' | 'pending' | 'taken' | 'dismissed';
+	periodStart: number;
+	periodEnd: number;
 }
 
 export interface UsageSettings {
@@ -228,6 +275,7 @@ export interface UsageSettings {
 	quotaAction: 'notify' | 'disconnect';
 	alertCycle: number;
 	alertLevel: number;
+	appCaps: AppCap[];
 }
 
 export type Bucket = 'hour' | 'day' | 'week' | 'month';
@@ -273,6 +321,8 @@ export interface ImportSummary {
 	added: number;
 	duplicates: number;
 	failed: string[];
+	/** Servers imported with something filled in, such as default speeds: "Name: what". */
+	notes: string[];
 }
 
 export interface RefreshSummary {
@@ -357,7 +407,8 @@ export interface Snapshot {
 export const api = {
 	appInfo: () => invoke<AppInfo>('app_info'),
 	snapshot: () => invoke<Snapshot>('snapshot'),
-	importText: (text: string) => invoke<ImportSummary>('import_text', { text }),
+	/** `fileName`: a dropped file's name, which names a WireGuard server read from it. */
+	importText: (text: string, fileName?: string) => invoke<ImportSummary>('import_text', { text, fileName: fileName ?? null }),
 	newProfile: (protocol: string) => invoke<Profile>('new_profile', { protocol }),
 	saveProfile: (profile: Profile) => invoke<Profile>('save_profile', { profile }),
 	duplicateProfile: (id: string) => invoke<Profile>('duplicate_profile', { id }),
@@ -368,17 +419,20 @@ export const api = {
 	profileQr: (id: string) => invoke<string>('profile_qr', { id }),
 	setAuto: (settings: AutoSettings) => invoke<void>('set_auto', { settings }),
 	testAll: () => invoke<NodeLatency[]>('test_all'),
-	setRouting: (settings: RoutingSettings) => invoke<void>('set_routing', { settings }),
+	/** Resolves to the settings as stored, with the data-cap blocks the sent copy may lack. */
+	setRouting: (settings: RoutingSettings) => invoke<RoutingSettings>('set_routing', { settings }),
 	ruleProviders: () => invoke<RuleProvider[]>('rule_providers'),
 	ruleSetsStatus: () => invoke<RuleSetsStatus>('rule_sets_status'),
 	downloadRuleSets: (tag: string | null) => invoke<ListResult[]>('download_rule_sets', { tag }),
 	deleteRuleSets: (tag: string | null) => invoke<void>('delete_rule_sets', { tag }),
-	setReliability: (settings: ReliabilitySettings) => invoke<void>('set_reliability', { settings }),
+	/** Resolves to true when a kill switch turned on now only takes effect at the next connect. */
+	setReliability: (settings: ReliabilitySettings) => invoke<boolean>('set_reliability', { settings }),
 	setNetworkSettings: (settings: NetworkSettings) => invoke<void>('set_network_settings', { settings }),
 	currentNetwork: () => invoke<CurrentNetwork | null>('current_network'),
 	restoreNetwork: () => invoke<void>('restore_network'),
 	unblockInternet: () => invoke<void>('unblock_internet'),
 	rootServiceInstalled: () => invoke<boolean>('root_service_installed'),
+	repairSystemProxy: () => invoke<SystemProxyState>('repair_system_proxy'),
 	repairService: () => invoke<string>('repair_service'),
 	exportDiagnostics: () => invoke<{ path: string; summary: string }>('diagnostics_export'),
 	installRootService: () => invoke<void>('install_root_service'),
@@ -388,6 +442,7 @@ export const api = {
 	editSubscription: (id: string, name: string, url: string, options: SubscriptionOptions) =>
 		invoke<void>('edit_subscription', { id, name, url, ...options }),
 	installedApps: () => invoke<InstalledApp[]>('installed_apps'),
+	appIcon: (path: string) => invoke<string | null>('app_icon', { path }),
 	deleteProfiles: (ids: string[]) => invoke<number>('delete_profiles', { ids }),
 	exportBackup: () => invoke<string>('export_backup'),
 	restoreBackup: (text: string) => invoke<RestoreSummary>('restore_backup', { text }),
@@ -470,7 +525,7 @@ export interface AppInfo {
 	protocols: ProtocolInfo[];
 }
 
-export type FieldKind = 'text' | 'secret' | 'select' | 'segmented' | 'toggle' | 'list';
+export type FieldKind = 'text' | 'secret' | 'select' | 'segmented' | 'toggle' | 'list' | 'multiline';
 export type FieldSection = 'connection' | 'security' | 'transport' | 'advanced';
 
 export interface FieldChoice {
@@ -489,7 +544,9 @@ export interface FormField {
 	optional: boolean;
 	mono: boolean;
 	placeholder: string | null;
+	/** Shown while a toggle is on, or while the field is empty when `warnWhenEmpty`. */
 	warning: string | null;
+	warnWhenEmpty: boolean;
 	showWhen: { key: string; values: string[] } | null;
 	pattern: { regex: string; message: string } | null;
 }
@@ -618,4 +675,14 @@ export const appUpdateApi = {
 	settings: () => invoke<AppUpdateSettings>('app_update_settings'),
 	setPolicy: (policy: UpdatePolicy) => invoke<void>('set_app_update_policy', { policy }),
 	restart: (force: boolean) => invoke<void>('app_restart', { force })
+};
+
+export const capsApi = {
+	list: () => invoke<CapStatus[]>('caps_list'),
+	set: (cap: AppCap) => invoke<void>('cap_set', { cap }),
+	remove: (path: string) => invoke<void>('cap_remove', { path }),
+	/** Blocks the app now; only allowed while its offer is pending. Reconnects the VPN once. */
+	block: (path: string) => invoke<void>('cap_block', { path }),
+	notNow: (path: string) => invoke<void>('cap_not_now', { path }),
+	unblock: (path: string) => invoke<void>('cap_unblock', { path })
 };

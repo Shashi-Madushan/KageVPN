@@ -7,7 +7,7 @@ use crate::config::Mode;
 use crate::diagnostics::{self, Diagnostics, SpeedResult};
 use crate::error::{AppError, Result};
 use crate::logs::LogLine;
-use crate::profile::{parse_many, to_link, Profile, ProfileView};
+use crate::profile::{parse_all_named, to_link, Profile, ProfileView};
 use crate::session::{self, State as ConnState, Status};
 use crate::settings::{AutoSettings, NetworkSettings, ReliabilitySettings, RoutingSettings, Subscription};
 use crate::state::AppState;
@@ -42,6 +42,8 @@ pub struct ImportSummary {
     added: usize,
     duplicates: usize,
     failed: Vec<String>,
+    /// Servers imported with something filled in, such as default speeds.
+    notes: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -98,14 +100,15 @@ pub fn snapshot(app: AppHandle, state: State<AppState>) -> Snapshot {
 }
 
 #[tauri::command]
-pub fn import_text(state: State<AppState>, text: String) -> Result<ImportSummary> {
-    let (profiles, failed) = parse_many(&text);
-    if profiles.is_empty() {
-        let reason = failed.into_iter().next().unwrap_or_else(|| "no supported server links were found".into());
+/// `file_name`: the name of a dropped file, which names a WireGuard server read from it.
+pub fn import_text(state: State<AppState>, text: String, file_name: Option<String>) -> Result<ImportSummary> {
+    let parsed = parse_all_named(&text, file_name.as_deref());
+    if parsed.profiles.is_empty() {
+        let reason = parsed.errors.into_iter().next().unwrap_or_else(|| "no supported server links were found".into());
         return Err(AppError::Invalid(reason));
     }
-    let (added, duplicates) = state.store.lock().unwrap().import_unique(profiles)?;
-    Ok(ImportSummary { added, duplicates, failed })
+    let (added, duplicates) = state.store.lock().unwrap().import_unique(parsed.profiles)?;
+    Ok(ImportSummary { added, duplicates, failed: parsed.errors, notes: parsed.notes })
 }
 
 /// A blank server of one protocol, with that protocol's defaults.
@@ -396,9 +399,16 @@ pub fn set_launch_at_login(app: AppHandle, enabled: bool) -> Result<()> {
     result.map_err(|e| AppError::Launch(e.to_string()))
 }
 
+/// Returns the settings as stored, which keep the data-cap blocks the page's copy may lack, so the
+/// page can show what really applies.
 #[tauri::command]
-pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSettings) -> Result<()> {
+pub fn set_routing(app: AppHandle, state: State<AppState>, mut settings: RoutingSettings) -> Result<RoutingSettings> {
+    // Blocks put in place by a data cap are managed only by the cap commands: a stale draft can
+    // neither remove nor recreate one.
+    let stored = state.store.lock().unwrap().routing();
+    settings.rules = crate::usage::caps::keep_cap_rules(&stored.rules, settings.rules);
     crate::config::validate_dns(&settings.dns)?;
+    crate::config::validate_rules(&settings.rules)?;
     crate::rulesets::validate_providers(&settings.custom_providers)?;
     let dir = state.paths.rule_sets_dir();
     let provider = crate::rulesets::provider_of(&settings);
@@ -408,7 +418,7 @@ pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSett
     if changed_source {
         missing = crate::rulesets::wanted(&settings);
     }
-    state.store.lock().unwrap().set_routing(settings)?;
+    state.store.lock().unwrap().set_routing(settings.clone())?;
     // Fetch new lists now, so connecting later does not wait for them and a failure shows up here.
     if !missing.is_empty() {
         let fetch = crate::rulesets::Fetch { provider: provider.clone(), proxy: crate::session::tunnel_proxy(&app) };
@@ -422,14 +432,31 @@ pub fn set_routing(app: AppHandle, state: State<AppState>, settings: RoutingSett
             }
         });
     }
-    Ok(())
+    Ok(settings)
 }
 
+/// Returns true when the kill switch was turned on but only takes effect at the next connect.
+/// Turning it off needs nothing here: the block watch lifts a block that is no longer wanted.
 #[tauri::command]
-pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: ReliabilitySettings) -> Result<()> {
+pub fn set_reliability(app: AppHandle, state: State<AppState>, settings: ReliabilitySettings) -> Result<bool> {
+    crate::sysproxy::bypass_list(&settings.bypass)?;
+    let was = state.store.lock().unwrap().reliability().kill_switch;
+    let now = settings.kill_switch;
     state.store.lock().unwrap().set_reliability(settings)?;
     reliability::apply_hotkey(&app);
-    Ok(())
+    // The system proxy option, its bypass list or the proxy login changed: apply at once.
+    crate::sysproxy::spawn_sync(app.clone());
+    let status = state.status.lock().unwrap();
+    Ok(reliability::kill_switch_waits_for_reconnect(was, now, status.state, status.mode))
+}
+
+/// Puts back the proxy settings Kage saved; the Repair button on Home.
+#[tauri::command]
+pub async fn repair_system_proxy(app: AppHandle) -> Result<crate::sysproxy::SystemProxyState> {
+    if !crate::sysproxy::has_snapshot(&app.state::<AppState>().paths) {
+        return Err(AppError::Invalid("Nothing to restore: Kage has not changed your proxy settings.".into()));
+    }
+    Ok(crate::sysproxy::restore_now(&app).await)
 }
 
 #[tauri::command]
@@ -533,6 +560,15 @@ pub fn edit_subscription(
 #[tauri::command]
 pub async fn installed_apps() -> Result<Vec<crate::apps::InstalledApp>> {
     crate::apps::list().await
+}
+
+/// The icon of an installed app as a `data:` URL, or nothing when it has none.
+#[tauri::command]
+pub async fn app_icon(state: State<'_, AppState>, path: String) -> Result<Option<String>> {
+    let cache = state.paths.app_icons_dir();
+    tauri::async_runtime::spawn_blocking(move || crate::apps::icon_data_url(std::path::Path::new(&path), &cache))
+        .await
+        .map_err(|e| AppError::Launch(format!("could not read the app icon: {e}")))
 }
 
 #[tauri::command]
