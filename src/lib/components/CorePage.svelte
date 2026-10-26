@@ -5,6 +5,7 @@
 	import { formatBytes } from '$lib/format';
 	import { compareVersions } from '$lib/version';
 	import HeaderActions from './HeaderActions.svelte';
+	import ProgressBar from './ProgressBar.svelte';
 	import Segmented from './Segmented.svelte';
 	import Select from './Select.svelte';
 	import type { Channel, Release, UpdatePolicy } from '$lib/api';
@@ -203,10 +204,8 @@
 								<p class="warn">This release has no published checksum, so its download cannot be verified.</p>
 							{/if}
 							{#if core.installing === release.version}
-								<div class="progress" aria-label="Install progress">
-									<div class="bar" style:width={percent === null ? '100%' : `${percent}%`} class:indeterminate={percent === null}></div>
-								</div>
-								<span class="sub">{core.progress ? STAGES[core.progress.stage] : 'Starting…'}{percent !== null ? ` ${percent.toFixed(0)}%` : ''}</span>
+								<ProgressBar value={core.progress?.stage === 'download' || !core.progress ? percent : 100} label="Install progress" />
+								<span class="sub">{core.progress ? STAGES[core.progress.stage] : 'Starting…'}{core.progress?.stage === 'download' && core.progress.total > 0 ? ` · ${formatBytes(core.progress.received)} of ${formatBytes(core.progress.total)}` : ''}</span>
 							{/if}
 							{#if release.notes}
 								<button class="linkbtn" onclick={() => (expanded = expanded === release.version ? null : release.version)}>
@@ -342,26 +341,6 @@
 		max-height: 180px;
 		overflow: auto;
 		user-select: text;
-	}
-	.progress {
-		height: 4px;
-		border-radius: 2px;
-		background: var(--hairline);
-		overflow: hidden;
-	}
-	.bar {
-		height: 100%;
-		background: var(--accent);
-		transition: width 0.2s;
-	}
-	.bar.indeterminate {
-		animation: slide 1.1s ease-in-out infinite;
-		transform-origin: left;
-	}
-	@keyframes slide {
-		50% {
-			transform: scaleX(0.35);
-		}
 	}
 	@container (max-width: 500px) {
 		.meta,

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { downloads } from '$lib/downloads.svelte';
+	import { formatBytes } from '$lib/format';
 	import Icon from './Icon.svelte';
+	import ProgressBar from './ProgressBar.svelte';
 
 	let open = $state(false);
 	let root = $state<HTMLDivElement>();
@@ -56,9 +58,14 @@
 							<button type="button" class="linkbtn" onclick={item.retry}>Retry</button>
 						{/if}
 					</div>
-					<span class="detail" class:ok={item.state === 'done'}>{item.error ?? item.detail}</span>
 					{#if item.state === 'active'}
-						<div class="bar" aria-hidden="true"><div class="fill" class:indeterminate={item.percent === null} style:width={item.percent === null ? '100%' : `${item.percent}%`}></div></div>
+						<ProgressBar value={item.percent} label={item.title} />
+						<span class="detail sizes">
+							<span>{item.detail}</span>
+							{#if item.received !== null && item.total}<span class="tabular">{formatBytes(item.received)} of {formatBytes(item.total)}</span>{/if}
+						</span>
+					{:else}
+						<span class="detail" class:ok={item.state === 'done'}>{item.error ?? item.detail}</span>
 					{/if}
 				</div>
 			{:else}
@@ -136,32 +143,43 @@
 	}
 	.panel {
 		position: absolute;
-		top: calc(100% + 6px);
+		top: calc(100% + 8px);
 		right: 0;
 		z-index: 50;
-		width: 300px;
+		width: 320px;
 		max-width: calc(100vw - 24px);
-		padding: 6px;
+		padding: 10px;
+		display: grid;
+		gap: 8px;
 		border: 1px solid var(--hairline);
-		border-radius: 10px;
+		border-radius: var(--radius);
 		background: var(--dialog-bg);
-		box-shadow: 0 10px 30px rgb(0 0 0 / 0.3);
+		box-shadow: 0 12px 32px rgb(0 0 0 / 0.22);
 	}
 	.panel-head {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 4px 8px 6px;
-		font-size: 12px;
+		padding: 2px 4px 0;
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--fg-muted);
+	}
+	.panel-head strong {
+		font-weight: inherit;
 	}
 	.row {
 		display: grid;
-		gap: 3px;
-		padding: 8px;
-		border-radius: 8px;
+		gap: 8px;
+		padding: 10px 12px;
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius-sm);
+		background: var(--surface);
 	}
-	.row + .row {
-		border-top: 1px solid var(--hairline);
+	.row.failed {
+		border-color: color-mix(in srgb, var(--danger) 45%, var(--hairline));
 	}
 	.line {
 		display: flex;
@@ -174,38 +192,23 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		font-size: 13px;
+		font-size: var(--text-md);
 		font-weight: 600;
 	}
 	.detail {
-		font-size: 12px;
+		font-size: var(--text-sm);
 		color: var(--fg-muted);
+	}
+	.detail.sizes {
+		display: flex;
+		justify-content: space-between;
+		gap: 8px;
 	}
 	.detail.ok {
 		color: var(--ok-text);
 	}
 	.failed .detail {
 		color: var(--danger);
-	}
-	.bar {
-		height: 4px;
-		margin-top: 2px;
-		border-radius: 2px;
-		background: var(--hairline);
-		overflow: hidden;
-	}
-	.bar .fill {
-		height: 100%;
-		background: var(--accent);
-		transition: width 0.2s;
-	}
-	.bar .fill.indeterminate {
-		animation: pulse 1.1s ease-in-out infinite;
-	}
-	@keyframes pulse {
-		50% {
-			opacity: 0.35;
-		}
 	}
 	.none {
 		margin: 0;

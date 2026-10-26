@@ -3,6 +3,9 @@
 	import { app } from '$lib/app.svelte';
 	import type { LogLevel, UpdatePolicy } from '$lib/api';
 	import ConfirmDialog from './ConfirmDialog.svelte';
+	import ProgressBar from './ProgressBar.svelte';
+	import { downloads } from '$lib/downloads.svelte';
+	import { formatBytes } from '$lib/format';
 	import Select from './Select.svelte';
 	import UsageSettingsSection from './UsageSettingsSection.svelte';
 	import NetworksSection from './NetworksSection.svelte';
@@ -233,12 +236,17 @@
 						{appUpdate.restartPending
 							? `Version ${appUpdate.restartPending} is installed. Restart to start using it.${app.locked ? ' This will disconnect the VPN.' : ''}`
 							: appUpdate.installing
-								? 'Downloading the update. It installs when the download finishes; see the downloads menu for progress.'
+								? 'Downloading the update. It installs when the download finishes.'
 								: appUpdate.available
 									? (appUpdate.failure ?? `Version ${appUpdate.available.version} is available.`)
 									: (appUpdate.checkedMessage ?? 'Updates are checked once a day.')}
 					{/if}
 				</small>
+				{#if appUpdate.installing}
+					{@const dl = downloads.items.find((i) => i.id === 'app')}
+					<span class="dl"><ProgressBar value={dl?.percent ?? null} label="Update download" />
+						<small>{dl?.detail ?? 'Starting'}{dl?.received != null && dl.total ? ` · ${formatBytes(dl.received)} of ${formatBytes(dl.total)}` : ''}</small></span>
+				{/if}
 			</span>
 			<span class="update-actions">
 				{#if appUpdate.restartPending}
@@ -344,6 +352,12 @@
 		background: var(--surface);
 		color: var(--danger);
 		font-weight: 600;
+	}
+	.dl {
+		display: grid;
+		gap: 4px;
+		margin-top: 8px;
+		max-width: 320px;
 	}
 	.update-actions {
 		display: flex;
