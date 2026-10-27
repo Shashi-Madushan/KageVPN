@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, planSummary, profileFlag } from '$lib/format';
@@ -14,6 +15,7 @@
 	import Sparkline from '$lib/components/Sparkline.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 
+	const WIDTH = 272;
 	const modes = [
 		{ value: 'tun' as const, label: 'Full System' },
 		{ value: 'proxy' as const, label: 'Proxy Only' }
@@ -26,6 +28,15 @@
 	const pinging = $derived(!!check && 'pending' in check);
 
 	let now = $state(Math.floor(Date.now() / 1000));
+	let popover: HTMLDivElement;
+
+	/** The window follows the content, so the popover never shows an empty band or clips. */
+	function fitWindow() {
+		const height = Math.ceil(popover.getBoundingClientRect().height);
+		if (height && Math.abs(height - window.innerHeight) > 1) {
+			getCurrentWindow().setSize(new LogicalSize(WIDTH, height)).catch(() => {});
+		}
+	}
 
 	onMount(() => {
 		// The popover opens first; data fills in afterwards so the open itself never stalls.
@@ -36,10 +47,13 @@
 			if (e.key === 'Escape') api.hideTray();
 		};
 		window.addEventListener('keydown', handleKey);
+		const observer = new ResizeObserver(fitWindow);
+		observer.observe(popover);
 
 		return () => {
 			clearInterval(timer);
 			window.removeEventListener('keydown', handleKey);
+			observer.disconnect();
 		};
 	});
 
@@ -86,30 +100,31 @@
 	);
 </script>
 
-<div class="popover">
+<div class="popover" bind:this={popover}>
 	<button class="icon-btn close" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" /></svg></button>
 
 	{#if !app.loaded}
 		<div class="skeleton" aria-hidden="true">
-			<div class="center"><Skeleton width="112px" height="112px" radius="50%" /></div>
+			<div class="center"><Skeleton width="88px" height="88px" radius="50%" /></div>
 			<div class="center"><Skeleton width="170px" height="22px" radius="8px" /></div>
-			<Skeleton height="48px" radius="12px" />
-			<Skeleton height="56px" radius="12px" />
-			<Skeleton height="128px" radius="12px" />
+			<div class="center"><Skeleton width="80px" height="26px" radius="999px" /></div>
+			<Skeleton height="38px" radius="10px" />
+			<Skeleton height="38px" radius="12px" />
+			<Skeleton height="132px" radius="12px" />
 			<Skeleton height="34px" radius="10px" />
 		</div>
 	{:else}
 		<section class="hero {tone}">
-			<MascotButton size={96} />
-			<div class="hero-text">
-				<h1 class="headline {tone}">{headline}</h1>
-				{#if sub}<p class="sub">{sub}</p>{:else if elapsed && app.connected}<p class="sub tabular">Connected {elapsed}</p>{/if}
-				{#if app.profiles.length}
-					<button class="cta" class:stop={app.connected || app.busy} disabled={app.disconnecting} onclick={() => app.toggle()}>
-						{app.disconnecting ? 'Disconnecting…' : app.busy ? 'Cancel' : app.connected ? 'Disconnect' : 'Connect'}
-					</button>
-				{/if}
-			</div>
+			<MascotButton size={76} />
+			<h1 class="headline {tone}">{headline}</h1>
+			{#if sub}<p class="sub">{sub}{#if isConnecting} · tap to cancel{/if}</p>{/if}
+			{#if app.activeProfile || app.auto.enabled}
+				<button class="ping {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
+					<Icon name="bolt" size={13} /><span class="tabular">{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test latency'}</span>
+				</button>
+			{:else if !sub && app.profiles.length}
+				<p class="sub">Tap the mascot to connect</p>
+			{/if}
 		</section>
 
 		{#if app.profiles.length}
@@ -120,44 +135,39 @@
 				<!-- While connected the server changes in place; only the mode needs a disconnect. -->
 				<div class="pick" title={app.connected ? 'Switch server without disconnecting' : undefined}>{@render serverPicker()}</div>
 			{/if}
-			<section class="card sheet" aria-label="Connection and data usage">
-				<div class="info">
-					<div class="cell ip">
-						<span class="k">Exit IP</span>
-						<span class="v">
-							{#if !app.connected}
-								<span class="none">Not connected</span>
-							{:else if app.exitIp}
-								<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
-								<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
-							{:else if app.tunnelDown}
-								<span class="none">No IP</span>
-							{:else}
-								<Skeleton width="84px" height="14px" />
-							{/if}
-						</span>
-					</div>
-					<button class="cell latency {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
-						<span class="k">Latency</span>
-						<span class="v tabular"><Icon name="bolt" size={12} />{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test'}</span>
-					</button>
+
+			<section class="card info" aria-label="Connection">
+				<span class="elapsed tabular" title="Time connected">{elapsed && app.connected ? elapsed : '--:--:--'}</span>
+				<span class="ip" title="Exit IP">
+					{#if !app.connected}
+						<span class="none">Not connected</span>
+					{:else if app.exitIp}
+						<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
+						<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
+					{:else if app.tunnelDown}
+						<span class="none">No IP</span>
+					{:else}
+						<Skeleton width="84px" height="14px" />
+					{/if}
+				</span>
+			</section>
+
+			<section class="card usage" aria-label="Data usage">
+				<div class="head">
+					<h2 class="title">Data usage</h2>
+					<span class="today tabular" title="Total used today">Today: {#if usage.todayLoading}…{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</span>
 				</div>
-				<div class="traffic">
-					<div class="speeds">
-						<div class="speed"><span class="k">↓ Download</span><strong class="v down tabular">{formatRate(app.traffic.down)}</strong></div>
-						<div class="speed"><span class="k">↑ Upload</span><strong class="v up tabular">{formatRate(app.traffic.up)}</strong></div>
-					</div>
-					<div class="graph">
-						<Sparkline samples={app.history} height={72} fill />
-					</div>
-					<div class="foot">
-						<span class="today tabular" title="Total used today">Today: {#if usage.todayLoading}…{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</span>
-						{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
-					</div>
+				<div class="speeds">
+					<strong class="rate down tabular" title="Download">↓ {formatRate(app.traffic.down)}</strong>
+					<strong class="rate up tabular" title="Upload">↑ {formatRate(app.traffic.up)}</strong>
+				</div>
+				{#if plan}<p class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</p>{/if}
+				<div class="graph">
+					<Sparkline samples={app.history} height={52} fill />
 				</div>
 			</section>
 
-			<div title={app.connected ? 'Disconnect to change mode' : undefined}>
+			<div class="mode" title={app.connected ? 'Disconnect to change mode' : undefined}>
 				<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
 			</div>
 			{#if app.busy}<p class="lock">Disconnect to change server or mode</p>{/if}
@@ -178,11 +188,10 @@
 	}
 	.popover {
 		position: relative;
-		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
-		padding: 10px 8px 6px;
+		gap: 8px;
+		padding: 8px 10px 4px;
 		background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -230,43 +239,17 @@
 		display: grid;
 		gap: 10px;
 	}
-	/* A plain header, not another card: the boxes below carry the structure. */
-	/* The mascot leads, its state is the headline under it, and the button comes last. */
+	/* The mascot leads, its state is the headline under it, and the latency pill closes the header. */
 	.hero {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 2px;
+		gap: 4px;
 		text-align: center;
-	}
-	.hero-text {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 2px;
-		min-width: 0;
-		max-width: 100%;
-	}
-	.cta {
-		min-height: 30px;
-		margin-top: 6px;
-		padding: 0 22px;
-		border: 0;
-		border-radius: 8px;
-		background: var(--accent);
-		color: #fff;
-		font-size: 12.5px;
-		font-weight: 600;
-	}
-	.cta.stop {
-		background: var(--danger);
-	}
-	.cta:disabled {
-		opacity: 0.6;
 	}
 	.headline {
 		margin: 0;
-		font-size: 16px;
+		font-size: 14px;
 		font-weight: 800;
 		letter-spacing: 0.03em;
 		text-transform: uppercase;
@@ -281,17 +264,39 @@
 		color: var(--danger);
 	}
 	.sub {
-		margin: 0;
+		margin: -2px 0 0;
 		max-width: 100%;
 		font-size: 12px;
 		white-space: nowrap;
-		color: var(--fg-muted);
-	}
-	.ip-text {
-		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		white-space: nowrap;
+		color: var(--fg-muted);
+	}
+	.ping {
+		--c: var(--fg-muted);
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		min-height: 24px;
+		padding: 0 12px;
+		border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--c) 12%, transparent);
+		color: var(--c);
+		font-size: 11.5px;
+		font-weight: 700;
+	}
+	.ping.ok {
+		--c: var(--ok-text);
+	}
+	.ping.warn {
+		--c: var(--warn);
+	}
+	.ping.bad {
+		--c: var(--danger);
+	}
+	.ping:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--c) 20%, transparent);
 	}
 	.pick {
 		display: flex;
@@ -300,117 +305,87 @@
 		border: 1px solid var(--hairline);
 		border-radius: 12px;
 		background: var(--surface);
-		padding: 8px 12px;
 	}
+	/* Time on the left, exit IP on the right, split by a hairline. */
 	.info {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		border-bottom: 1px solid var(--hairline);
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: center;
+		min-height: 34px;
 	}
-	.cell {
-		display: grid;
-		gap: 2px;
-		min-width: 0;
-		padding: 6px 10px;
-		text-align: left;
-	}
-	.cell .k,
-	.speed .k {
-		font-size: 10.5px;
+	.elapsed {
+		padding: 0 10px;
+		border-right: 1px solid var(--hairline);
+		line-height: 34px;
+		font-size: 12px;
 		font-weight: 600;
-		letter-spacing: 0.04em;
-		color: var(--fg-muted);
+		color: var(--fg);
 	}
-	.cell .v {
+	.ip {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		justify-content: space-between;
+		gap: 6px;
 		min-width: 0;
-		min-height: 20px;
-		font-size: 13px;
-		font-weight: 600;
+		padding: 0 6px 0 10px;
+		font-size: 12px;
 		color: var(--fg);
 		user-select: text;
 	}
-	.cell .none {
-		font-weight: 500;
+	.ip .none {
 		color: var(--fg-muted);
 	}
-	.latency {
-		border: 0;
-		border-left: 1px solid var(--hairline);
-		border-radius: 0;
-		background: none;
-		min-width: 88px;
-	}
-	.latency:hover:not(:disabled) {
-		background: var(--hairline);
-	}
-	.latency.ok .v {
-		color: var(--ok-text);
-	}
-	.latency.warn .v {
-		color: var(--warn);
-	}
-	.latency.bad .v {
-		color: var(--danger);
-	}
-	/* One grouped card. The chart takes up or gives back slack, so the footer is never pushed out. */
-	.popover > .sheet {
-		flex-shrink: 1;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
+	.ip-text {
 		min-width: 0;
-		padding: 0;
 		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
-	.traffic {
-		flex: 1 1 auto;
-		min-height: 0;
+	.usage {
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
-		padding: 10px 10px;
+		padding: 8px 10px;
+	}
+	.head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 6px;
+	}
+	.title {
+		margin: 0;
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--fg);
 	}
 	.speeds {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 8px;
-	}
-	.speed {
-		display: grid;
-		gap: 1px;
-		min-width: 0;
-	}
-	.speed .v {
-		overflow: hidden;
-		text-overflow: ellipsis;
+		gap: 6px;
 		white-space: nowrap;
-		font-size: 17px;
+	}
+	.rate {
+		font-size: 13px;
 		font-weight: 700;
-		line-height: 1.2;
-	}
-	.foot {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		font-size: 11px;
-		color: var(--fg-muted);
-		white-space: nowrap;
 	}
 	.today {
 		flex: none;
-		padding: 2px 10px;
+		padding: 2px 8px;
 		border-radius: 999px;
 		background: var(--accent);
 		color: #fff;
-		font-size: 12px;
+		font-size: 11px;
 		font-weight: 700;
 	}
 	.plan {
-		min-width: 0;
+		margin: 0;
+		text-align: center;
+		font-size: 11px;
+		color: var(--fg-muted);
+		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
@@ -427,9 +402,7 @@
 	.graph {
 		position: relative;
 		width: 100%;
-		flex: 1 1 46px;
-		min-height: 20px;
-		max-height: 64px;
+		height: 52px;
 	}
 	/* Sized by the row, not by the chart's own aspect ratio. */
 	.graph :global(svg) {
@@ -437,6 +410,9 @@
 		inset: 0;
 		width: 100%;
 		height: 100%;
+	}
+	.mode {
+		font-size: 12px;
 	}
 	.lock {
 		margin: -2px 0 0;
@@ -448,14 +424,13 @@
 		min-height: 34px;
 	}
 	footer {
-		margin-top: auto;
 		display: flex;
 		justify-content: space-between;
 		border-top: 1px solid var(--hairline);
 		padding-top: 4px;
 	}
 	.foot-btn {
-		min-height: 26px;
+		min-height: 24px;
 		border: 0;
 		background: none;
 		padding: 3px 8px;
