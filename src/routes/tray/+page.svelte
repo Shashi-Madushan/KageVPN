@@ -100,18 +100,16 @@
 		</div>
 	{:else}
 		<section class="hero {tone}">
-			<div class="hero-head">
-				<MascotButton size={52} />
-				<div class="hero-text">
-					<h1 class="headline {tone}">{headline}</h1>
-					{#if sub}<p class="sub">{sub}</p>{:else if elapsed && app.connected}<p class="sub tabular">Connected {elapsed}</p>{/if}
-				</div>
+			<MascotButton size={96} />
+			<div class="hero-text">
+				<h1 class="headline {tone}">{headline}</h1>
+				{#if sub}<p class="sub">{sub}</p>{:else if elapsed && app.connected}<p class="sub tabular">Connected {elapsed}</p>{/if}
+				{#if app.profiles.length}
+					<button class="cta" class:stop={app.connected || app.busy} disabled={app.disconnecting} onclick={() => app.toggle()}>
+						{app.disconnecting ? 'Disconnecting…' : app.busy ? 'Cancel' : app.connected ? 'Disconnect' : 'Connect'}
+					</button>
+				{/if}
 			</div>
-			{#if app.profiles.length}
-				<button class="cta" class:stop={app.connected || app.busy} disabled={app.disconnecting} onclick={() => app.toggle()}>
-					{app.disconnecting ? 'Disconnecting…' : app.busy ? 'Cancel' : app.connected ? 'Disconnect' : 'Connect'}
-				</button>
-			{/if}
 		</section>
 
 		{#if app.profiles.length}
@@ -184,7 +182,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		padding: 30px 8px 6px;
+		padding: 10px 8px 6px;
 		background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -233,33 +231,31 @@
 		gap: 10px;
 	}
 	/* A plain header, not another card: the boxes below carry the structure. */
+	/* The mascot leads, its state is the headline under it, and the button comes last. */
 	.hero {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-		padding: 0 2px;
-	}
-	.hero-head {
-		display: flex;
 		align-items: center;
-		gap: 10px;
-		/* Clear of the close button. */
-		padding-right: 24px;
+		gap: 2px;
+		text-align: center;
 	}
 	.hero-text {
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 		gap: 2px;
 		min-width: 0;
+		max-width: 100%;
 	}
 	.cta {
-		min-height: 34px;
-		padding: 0 14px;
+		min-height: 30px;
+		margin-top: 6px;
+		padding: 0 22px;
 		border: 0;
 		border-radius: 8px;
 		background: var(--accent);
 		color: #fff;
-		font-size: 13px;
+		font-size: 12.5px;
 		font-weight: 600;
 	}
 	.cta.stop {
@@ -270,8 +266,10 @@
 	}
 	.headline {
 		margin: 0;
-		font-size: 15px;
-		font-weight: 700;
+		font-size: 16px;
+		font-weight: 800;
+		letter-spacing: 0.03em;
+		text-transform: uppercase;
 	}
 	.headline.ok {
 		color: var(--ok-text);
