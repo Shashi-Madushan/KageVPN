@@ -122,7 +122,7 @@ pub async fn node_delay(app: &AppHandle, profile_id: &str) -> Result<u64> {
 
 /// Delay of an outbound or group measured by sing-box itself, independent of the system route.
 pub async fn delay_by_tag(app: &AppHandle, tag: &str) -> Result<u64> {
-    let path = format!("/proxies/{tag}/delay?url={DELAY_URL}&timeout={DELAY_TIMEOUT_MS}");
+    let path = format!("/proxies/{}/delay?url={DELAY_URL}&timeout={DELAY_TIMEOUT_MS}", segment(tag));
     let response = request(app, reqwest::Method::GET, &path)?.send().await?.error_for_status()?;
     Ok(response.json::<DelayResponse>().await?.delay)
 }
@@ -134,13 +134,22 @@ pub async fn connections(app: &AppHandle) -> Result<Vec<Connection>> {
 }
 
 pub async fn close_connection(app: &AppHandle, id: &str) -> Result<()> {
-    request(app, reqwest::Method::DELETE, &format!("/connections/{id}"))?.send().await?;
+    request(app, reqwest::Method::DELETE, &format!("/connections/{}", segment(id)))?.send().await?;
     Ok(())
 }
 
 pub async fn close_all(app: &AppHandle) -> Result<()> {
     request(app, reqwest::Method::DELETE, "/connections")?.send().await?;
     Ok(())
+}
+
+/// A value placed in a URL path. The ids come from the page, so `/`, `..` and `?` must not be able
+/// to turn one request on the controller into another.
+fn segment(value: &str) -> String {
+    // Letters, digits, `-` and `_` (what ids and tags are made of) stay as they are, because the
+    // controller compares an id as the raw path text. A dot is encoded so `..` can never appear.
+    const KEEP: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC.remove(b'-').remove(b'_');
+    percent_encoding::utf8_percent_encode(value, KEEP).to_string()
 }
 
 fn simplify(raw: RawConnection) -> Connection {
@@ -158,5 +167,19 @@ fn simplify(raw: RawConnection) -> Connection {
         start: raw.start,
         chain: raw.chains.first().cloned().unwrap_or_default(),
         rule: raw.rule,
+    }
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::segment;
+
+    #[test]
+    fn an_id_cannot_climb_out_of_its_path_or_start_a_query() {
+        assert_eq!(segment("node-1f0e_ab"), "node-1f0e_ab", "real ids and tags are left as they are");
+        for hostile in ["..", "../configs", "a/b", "a?b=c", "a#b", "a%2fb", "x y"] {
+            let encoded = segment(hostile);
+            assert!(!encoded.contains(['/', '?', '#', ' ', '.']), "{hostile} became {encoded}");
+        }
     }
 }

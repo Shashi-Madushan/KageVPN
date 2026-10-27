@@ -98,6 +98,9 @@ pub struct SpeedProgress {
     pub jitter_ms: Option<f64>,
 }
 
+/// The most a lookup service may answer with; these are a few hundred bytes of JSON.
+const SMALL_REPLY: usize = 64 * 1024;
+
 fn direct_client() -> Result<Client> {
     Ok(Client::builder().no_proxy().timeout(Duration::from_secs(12)).build()?)
 }
@@ -108,7 +111,8 @@ fn tunnel_client(timeout: u64) -> Result<Client> {
 }
 
 async fn ip_info(client: &Client) -> Option<IpInfo> {
-    let raw: RawIp = client.get(IP_URL).send().await.ok()?.json().await.ok()?;
+    let response = client.get(IP_URL).send().await.ok()?;
+    let raw: RawIp = serde_json::from_slice(&crate::downloads::read_limited(response, SMALL_REPLY).await.ok()?).ok()?;
     (!raw.ip.is_empty()).then_some(IpInfo { ip: raw.ip, country: raw.country, city: raw.city, org: raw.connection.org })
 }
 
@@ -124,7 +128,10 @@ pub async fn run(connected: bool) -> Diagnostics {
     };
     let dns = match direct_client() {
         Ok(client) => match client.get(DNS_URL).send().await {
-            Ok(response) => response.json::<RawDns>().await.ok().filter(|d| !d.dns.ip.is_empty()),
+            Ok(response) => match crate::downloads::read_limited(response, SMALL_REPLY).await {
+                Ok(body) => serde_json::from_slice::<RawDns>(&body).ok().filter(|d| !d.dns.ip.is_empty()),
+                Err(_) => None,
+            },
             Err(_) => None,
         },
         Err(_) => None,

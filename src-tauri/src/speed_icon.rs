@@ -53,9 +53,16 @@ fn draw_glyph(rgba: &mut [u8], width: usize, x: usize, y: usize, c: char) {
     let glyph = &ATLAS[index * GLYPH_W * GLYPH_H..(index + 1) * GLYPH_W * GLYPH_H];
     for row in 0..GLYPH_H {
         for col in 0..GLYPH_W {
+            // A glyph that does not fit (an icon shorter than two rows of text, a number wider than
+            // its area) is clipped. Writing past the buffer would panic, and a panic ends the app.
+            if x + col >= width {
+                continue;
+            }
             let alpha = glyph[row * GLYPH_W + col];
             let pixel = ((y + row) * width + x + col) * 4;
-            rgba[pixel + 3] = rgba[pixel + 3].max(alpha);
+            if let Some(a) = rgba.get_mut(pixel + 3) {
+                *a = (*a).max(alpha);
+            }
         }
     }
 }

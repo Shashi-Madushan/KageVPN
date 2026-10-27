@@ -197,10 +197,9 @@ async fn fetch(url: &str, options: &FetchOptions) -> Result<Fetched> {
         .get("subscription-userinfo")
         .and_then(|v| v.to_str().ok())
         .map(parse_user_info);
-    let body = response.bytes().await.map_err(reqwest::Error::without_url)?;
-    if body.len() > MAX_BODY_BYTES {
-        return Err(AppError::Invalid("the subscription response is too large".into()));
-    }
+    let body = crate::downloads::read_limited(response, MAX_BODY_BYTES)
+        .await
+        .map_err(|e| if matches!(e, AppError::Invalid(_)) { AppError::Invalid("the subscription response is too large".into()) } else { e })?;
     let text = decode_body(&String::from_utf8_lossy(&body));
     let (profiles, mut errors) = parse_many(&text);
     let (profiles, placeholders) = drop_placeholders(profiles);

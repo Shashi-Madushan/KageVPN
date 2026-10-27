@@ -17,9 +17,31 @@
 # While a new run comes up behind a block, outgoing DNS (port 53) is let through for KAGE_DNS_WINDOW
 # seconds (default 20) so sing-box can resolve its server's name, then the rules are reloaded
 # without it. <dir>/blocked exists exactly while a block is up, so the app can tell the user.
+#
+# <dir> belongs to the user, so nothing in it is trusted. As root (or with KAGE_ISOLATE=1, which the
+# tests use) the helper therefore keeps what it writes itself in a folder only root can change
+# (/var/run/com.apzur.kage, or KAGE_RUN_DIR): sing-box's stderr log and a private copy of the
+# configuration. The copy is checked before sing-box runs on it: it must log to <dir>/sing-box.log
+# and may not name other files, a web UI to download, or a cache to write; those are options a
+# program running as the user could otherwise use to make root write or read files anywhere.
+# What root does write inside <dir> (the blocked marker, child.pid) is created without ever
+# following a link someone put there.
 bin="$1"; config="$2"; dir="$3"; parent="$4"
 stop="$dir/stop"; down="$dir/down"; allowf="$dir/allow"; readyf="$dir/ready"; blockf="$dir/block"; holdmax="${KAGE_HOLD_MAX:-600}"; dnswindow="${KAGE_DNS_WINDOW:-20}"; blockedf="$dir/blocked"; startf="$dir/helper.start"; pidf="$dir/child.pid"; quitf="$dir/helper.quit"
 anchor="com.apple/250.KageVPN"
+if [ "$(id -u)" = 0 ] || [ -n "$KAGE_ISOLATE" ]; then
+  isolate=yes
+  rundir="${KAGE_RUN_DIR:-/var/run/com.apzur.kage}"
+  mkdir -p "$rundir" 2>/dev/null
+  # Only a real folder, not a link someone else put at that name.
+  [ -d "$rundir" ] && [ ! -L "$rundir" ] || exit 1
+  [ "$(id -u)" = 0 ] && chown root:wheel "$rundir" && chmod 755 "$rundir"
+  active="$rundir/config.json"
+else
+  isolate=""
+  rundir="$dir"
+  active="$config"
+fi
 token=""
 child=""
 held_since=0
@@ -31,7 +53,38 @@ dns_until=0
 # one bad word would make pfctl reject the whole rule set and leave traffic unblocked.
 allowed_addresses() {
   { echo "$ips"; head -n 1 "$allowf" 2>/dev/null; } | tr ',' '\n' | tr -d ' ' \
-    | grep -E '^[0-9a-fA-F:.]*[.:][0-9a-fA-F:.]*$' | sort -u | tr '\n' ' ' | sed 's/ *$//'
+    | grep -E '^([0-9]{1,3}\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]*:[0-9a-fA-F:]*:[0-9a-fA-F:.]*$' | sort -u | tr '\n' ' ' | sed 's/ *$//'
+}
+
+# Creates the marker the app watches. It is made only if nothing is there: a link left at that name
+# is removed first and, if one appears again before the file is made, the write is refused instead of
+# following it to whatever file it points at.
+mark_blocked() {
+  [ -L "$blockedf" ] && rm -f "$blockedf"
+  ( set -C; : > "$blockedf" ) 2>/dev/null
+  return 0
+}
+
+# Writes the pid file in one step, never through a link at either name.
+write_pid() {
+  rm -f "$pidf.tmp"
+  ( set -C; echo "$1" > "$pidf.tmp" ) 2>/dev/null && mv -f "$pidf.tmp" "$pidf"
+}
+
+# Whether the configuration copy may be run by root: valid JSON that logs to <dir>/sing-box.log, and
+# that names no other file to read or write, no web UI to download and no cache to keep. The app
+# writes none of those, so refusing them costs nothing. `plutil` ships with macOS.
+safe_config() {
+  c="$1"
+  [ "$(plutil -extract log.output raw -o - "$c" 2>/dev/null)" = "$dir/sing-box.log" ] || return 1
+  plutil -convert xml1 -o - "$c" 2>/dev/null \
+    | grep -Eq '<key>(external_ui|external_ui_download_url|external_ui_download_detour|cache_file|v2ray_api|certificate_path|certificate_directory_path|key_path|private_key_path|config_path|state_directory|plugin|plugin_opts|ntp)</key>' && return 1
+  # Local rule-set files may only be the lists the app downloaded into its own folder.
+  paths=$(plutil -extract route.rule_set json -o - "$c" 2>/dev/null | grep -o '"path" *: *"[^"]*"' | sed 's/^"path" *: *"//; s/"$//; s#\\/#/#g')
+  [ -z "$paths" ] && return 0
+  echo "$paths" | while IFS= read -r p; do
+    case "$p" in "$dir"/rule-sets/*.srs) case "$p" in *..*) exit 1 ;; esac ;; *) exit 1 ;; esac
+  done
 }
 
 # Loads the rule set (again, when the block is already up, so a refreshed address list applies)
@@ -52,7 +105,7 @@ engage_block() {
     token=$(pfctl -E 2>&1 | sed -n 's/.*Token : //p')
     held_since=$(date +%s)
   fi
-  : > "$blockedf"
+  mark_blocked
 }
 
 release_block() {
@@ -102,7 +155,7 @@ note_context() {
 trap 'echo "$(date "+%F %T") helper received a signal" >> "$errlog"; [ -n "$child" ] && kill "$child" 2>/dev/null; exit 0' TERM INT HUP
 
 # sing-box's own stderr (Go panics, fatal errors) and exit status, so a silent death leaves a trace.
-errlog="$dir/sing-box.stderr.log"
+errlog="$rundir/sing-box.stderr.log"
 
 rm -f "$blockedf"
 
@@ -126,10 +179,27 @@ while alive "$parent" && [ ! -e "$quitf" ]; do
     engage_block
   fi
 
+  [ -L "$errlog" ] && rm -f "$errlog"
   [ "$(wc -c < "$errlog" 2>/dev/null || echo 0)" -gt 1000000 ] && : > "$errlog"
-  "$bin" run -c "$config" >>"$errlog" 2>&1 &
+  # sing-box appends to this path as root; a link left there would send it to another file.
+  [ -L "$dir/sing-box.log" ] && rm -f "$dir/sing-box.log"
+  runconfig="$config"
+  if [ -n "$isolate" ]; then
+    # A copy only root can touch, so what was checked is what runs.
+    # Written out again by plutil, so sing-box reads exactly what was checked (a file with a key
+    # given twice could otherwise be read one way here and another way there).
+    rm -f "$active" "$active.raw"
+    if ! ( umask 077; cp "$config" "$active.raw" && plutil -convert json -o "$active" "$active.raw" ) 2>/dev/null || ! safe_config "$active"; then
+      rm -f "$active" "$active.raw"
+      echo "$(date '+%F %T') refused to start: the configuration is not one this app wrote" >> "$errlog"
+      continue
+    fi
+    rm -f "$active.raw"
+    runconfig="$active"
+  fi
+  "$bin" run -c "$runconfig" >>"$errlog" 2>&1 &
   child=$!
-  echo "$child" > "$pidf.tmp" && mv "$pidf.tmp" "$pidf"
+  write_pid "$child"
 
   while alive "$child" && [ ! -e "$stop" ] && [ ! -e "$down" ] && [ ! -e "$quitf" ] && alive "$owner"; do
     tick
@@ -174,3 +244,4 @@ done
 
 release_block
 rm -f "$quitf" "$pidf"
+if [ -n "$isolate" ]; then rm -f "$active" "$active.raw"; fi

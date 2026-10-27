@@ -29,3 +29,14 @@ fn prerelease_channel_includes_both() {
     let list = vec![release("v1.15.0-alpha.1", true, true), release("v1.14.2", false, true)];
     assert_eq!(select(&SING_BOX, list, Channel::Prerelease).len(), 2);
 }
+
+#[test]
+fn a_release_with_an_unusable_version_or_a_plain_http_download_is_dropped() {
+    let mut odd = release("v1.0.0-../../x", false, true);
+    odd.assets[0].name = asset_name(&SING_BOX, "1.0.0-../../x");
+    let mut plain = release("v1.14.3", false, true);
+    plain.assets[0].browser_download_url = "http://example.test/a".into();
+    let picked = select(&SING_BOX, vec![odd, plain, release("v1.14.2", false, true)], Channel::Stable);
+    assert_eq!(picked.len(), 1);
+    assert_eq!(picked[0].version, "1.14.2");
+}

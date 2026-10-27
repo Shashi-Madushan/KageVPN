@@ -64,8 +64,10 @@ pub fn parse_mac(arp: &str) -> Option<String> {
 
 /// "Network de56": the last four characters of the hardware address.
 pub fn default_name(id: &str) -> String {
-    let compact: String = id.chars().filter(|c| *c != ':').collect();
-    format!("Network {}", &compact[compact.len().saturating_sub(4)..])
+    let compact: Vec<char> = id.chars().filter(|c| *c != ':').collect();
+    // By characters, not bytes: slicing text at a byte offset panics inside a multi-byte character.
+    let tail: String = compact[compact.len().saturating_sub(4)..].iter().collect();
+    format!("Network {tail}")
 }
 
 /// Names are trimmed and 1 to 40 characters.

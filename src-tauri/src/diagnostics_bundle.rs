@@ -51,6 +51,23 @@ fn scrub_json(value: &mut Value) {
     }
 }
 
+/// Replaces the sites and addresses a connection went to in sing-box's log. At the default log level
+/// every connection is a line naming its destination, which is a record of what was browsed, and a
+/// file meant to be sent to someone who helps with a problem does not need it.
+pub fn hide_destinations(log: &str) -> String {
+    const MARKERS: [(&str, &str); 3] = [("connection to ", "[destination]"), ("connection from ", "[source]"), ("dns: ", "[hidden]")];
+    log.lines()
+        .map(|line| {
+            MARKERS
+                .iter()
+                .filter_map(|(marker, label)| line.find(marker).map(|at| (at + marker.len(), *label)))
+                .min_by_key(|(end, _)| *end)
+                .map_or_else(|| line.to_string(), |(end, label)| format!("{}{label}", &line[..end]))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn hide_subscriptions(text: &str, urls: &[String]) -> String {
     let mut out = text.to_string();
     for url in urls.iter().filter(|u| u.trim().len() >= 8) {
@@ -82,10 +99,10 @@ pub fn summary(material: &Material) -> String {
 pub fn build(material: &Material) -> Result<Vec<u8>> {
     let config = material.config.as_deref().map(|c| clean_config(c, material)).unwrap_or_else(|| "[no configuration yet]".into());
     let files: [(&str, String); 5] = [
-        ("README.txt", "Kage diagnostics. Server addresses, passwords, keys, user IDs, subscription links and your home folder are replaced with placeholders. Nothing was sent anywhere; this file only exists on your Mac.\n".into()),
+        ("README.txt", "Kage diagnostics. Server addresses, passwords, keys, user IDs, subscription links, the sites your connections went to and your home folder are replaced with placeholders. Nothing was sent anywhere; this file only exists on your Mac.\n".into()),
         ("summary.txt", summary(material)),
         ("app.log", clean(&material.app_log, material)),
-        ("sing-box.log", clean(&tail(&material.singbox_log, LOG_TAIL_LINES), material)),
+        ("sing-box.log", clean(&hide_destinations(&tail(&material.singbox_log, LOG_TAIL_LINES)), material)),
         ("config.json", config),
     ];
     stored_zip(&files.iter().map(|(name, text)| (*name, text.as_bytes())).collect::<Vec<_>>())
@@ -215,7 +232,7 @@ pub fn diagnostics_export(state: State<AppState>) -> Result<Exported> {
     std::fs::create_dir_all(&dir)?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
     let path = dir.join(format!("kage-diagnostics-{stamp}.zip"));
-    std::fs::write(&path, bytes)?;
+    crate::fsutil::write_private_atomic(&path, &bytes)?;
     // Show it in Finder; failing to is harmless.
     let _ = std::process::Command::new("/usr/bin/open").arg("-R").arg(&path).spawn();
     Ok(Exported { path: path.display().to_string(), summary: summary(&material) })

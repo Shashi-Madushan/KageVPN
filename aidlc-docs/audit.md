@@ -498,3 +498,11 @@ keep the network exteion part for later"
 **Context**: Delivery complete (Round 4)
 
 ---
+
+## Security audit and hardening
+**Timestamp**: 2026-10-27T00:00:00Z
+**User Input**: "do a full security checkups and titenings and bugs so wecan secure the app find and fix them , memory curuption problems like things"
+**AI Response**: Read the Rust backend, both root scripts, the Tauri config and the front end; found and fixed S1 to S13 (root helper executing user-writable files, symlink writes by root, unchecked root config, deep-link disconnect, unbounded downloads, service install checks, version/URL validation, file permissions, diagnostics privacy, backup restore checks, controller path encoding, panic and memory-bound fixes, dependency advisory, CSP). Details and remaining limits in docs/AUDIT-2026-10.md "Security pass". cargo test 450 passed, clippy clean, svelte-check 0 errors, 40 script tests. Nothing committed. The AIDLC stages were not run as a full workflow: this was a bounded audit-and-fix task.
+**Context**: Ad hoc security audit (no stage plan)
+
+---

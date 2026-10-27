@@ -115,3 +115,70 @@ fn cancelling_stops_even_while_the_connection_is_silent() {
     .unwrap_err();
     assert!(error.to_string().contains("cancelled"), "{error}");
 }
+
+// ── Refusing a body that is larger than it should be ────────────────────────
+
+/// Answers with a chunked body, so there is no promised length to check: `sizes` bytes per chunk.
+fn serve_chunked(chunks: usize, size: usize) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/file", listener.local_addr().unwrap());
+    std::thread::spawn(move || {
+        let Ok((mut stream, _)) = listener.accept() else { return };
+        let _ = stream.read(&mut [0u8; 4096]);
+        let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n");
+        for _ in 0..chunks {
+            let _ = stream.write_all(format!("{size:x}\r\n").as_bytes());
+            let _ = stream.write_all(&vec![b'x'; size]);
+            if stream.write_all(b"\r\n").is_err() {
+                return;
+            }
+        }
+        let _ = stream.write_all(b"0\r\n\r\n");
+    });
+    url
+}
+
+#[test]
+fn a_body_within_the_limit_is_returned_whole() {
+    let url = serve(11, &["hello ", "world"], Duration::from_millis(10), Duration::ZERO);
+    let body = run(async { read_limited(fetch(&url).await, 11).await }).unwrap();
+    assert_eq!(body, b"hello world");
+}
+
+#[test]
+fn a_body_that_promises_too_much_is_refused_before_it_is_read() {
+    let url = serve(1_000_000, &["hello"], Duration::ZERO, Duration::from_secs(20));
+    let started = std::time::Instant::now();
+    let error = run(async { read_limited(fetch(&url).await, 1024).await }).unwrap_err();
+    assert!(error.to_string().contains("larger"), "{error}");
+    assert!(started.elapsed() < Duration::from_secs(3), "refused on the headers, without waiting for the body");
+}
+
+#[test]
+fn a_body_that_keeps_coming_is_cut_off_at_the_limit() {
+    // No length is promised, so only the bytes that arrive can say it is too much.
+    let url = serve_chunked(200, 1024);
+    let error = run(async { read_limited(fetch(&url).await, 50 * 1024).await }).unwrap_err();
+    assert!(error.to_string().contains("larger"), "{error}");
+}
+
+#[test]
+fn redirects_may_not_leave_https() {
+    let policy = https_only_redirects();
+    // A policy is opaque; what matters is that it exists and is not the default. The behaviour is
+    // exercised with a real server below.
+    let _ = policy;
+    let url = {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/start", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else { return };
+            let _ = stream.read(&mut [0u8; 4096]);
+            let _ = stream.write_all(b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        });
+        url
+    };
+    let client = reqwest::Client::builder().redirect(https_only_redirects()).build().unwrap();
+    let error = run(async { client.get(&url).send().await }).unwrap_err();
+    assert!(error.is_redirect(), "a redirect to plain http is an error: {error}");
+}

@@ -138,16 +138,17 @@ async fn ensure_helper(paths: &AppPaths, binary: &Path, cancel: &AtomicBool) -> 
         let _ = std::fs::remove_file(paths.helper_quit_file());
     }
 
-    let script = paths.helper_script();
-    std::fs::write(&script, HELPER)?;
-    let args = vec![
-        script.display().to_string(),
-        binary.display().to_string(),
-        paths.config_file().display().to_string(),
-        paths.data_dir().display().to_string(),
-        std::process::id().to_string(),
-    ];
-    let pid = spawn_privileged(&args, cancel).await?;
+    // The user's data folder is writable by every program the user runs, so nothing in it may be
+    // what root executes. The script and a copy of the engine are put in a folder only root can
+    // change, in the same step as the password prompt, and the copy is checked against the engine
+    // the app looked at: a program that swaps the file while the prompt is open gets nothing run.
+    let digest = digest_of(binary).await?;
+    let command = launch_command(paths, binary, &digest, std::process::id());
+    let pid = run_admin_script_until(&command, ADMIN_PROMPT, Some(cancel))
+        .await?
+        .trim()
+        .parse()
+        .map_err(|_| AppError::Launch("could not read the started process id".into()))?;
     *ROOT_HELPER.lock().unwrap() = Some((pid, binary.to_path_buf()));
     Ok(())
 }
@@ -219,16 +220,51 @@ fn spawn_plain(args: &[String]) -> Result<u32> {
 
 const ADMIN_PROMPT: &str = "Kage needs administrator access to create the VPN tunnel. Install the VPN service in Settings to avoid being asked each time you open the app.";
 
-async fn spawn_privileged(args: &[String], cancel: &AtomicBool) -> Result<u32> {
-    let command = format!(
-        "/bin/sh {} >/dev/null 2>&1 </dev/null & echo $!",
-        args.iter().map(|a| shell_quote(a)).collect::<Vec<_>>().join(" ")
-    );
-    run_admin_script_until(&command, ADMIN_PROMPT, Some(cancel))
-        .await?
-        .trim()
-        .parse()
-        .map_err(|_| AppError::Launch("could not read the started process id".into()))
+/// SHA-256 of the engine file as lower-case hex, read off the async runtime.
+pub(crate) async fn digest_of(binary: &Path) -> Result<String> {
+    let binary = binary.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || crate::core::installer::sha256_file(&binary))
+        .await
+        .map_err(|e| AppError::Launch(e.to_string()))?
+}
+
+/// Shell lines that copy `source` to `staged` and delete the copy again, exiting, unless it has the
+/// SHA-256 `digest`. The check reads the copy, which is where root will run it from, so a swap of
+/// the original after the copy cannot matter. The copy is made without `-p`: that would give it the
+/// original's owner, and its owner could keep writing to it after the check. `touch -r` keeps the
+/// modification time, which is how the app tells that the installed engine is the current one.
+pub(crate) fn verified_copy(source: &Path, staged: &str, digest: &str) -> String {
+    format!(
+        "cp {source} {staged}; touch -r {source} {staged}; \
+         [ \"$(/usr/bin/shasum -a 256 {staged} | cut -d' ' -f1)\" = '{digest}' ] || {{ rm -f {staged}; echo 'the engine file changed while it was being installed' >&2; exit 1; }}",
+        source = shell_quote(&source.display().to_string()),
+        staged = shell_quote(staged),
+    )
+}
+
+/// The command that starts the root helper for this app launch and prints its pid. It runs as root.
+fn launch_command(paths: &AppPaths, binary: &Path, digest: &str, parent: u32) -> String {
+    let run_dir = crate::paths::ROOT_RUN_DIR;
+    let (script, engine) = (format!("{run_dir}/launch.sh"), format!("{run_dir}/sing-box"));
+    let (script_new, engine_new) = (format!("{script}.new"), format!("{engine}.new"));
+    let q = |value: &str| shell_quote(value);
+    [
+        "set -e".to_string(),
+        format!("mkdir -p {dir}; chown root:wheel {dir}; chmod 755 {dir}", dir = q(run_dir)),
+        format!("printf %s {} > {}", q(HELPER), q(&script_new)),
+        verified_copy(binary, &engine_new, digest),
+        format!("chown root:wheel {} {}; chmod 755 {} {}", q(&script_new), q(&engine_new), q(&script_new), q(&engine_new)),
+        format!("mv -f {} {}; mv -f {} {}", q(&script_new), q(&script), q(&engine_new), q(&engine)),
+        format!(
+            "/bin/sh {} {} {} {} {} >/dev/null 2>&1 </dev/null & echo $!",
+            q(&script),
+            q(&engine),
+            q(&paths.config_file().display().to_string()),
+            q(&paths.data_dir().display().to_string()),
+            parent
+        ),
+    ]
+    .join("; ")
 }
 
 /// Runs a shell command as root through the macOS administrator prompt, showing `prompt` as the

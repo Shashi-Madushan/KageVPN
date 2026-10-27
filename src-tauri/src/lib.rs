@@ -10,6 +10,7 @@ mod commands;
 mod config;
 mod core;
 mod crashlog;
+mod deeplink;
 mod device;
 mod diagnostics;
 mod diagnostics_bundle;
@@ -42,7 +43,7 @@ mod tray;
 mod traffic;
 mod usage;
 
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -261,43 +262,9 @@ fn register_deep_links(app: &tauri::AppHandle) {
     let handle = app.clone();
     app.deep_link().on_open_url(move |event| {
         for url in event.urls() {
-            handle_deep_link(&handle, url.as_str());
+            deeplink::handle(&handle, url.as_str());
         }
     });
-}
-
-/// `kagevpn://connect|disconnect|toggle` act directly; `import?url=` only asks
-/// the UI to confirm, so a link can never add a profile silently.
-fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
-    let Ok(url) = url::Url::parse(raw) else { return };
-    match url.host_str().unwrap_or_default() {
-        "connect" => {
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                reliability::user_took_over(&app);
-                if let Err(error) = session::connect(&app).await {
-                    if !error.is_cancelled() {
-                        notify::send(&app, "Connection failed", &error.to_string());
-                    }
-                }
-            });
-        }
-        "disconnect" => {
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                reliability::user_took_over(&app);
-                let _ = session::disconnect(&app).await;
-            });
-        }
-        "toggle" => tray::toggle_connection(app),
-        "import" => {
-            if let Some((_, value)) = url.query_pairs().find(|(key, _)| key == "url") {
-                tray::show_main_window(app);
-                let _ = app.emit("import-request", value.into_owned());
-            }
-        }
-        _ => {}
-    }
 }
 
 /// Tells the user when the saved servers could not be read and were set aside.

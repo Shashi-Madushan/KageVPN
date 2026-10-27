@@ -78,3 +78,15 @@ fn the_last_runs_sing_box_log_is_kept_when_the_next_run_starts() {
     assert_eq!(fs::read(paths.log_file()).unwrap(), b"");
     let _ = fs::remove_dir_all(dir);
 }
+
+#[test]
+fn the_data_folder_and_the_log_are_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = scratch("private");
+    let dir = root.join("data");
+    let paths = AppPaths::new(dir.clone()).unwrap();
+    assert_eq!(fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+    paths.reset_runtime_files().unwrap();
+    assert_eq!(fs::metadata(paths.log_file()).unwrap().permissions().mode() & 0o777, 0o600);
+    let _ = fs::remove_dir_all(root);
+}

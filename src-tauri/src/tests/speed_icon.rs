@@ -13,3 +13,10 @@ fn composed_image_is_wide_enough_for_text() {
     assert_eq!(image.height(), 36);
     assert!(image.rgba().iter().skip(3).step_by(4).any(|&a| a > 0));
 }
+
+#[test]
+fn an_icon_too_small_for_the_text_is_clipped_instead_of_panicking() {
+    let base = Image::new_owned(vec![0u8; 10 * 10 * 4], 10, 10);
+    let image = compose(&base, "999", "999");
+    assert_eq!(image.rgba().len(), image.width() as usize * 10 * 4);
+}

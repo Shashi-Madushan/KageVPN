@@ -89,6 +89,31 @@ pub struct TopRow {
     pub down: u64,
 }
 
+/// The earliest and latest time a query may name (1970 and 2100). The page chooses the range, and a
+/// value near the ends of what a calendar can hold makes date arithmetic panic, which ends the app.
+const MIN_TIME: i64 = 0;
+const MAX_TIME: i64 = 4_102_444_800;
+
+/// A range inside `MIN_TIME..=MAX_TIME`, with `to` never before `from`.
+pub fn clamp_range(from: i64, to: i64) -> (i64, i64) {
+    let from = from.clamp(MIN_TIME, MAX_TIME);
+    (from, to.clamp(from, MAX_TIME))
+}
+
+impl ReportArgs {
+    pub fn clamped(mut self) -> Self {
+        (self.from, self.to) = clamp_range(self.from, self.to);
+        self
+    }
+}
+
+impl TopArgs {
+    pub fn clamped(mut self) -> Self {
+        (self.from, self.to) = clamp_range(self.from, self.to);
+        self
+    }
+}
+
 pub fn local_time(ts: i64) -> DateTime<Local> {
     Local.timestamp_opt(ts, 0).single().unwrap_or_else(|| Local.timestamp_opt(0, 0).unwrap())
 }

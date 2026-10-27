@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -21,6 +21,10 @@ pub fn adopt_legacy_dir(new_dir: &Path, legacy_dirs: &[PathBuf]) -> io::Result<b
     Ok(true)
 }
 
+/// Where the root helper keeps what only root may change; created by the helper itself.
+pub const ROOT_RUN_DIR: &str = "/var/run/com.apzur.kage";
+const STDERR_LOG: &str = "sing-box.stderr.log";
+
 #[derive(Clone)]
 pub struct AppPaths {
     data_dir: PathBuf,
@@ -29,6 +33,8 @@ pub struct AppPaths {
 impl AppPaths {
     pub fn new(data_dir: PathBuf) -> io::Result<Self> {
         fs::create_dir_all(&data_dir)?;
+        // Everything in here (servers, keys, logs, the usage history) is for this account alone.
+        crate::fsutil::restrict_dir(&data_dir);
         Ok(Self { data_dir })
     }
 
@@ -71,9 +77,18 @@ impl AppPaths {
         self.data_dir.join("sing-box.log")
     }
 
-    /// sing-box's stderr and exit status, written by the supervisor or helper script.
+    /// sing-box's stderr and exit status, written by the supervisor or helper script. The root
+    /// helper keeps its copy in a folder only root can change (see `runner/helper.sh`), so when both
+    /// exist the one written last is the current one.
     pub fn stderr_log(&self) -> PathBuf {
-        self.data_dir.join("sing-box.stderr.log")
+        let own = self.data_dir.join(STDERR_LOG);
+        let root = Path::new(ROOT_RUN_DIR).join(STDERR_LOG);
+        let modified = |path: &Path| fs::metadata(path).and_then(|m| m.modified()).ok();
+        match (modified(&own), modified(&root)) {
+            (Some(own_time), Some(root_time)) if root_time > own_time => root,
+            (None, Some(_)) => root,
+            _ => own,
+        }
     }
 
     pub fn stop_file(&self) -> PathBuf {
@@ -103,10 +118,6 @@ impl AppPaths {
     /// Exists while the root helper holds a kill-switch block; read by the app to tell the user.
     pub fn blocked_file(&self) -> PathBuf {
         self.data_dir.join("blocked")
-    }
-
-    pub fn helper_script(&self) -> PathBuf {
-        self.data_dir.join("helper.sh")
     }
 
     /// Written by the app to ask the root helper for a run; see `runner/helper.sh`.
@@ -145,7 +156,7 @@ impl AppPaths {
         if fs::metadata(&log).map(|m| m.len() > 0).unwrap_or(false) {
             let _ = fs::rename(&log, log.with_extension("log.prev"));
         }
-        File::create(log)?;
+        crate::fsutil::create_private(&log)?;
         match fs::remove_file(self.stop_file()) {
             Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
             _ => Ok(()),

@@ -27,7 +27,9 @@ fn material() -> Material {
 
 /// Reads the archive back with macOS's own `unzip`, which also proves the bytes form a valid zip.
 fn unzip(bytes: Vec<u8>) -> Vec<(String, String)> {
-    let dir = std::env::temp_dir().join(format!("kage-bundle-{}-{}", std::process::id(), bytes.len()));
+    // Tests run in parallel and may build equally large bundles, so every call gets its own folder.
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let dir = std::env::temp_dir().join(format!("kage-bundle-{}-{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let archive = dir.join("bundle.zip");
@@ -82,4 +84,21 @@ fn a_missing_or_broken_config_does_not_stop_the_export() {
 fn the_summary_has_versions_and_settings_but_no_servers() {
     let text = summary(&material());
     assert!(text.contains("sing-box 1.14.2") && text.contains("servers 1"));
+}
+
+#[test]
+fn the_sites_a_connection_went_to_are_not_in_the_log() {
+    let log = "+0530 2026-10-26 22:28:41 INFO [3002240486 1ms] inbound/tun[tun-in]: inbound connection to www.secret-bank.example:443\n\
++0530 2026-10-26 22:28:41 INFO [3002240486 1ms] inbound/tun[tun-in]: inbound connection from 192.168.1.20:56096\n\
++0530 2026-10-26 22:28:42 ERROR [7 2ms] inbound/tun[tun-in]: process connection from 10.0.0.2:55: connection to private-site.example:443: i/o timeout\n\
++0530 2026-10-26 22:28:43 INFO [9 0ms] dns: exchanged A news.example. IN A\n\
++0530 2026-10-26 22:28:44 INFO sing-box started (1.2s)";
+    let hidden = hide_destinations(log);
+    for secret in ["secret-bank", "192.168.1.20", "private-site", "news.example"] {
+        assert!(!hidden.contains(secret), "{secret} survived: {hidden}");
+    }
+    assert!(hidden.contains("inbound connection to [destination]"));
+    assert!(hidden.contains("ERROR"), "the level and the start of the message stay: {hidden}");
+    assert!(hidden.contains("sing-box started (1.2s)"), "lines about the engine itself are untouched");
+    assert_eq!(hide_destinations("Ünïcode connection to café.example"), "Ünïcode connection to [destination]");
 }

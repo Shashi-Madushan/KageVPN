@@ -290,3 +290,20 @@ fn removing_several_servers_keeps_a_valid_selection() {
     assert_eq!(store.remove_many(&[]).unwrap(), 0);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_backup_with_settings_the_screens_would_refuse_is_not_restored() {
+    let path = temp_path("restore-checks");
+    let mut store = Store::load(path.clone());
+    store.add(profile("keep")).unwrap();
+    let mut backup = store.backup_value().unwrap();
+    backup["routing"]["customProviders"] = serde_json::json!([{ "id": "evil", "name": "Evil", "geoip": "http://plain.example/{name}.srs", "geosite": "", "note": "" }]);
+    let error = store.restore(backup).unwrap_err();
+    assert!(error.to_string().contains("https://"), "{error}");
+    assert_eq!(store.profiles().len(), 1, "nothing was replaced");
+
+    let mut backup = store.backup_value().unwrap();
+    backup["reliability"]["bypass"] = serde_json::json!(["-setwebproxy"]);
+    assert!(store.restore(backup).is_err());
+    let _ = fs::remove_file(path);
+}

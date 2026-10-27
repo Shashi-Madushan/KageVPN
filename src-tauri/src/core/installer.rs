@@ -8,6 +8,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use super::releases::Release;
+use super::version::Version;
 use super::{inspect, Manifest, Source, MANIFEST_NAME};
 use crate::app_config::CoreSpec;
 use crate::error::{AppError, Result};
@@ -18,6 +19,15 @@ use crate::singbox;
 const PROGRESS_STEP: u64 = 256 * 1024;
 const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 const ARCHIVE_NAME: &str = "archive.tar.gz";
+/// A sing-box archive is about 30 MB. These limits stop a damaged or hostile download from filling
+/// the disk, and a small archive that unpacks into something huge (a decompression bomb) from doing
+/// the same through the extraction.
+const MAX_ARCHIVE_BYTES: u64 = 300 * 1024 * 1024;
+#[cfg(not(test))]
+const MAX_BINARY_BYTES: u64 = 1024 * 1024 * 1024;
+/// Small enough for a test to build an archive that exceeds it.
+#[cfg(test)]
+const MAX_BINARY_BYTES: u64 = 1024 * 1024;
 
 pub async fn install(
     reporter: &Reporter,
@@ -27,6 +37,7 @@ pub async fn install(
     allow_unverified: bool,
     check_config: Option<Value>,
 ) -> Result<()> {
+    check_release(release)?;
     if release.sha256.is_none() && !allow_unverified {
         return Err(AppError::Invalid(
             "this release has no published checksum, confirm to install it anyway".into(),
@@ -42,6 +53,18 @@ pub async fn install(
         let _ = fs::remove_dir_all(&staging);
     }
     result
+}
+
+/// Refuses a release whose version could name a folder outside the engine folder, or whose download
+/// address is not https. Both come from a web service, so they are checked before they are used.
+fn check_release(release: &Release) -> Result<()> {
+    if Version::parse(&release.version).is_none() {
+        return Err(AppError::Invalid("the release has a version this app cannot use".into()));
+    }
+    if !release.url.starts_with("https://") {
+        return Err(AppError::Invalid("the release is not offered over https".into()));
+    }
+    Ok(())
 }
 
 async fn run(
@@ -92,12 +115,16 @@ async fn download(reporter: &Reporter, release: &Release, destination: &Path) ->
     let client = reqwest::Client::builder()
         .user_agent(crate::app_config::user_agent())
         .connect_timeout(CONNECT_TIMEOUT)
+        .redirect(crate::downloads::https_only_redirects())
         .build()?;
     // Connecting is bounded above; this bounds the wait for the server's first answer.
     let response = tokio::time::timeout(STALL_AFTER, client.get(&release.url).send())
         .await
         .map_err(|_| AppError::Launch("the download server did not respond, try again later".into()))??
         .error_for_status()?;
+    if response.content_length().is_some_and(|promised| promised > MAX_ARCHIVE_BYTES) {
+        return Err(AppError::Launch("the download is larger than an engine archive can be, it was rejected".into()));
+    }
 
     let mut file = File::create(destination)?;
     let mut hasher = Sha256::new();
@@ -107,6 +134,9 @@ async fn download(reporter: &Reporter, release: &Release, destination: &Path) ->
         hasher.update(chunk);
         file.write_all(chunk)?;
         received += chunk.len() as u64;
+        if received > MAX_ARCHIVE_BYTES {
+            return Err(AppError::Launch("the download is larger than an engine archive can be, it was rejected".into()));
+        }
         if received - last_emit >= PROGRESS_STEP {
             last_emit = received;
             reporter.report(Stage::Download, received, release.size);
@@ -125,8 +155,16 @@ pub fn extract_binary(binary_name: &str, archive: &Path, destination: &Path) -> 
         let is_binary = entry.header().entry_type().is_file()
             && entry.path()?.file_name().is_some_and(|name| name == binary_name);
         if is_binary {
+            if entry.size() > MAX_BINARY_BYTES {
+                return Err(AppError::Launch(format!("the {binary_name} binary in the archive is larger than expected")));
+            }
             let mut out = File::create(destination)?;
-            std::io::copy(&mut entry, &mut out)?;
+            // The header's size is only a claim; the copy itself is capped too.
+            let copied = std::io::copy(&mut (&mut entry).take(MAX_BINARY_BYTES + 1), &mut out)?;
+            if copied > MAX_BINARY_BYTES {
+                let _ = fs::remove_file(destination);
+                return Err(AppError::Launch(format!("the {binary_name} binary in the archive is larger than expected")));
+            }
             set_executable(destination)?;
             return Ok(());
         }

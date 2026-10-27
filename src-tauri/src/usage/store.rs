@@ -43,6 +43,8 @@ pub struct Db {
 impl Db {
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path)?;
+        // The history names the sites and apps that used the network: owner-only, like the folder.
+        crate::fsutil::restrict(path);
         conn.pragma_update(None, "journal_mode", "WAL")?;
         // Keep the WAL (and the page cache) small: checkpoint every ~100 pages, cap the WAL file.
         conn.pragma_update(None, "wal_autocheckpoint", 100)?;

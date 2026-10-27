@@ -45,20 +45,31 @@ fn script_matches(installed: &Path) -> bool {
 /// Installs (or refreshes) the service for `binary`, starting it with launchd.
 /// `cancel` ends the password prompt early when the user stops connecting meanwhile.
 pub async fn install(paths: &AppPaths, binary: &Path, cancel: Option<&AtomicBool>) -> Result<()> {
-    let plist = plist(paths);
-    let commands = [
+    // What the app looked at is what root installs: the copy is checked against this digest before
+    // anything that is running is touched.
+    let digest = super::digest_of(binary).await?;
+    let commands = install_commands(&plist(paths), binary, &digest);
+    run_admin_script_until(&commands.join("; "), INSTALL_PROMPT, cancel).await.map(|_| ())
+}
+
+/// The shell lines, run as root, that install or refresh the service. The engine is copied and
+/// verified first, so a failed check leaves the service that is running exactly as it was.
+pub(super) fn install_commands(plist: &str, binary: &Path, digest: &str) -> Vec<String> {
+    let staged = format!("{BIN}.new");
+    vec![
         "set -e".to_string(),
         format!("mkdir -p '/Library/PrivilegedHelperTools' {}", shell_quote(BIN_DIR)),
+        super::verified_copy(binary, &staged, digest),
+        format!("chown root:wheel {}; chmod 755 {}", shell_quote(&staged), shell_quote(&staged)),
         format!("launchctl bootout system/{LABEL} 2>/dev/null || true"),
         format!("printf %s {} > {}", shell_quote(HELPER), shell_quote(SCRIPT)),
-        format!("printf %s {} > {}", shell_quote(&plist), shell_quote(PLIST)),
-        format!("cp -p {} {}", shell_quote(&binary.display().to_string()), shell_quote(BIN)),
-        format!("chown root:wheel {} {} {} {}", shell_quote(SCRIPT), shell_quote(PLIST), shell_quote(BIN), shell_quote(BIN_DIR)),
-        format!("chmod 755 {} {} {}", shell_quote(SCRIPT), shell_quote(BIN), shell_quote(BIN_DIR)),
+        format!("printf %s {} > {}", shell_quote(plist), shell_quote(PLIST)),
+        format!("mv -f {} {}", shell_quote(&staged), shell_quote(BIN)),
+        format!("chown root:wheel {} {} {}", shell_quote(SCRIPT), shell_quote(PLIST), shell_quote(BIN_DIR)),
+        format!("chmod 755 {} {}", shell_quote(SCRIPT), shell_quote(BIN_DIR)),
         format!("chmod 644 {}", shell_quote(PLIST)),
         format!("launchctl bootstrap system {}", shell_quote(PLIST)),
-    ];
-    run_admin_script_until(&commands.join("; "), INSTALL_PROMPT, cancel).await.map(|_| ())
+    ]
 }
 
 pub async fn uninstall() -> Result<()> {

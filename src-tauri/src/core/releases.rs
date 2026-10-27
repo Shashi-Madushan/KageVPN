@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+use super::version::Version;
 use super::Channel;
 use crate::app_config::CoreSpec;
 use crate::error::{AppError, Result};
 
 const MAX_RESULTS: usize = 12;
+/// The release listing is a few hundred kilobytes; this stops a server from filling memory.
+const MAX_LISTING_BYTES: usize = 8 * 1024 * 1024;
 const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Deserialize)]
@@ -48,6 +51,7 @@ pub async fn fetch(spec: &CoreSpec, channel: Channel) -> Result<Vec<Release>> {
     let response = reqwest::Client::builder()
         .user_agent(crate::app_config::user_agent())
         .timeout(TIMEOUT)
+        .redirect(crate::downloads::https_only_redirects())
         .build()?
         .get(spec.releases_api)
         .header("Accept", "application/vnd.github+json")
@@ -59,7 +63,8 @@ pub async fn fetch(spec: &CoreSpec, channel: Channel) -> Result<Vec<Release>> {
     {
         return Err(AppError::Launch("GitHub rate limit reached, try again later".into()));
     }
-    let releases: Vec<GithubRelease> = response.error_for_status()?.json().await?;
+    let body = crate::downloads::read_limited(response.error_for_status()?, MAX_LISTING_BYTES).await?;
+    let releases: Vec<GithubRelease> = serde_json::from_slice(&body)?;
     Ok(select(spec, releases, channel))
 }
 
@@ -69,8 +74,10 @@ fn select(spec: &CoreSpec, releases: Vec<GithubRelease>, channel: Channel) -> Ve
         .filter(|r| channel == Channel::Prerelease || !r.prerelease)
         .filter_map(|release| {
             let version = release.tag_name.trim_start_matches('v').to_string();
+            // The version becomes a folder name, and the address is downloaded and run.
+            Version::parse(&version)?;
             let wanted = asset_name(spec, &version);
-            let asset = release.assets.into_iter().find(|a| a.name == wanted)?;
+            let asset = release.assets.into_iter().find(|a| a.name == wanted && a.browser_download_url.starts_with("https://"))?;
             Some(Release {
                 version,
                 prerelease: release.prerelease,

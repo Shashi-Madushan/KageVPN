@@ -113,8 +113,10 @@ async fn first_answer(client: &Client, urls: &[&str]) -> Result<u64> {
 }
 
 pub async fn exit_ip() -> Result<String> {
-    let body = proxied_client()?.get(IP_URL).send().await?.error_for_status()?.text().await?;
-    Ok(body.trim().to_string())
+    let response = proxied_client()?.get(IP_URL).send().await?.error_for_status()?;
+    // The answer is one address; anything long is not that.
+    let body = crate::downloads::read_limited(response, 1024).await?;
+    Ok(String::from_utf8_lossy(&body).trim().to_string())
 }
 
 /// One client for every probe: building a client loads TLS roots, which is wasteful to repeat
