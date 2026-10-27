@@ -37,6 +37,8 @@
 		color: var(--fg);
 		font-size: 11.5px;
 		font-weight: 600;
+		flex: none;
+		white-space: nowrap;
 	}
 	.ping:hover:not(:disabled) {
 		border-color: var(--accent);

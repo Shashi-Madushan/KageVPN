@@ -194,7 +194,7 @@
 	<div class="top">
 		<!-- Connection -->
 		<section class="hero card {app.disconnecting ? 'connecting' : app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}" class:on={app.connected}>
-			<MascotButton size={96} />
+			<MascotButton size={88} />
 			<div class="hero-text">
 				<div class="status-line {app.disconnecting ? 'connecting' : app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">
 					<strong>{statusText}</strong>{#if elapsed}<span class="tabular"> · {elapsed}</span>{/if}
@@ -258,22 +258,21 @@
 				<Sparkline samples={app.history} height={96} />
 				{#if !app.connected}<span class="chart-empty">No live traffic. Connect to see speeds.</span>{/if}
 			</div>
-			<small class="tabular sess">{formatBytes(app.traffic.totalDown)} down · {formatBytes(app.traffic.totalUp)} up this session</small>
-		</section>
-
-		<div class="side">
-			<section class="card today-block">
-				<div class="today-header">
-					<span class="caption">Today</span>
-				</div>
-				{#if !usage.todayLoading}<strong class="today-total tabular">{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}</strong>{:else}<Skeleton width="56px" height="22px" />{/if}
-				{#if usage.quota?.limit}
+			<div class="traffic-foot">
+				<small class="tabular sess">{formatBytes(app.traffic.totalDown)} down · {formatBytes(app.traffic.totalUp)} up this session</small>
+				<span class="today-pill tabular" title="Total used today">Today: {#if usage.todayLoading}…{:else}{formatBytes((usage.today?.up ?? 0) + (usage.today?.down ?? 0))}{/if}</span>
+			</div>
+			{#if usage.quota?.limit}
+				<div class="quota">
 					<div class="meter" class:warn={usage.quota.percent >= 80}>
 						<div style:width="{Math.min(100, usage.quota.percent)}%"></div>
 					</div>
 					<small class="tabular quota-note">{usage.quota.percent.toFixed(0)}% of monthly cap</small>
-				{/if}
-			</section>
+				</div>
+			{/if}
+		</section>
+
+		<div class="side">
 			<HealthCard />
 		</div>
 	</div>
@@ -472,7 +471,7 @@
 		background: var(--surface-strong);
 		padding: 2px 9px;
 		border-radius: 999px;
-		font-size: 11.5px;
+		font-size: 11.5px;	white-space: nowrap;
 	}
 	.ip-chip:hover {
 		border-color: var(--accent);
@@ -570,14 +569,28 @@
 		color: var(--fg-muted);
 		font-size: 11px;
 	}
-	.today-block {
+	.traffic-foot {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+	}
+	.today-pill {
+		flex: none;
+		padding: 3px 12px;
+		border-radius: 999px;
+		background: var(--accent);
+		color: #fff;
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.quota {
 		display: grid;
 		gap: 4px;
-		padding: 12px 16px;
 	}
-	.today-total {
-		font-size: 20px;
-		font-weight: 700;
+	.side :global(.health) {
+		flex: 1;
+		align-content: start;
 	}
 	.quota-note {
 		color: var(--fg-muted);

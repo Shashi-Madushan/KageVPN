@@ -87,7 +87,7 @@
 </script>
 
 <div class="popover">
-	<button class="icon-btn close" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
+	<button class="icon-btn close" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" /></svg></button>
 
 	{#if !app.loaded}
 		<div class="skeleton" aria-hidden="true">
@@ -99,26 +99,19 @@
 			<Skeleton height="34px" radius="10px" />
 		</div>
 	{:else}
-		<div class="statusbar {tone}">
-			<span class="dot"></span><strong>{statusText}</strong>{#if elapsed}<span class="tabular dim">· {elapsed}</span>{/if}
+		<section class="hero {tone}">
+			<div class="hero-head">
+				<MascotButton size={52} />
+				<div class="hero-text">
+					<h1 class="headline {tone}">{headline}</h1>
+					{#if sub}<p class="sub">{sub}</p>{:else if elapsed && app.connected}<p class="sub tabular">Connected {elapsed}</p>{/if}
+				</div>
+			</div>
 			{#if app.profiles.length}
-				<button class="pill {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
-					<Icon name="bolt" size={12} />{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test latency'}
+				<button class="cta" class:stop={app.connected || app.busy} disabled={app.disconnecting} onclick={() => app.toggle()}>
+					{app.disconnecting ? 'Disconnecting…' : app.busy ? 'Cancel' : app.connected ? 'Disconnect' : 'Connect'}
 				</button>
 			{/if}
-		</div>
-
-		<section class="hero {tone}">
-			<MascotButton size={80} />
-			<div class="hero-text">
-				<h1 class="headline {tone}">{headline}</h1>
-				{#if sub}<p class="sub">{sub}</p>{/if}
-				{#if app.profiles.length}
-					<button class="cta" class:stop={app.connected || app.busy} disabled={app.disconnecting} onclick={() => app.toggle()}>
-						{app.disconnecting ? 'Disconnecting…' : app.busy ? 'Cancel' : app.connected ? 'Disconnect' : 'Connect'}
-					</button>
-				{/if}
-			</div>
 		</section>
 
 		{#if app.profiles.length}
@@ -129,31 +122,40 @@
 				<!-- While connected the server changes in place; only the mode needs a disconnect. -->
 				<div class="pick" title={app.connected ? 'Switch server without disconnecting' : undefined}>{@render serverPicker()}</div>
 			{/if}
-			{#if app.connected}
-				<div class="ipline" aria-label="Exit IP">
-					<small>Exit IP</small>
-					{#if app.exitIp}
-						<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
-						<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
-					{:else if app.tunnelDown}
-						<small>No IP</small>
-					{:else}
-						<Skeleton width="84px" height="14px" />
-					{/if}
+			<section class="card sheet" aria-label="Connection and data usage">
+				<div class="info">
+					<div class="cell ip">
+						<span class="k">Exit IP</span>
+						<span class="v">
+							{#if !app.connected}
+								<span class="none">Not connected</span>
+							{:else if app.exitIp}
+								<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
+								<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
+							{:else if app.tunnelDown}
+								<span class="none">No IP</span>
+							{:else}
+								<Skeleton width="84px" height="14px" />
+							{/if}
+						</span>
+					</div>
+					<button class="cell latency {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
+						<span class="k">Latency</span>
+						<span class="v tabular"><Icon name="bolt" size={12} />{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test'}</span>
+					</button>
 				</div>
-			{/if}
-
-			<section class="card usage" class:with-plan={plan} aria-label="Data usage">
-				<h2 class="usage-title">Data usage</h2>
-				<div class="rates">
-					<span class="rate down tabular" title="Download speed">↓ {formatRate(app.traffic.down)}</span>
-					<span class="rate up tabular" title="Upload speed">↑ {formatRate(app.traffic.up)}</span>
-					<span class="today tabular" title="Total used today">Today: {#if usage.todayLoading}…{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</span>
-				</div>
-				{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
-				<div class="graph">
-					<Sparkline samples={app.history} height={72} fill />
-					{#if !app.connected}<span class="graph-empty">Connect to see live traffic</span>{/if}
+				<div class="traffic">
+					<div class="speeds">
+						<div class="speed"><span class="k">↓ Download</span><strong class="v down tabular">{formatRate(app.traffic.down)}</strong></div>
+						<div class="speed"><span class="k">↑ Upload</span><strong class="v up tabular">{formatRate(app.traffic.up)}</strong></div>
+					</div>
+					<div class="graph">
+						<Sparkline samples={app.history} height={72} fill />
+					</div>
+					<div class="foot">
+						<span class="today tabular" title="Total used today">Today: {#if usage.todayLoading}…{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</span>
+						{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
+					</div>
 				</div>
 			</section>
 
@@ -182,7 +184,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		padding: 12px 12px 6px;
+		padding: 30px 8px 6px;
 		background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -204,13 +206,20 @@
 	}
 	.icon-btn.close {
 		position: absolute;
-		top: 8px;
-		right: 8px;
+		top: 4px;
+		right: 6px;
 		z-index: 1;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
 	}
 	.icon-btn:hover {
 		background: var(--hairline);
 		color: var(--fg);
+	}
+	.icon-btn:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 1px;
 	}
 	.popover > :global(*) {
 		flex-shrink: 0;
@@ -223,70 +232,31 @@
 		display: grid;
 		gap: 10px;
 	}
-	.statusbar {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		font-size: 12px;
-		color: var(--fg-muted);
-		padding-right: 24px;
-		white-space: nowrap;
-	}
-	.statusbar .dot {
-		flex: none;
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: currentColor;
-	}
-	.statusbar.ok {
-		color: var(--ok-text);
-	}
-	.statusbar.checking {
-		color: var(--warn);
-	}
-	.statusbar.down {
-		color: var(--danger);
-	}
-	.statusbar .dim {
-		font-size: 11.5px;
-		color: var(--fg-muted);
-	}
-	.statusbar .pill {
-		margin: 0 0 0 auto;
-		min-height: 22px;
-		padding: 1px 7px;
-		gap: 4px;
-		font-size: 11px;
-		white-space: nowrap;
-	}
+	/* A plain header, not another card: the boxes below carry the structure. */
 	.hero {
 		display: flex;
-		align-items: center;
+		flex-direction: column;
 		gap: 8px;
-		padding: 10px 12px 10px 4px;
-		border: 1px solid var(--hairline);
-		border-radius: 12px;
-		background: var(--surface);
+		padding: 0 2px;
 	}
-	.hero.ok {
-		background: linear-gradient(135deg, color-mix(in srgb, var(--ok) 13%, var(--surface)), var(--surface) 75%);
+	.hero-head {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		/* Clear of the close button. */
+		padding-right: 24px;
 	}
 	.hero-text {
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
-		gap: 6px;
+		gap: 2px;
 		min-width: 0;
-		flex: 1;
 	}
 	.cta {
-		min-height: 38px;
-		align-self: stretch;
-		margin-top: 2px;
-		padding: 0 12px;
+		min-height: 34px;
+		padding: 0 14px;
 		border: 0;
-		border-radius: 9px;
+		border-radius: 8px;
 		background: var(--accent);
 		color: #fff;
 		font-size: 13px;
@@ -297,44 +267,6 @@
 	}
 	.cta:disabled {
 		opacity: 0.6;
-	}
-	.ipline {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 0 4px;
-		font-size: 11px;
-		color: var(--fg-muted);
-		user-select: text;
-	}
-	.usage-title {
-		margin: 0;
-		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		text-align: center;
-		color: var(--fg);
-	}
-	.rates {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 6px;
-		width: 100%;
-		white-space: nowrap;
-	}
-	.rate {
-		font-size: 13px;
-		font-weight: 700;
-	}
-	.today {
-		padding: 2px 9px;
-		border-radius: 999px;
-		background: var(--accent);
-		color: #fff;
-		font-size: 12px;
-		font-weight: 700;
 	}
 	.headline {
 		margin: 0;
@@ -354,6 +286,7 @@
 		margin: 0;
 		max-width: 100%;
 		font-size: 12px;
+		white-space: nowrap;
 		color: var(--fg-muted);
 	}
 	.ip-text {
@@ -371,54 +304,121 @@
 		background: var(--surface);
 		padding: 8px 12px;
 	}
-	.label {
+	.info {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		border-bottom: 1px solid var(--hairline);
+	}
+	.cell {
+		display: grid;
+		gap: 2px;
+		min-width: 0;
+		padding: 6px 10px;
+		text-align: left;
+	}
+	.cell .k,
+	.speed .k {
 		font-size: 10.5px;
-		font-weight: 700;
-		letter-spacing: 0.07em;
-		text-transform: uppercase;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		color: var(--fg-muted);
 	}
-	.pill {
-		display: inline-flex;
+	.cell .v {
+		display: flex;
 		align-items: center;
-		gap: 5px;
-		min-height: 26px;
-		margin-top: 0;
-		padding: 3px 12px;
-		border: 1px solid var(--hairline);
-		border-radius: 999px;
-		background: var(--surface);
+		gap: 4px;
+		min-width: 0;
+		min-height: 20px;
+		font-size: 13px;
+		font-weight: 600;
 		color: var(--fg);
-		font-size: 12.5px;
-		font-weight: 700;
+		user-select: text;
 	}
-	.pill:hover:not(:disabled) {
-		border-color: var(--accent);
+	.cell .none {
+		font-weight: 500;
+		color: var(--fg-muted);
 	}
-	.pill.ok {
-		border-color: color-mix(in srgb, var(--ok) 45%, transparent);
-		background: color-mix(in srgb, var(--ok) 12%, var(--surface));
+	.latency {
+		border: 0;
+		border-left: 1px solid var(--hairline);
+		border-radius: 0;
+		background: none;
+		min-width: 88px;
+	}
+	.latency:hover:not(:disabled) {
+		background: var(--hairline);
+	}
+	.latency.ok .v {
 		color: var(--ok-text);
 	}
-	.pill.warn {
-		border-color: color-mix(in srgb, var(--warn) 55%, transparent);
-		background: color-mix(in srgb, var(--warn) 14%, var(--surface));
+	.latency.warn .v {
 		color: var(--warn);
 	}
-	.pill.bad {
-		border-color: color-mix(in srgb, var(--danger) 50%, transparent);
-		background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+	.latency.bad .v {
 		color: var(--danger);
 	}
-	.usage {
-		/* Takes the space left over, and gives it back when the rows above need it. */
+	/* One grouped card. The chart takes up or gives back slack, so the footer is never pushed out. */
+	.popover > .sheet {
+		flex-shrink: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		padding: 0;
+		overflow: hidden;
+	}
+	.traffic {
 		flex: 1 1 auto;
 		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 10px 10px;
+	}
+	.speeds {
 		display: grid;
-		grid-template-rows: auto auto minmax(36px, 1fr);
+		grid-template-columns: 1fr 1fr;
 		gap: 8px;
-		justify-items: center;
-		padding: 10px 12px 0;
+	}
+	.speed {
+		display: grid;
+		gap: 1px;
+		min-width: 0;
+	}
+	.speed .v {
 		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 17px;
+		font-weight: 700;
+		line-height: 1.2;
+	}
+	.foot {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		font-size: 11px;
+		color: var(--fg-muted);
+		white-space: nowrap;
+	}
+	.today {
+		flex: none;
+		padding: 2px 10px;
+		border-radius: 999px;
+		background: var(--accent);
+		color: #fff;
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.plan {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.plan.low {
+		color: var(--warn);
+		font-weight: 600;
 	}
 	.down {
 		color: var(--down);
@@ -426,24 +426,12 @@
 	.up {
 		color: var(--up);
 	}
-	.usage.with-plan {
-		grid-template-rows: auto auto auto minmax(36px, 1fr);
-	}
-	.plan {
-		width: 100%;
-		font-size: 11px;
-		text-align: center;
-		color: var(--fg-muted);
-	}
-	.plan.low {
-		color: var(--warn);
-		font-weight: 600;
-	}
 	.graph {
 		position: relative;
-		width: calc(100% + 24px);
-		margin: 0 -12px;
-		min-height: 0;
+		width: 100%;
+		flex: 1 1 46px;
+		min-height: 20px;
+		max-height: 64px;
 	}
 	/* Sized by the row, not by the chart's own aspect ratio. */
 	.graph :global(svg) {
@@ -452,19 +440,9 @@
 		width: 100%;
 		height: 100%;
 	}
-	.graph-empty {
-		position: absolute;
-		inset: 0;
-		display: grid;
-		place-items: center;
-		font-size: 11px;
-		color: var(--fg-muted);
-	}
 	.lock {
-		margin: -4px 0 0;
-		font-size: 10.5px;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
+		margin: -2px 0 0;
+		font-size: 11px;
 		color: var(--fg-muted);
 		text-align: center;
 	}
