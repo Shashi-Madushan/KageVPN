@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "design-preview", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "dev", "--config", "vite.mock.config.js"], "port": 1431 }
+  ]
+}

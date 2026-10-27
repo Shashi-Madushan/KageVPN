@@ -194,7 +194,7 @@
 	<div class="top">
 		<!-- Connection -->
 		<section class="hero card {app.disconnecting ? 'connecting' : app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}" class:on={app.connected}>
-			<MascotButton size={150} />
+			<MascotButton size={96} />
 			<div class="hero-text">
 				<div class="status-line {app.disconnecting ? 'connecting' : app.tunnelDown ? 'down' : app.verifying ? 'connecting' : app.status.state}">
 					<strong>{statusText}</strong>{#if elapsed}<span class="tabular"> · {elapsed}</span>{/if}
@@ -285,22 +285,22 @@
 		container-type: inline-size;
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
+		gap: 10px;
 	}
 	.top {
 		display: grid;
 		grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-		gap: 14px;
+		gap: 10px;
 	}
 	.bottom {
 		display: grid;
 		grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-		gap: 14px;
+		gap: 10px;
 	}
 	.side {
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
+		gap: 10px;
 	}
 	@container (max-width: 700px) {
 		.top,
@@ -382,8 +382,8 @@
 	.hero {
 		display: flex;
 		align-items: center;
-		gap: 22px;
-		padding: 20px 24px;
+		gap: 14px;
+		padding: 14px 18px;
 		transition: background 0.3s;
 	}
 	.hero.on {
@@ -393,14 +393,17 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 8px;
+		gap: 5px;
 		min-width: 0;
 	}
 	.status-line {
-		font-size: 12px;
+		font-size: 11px;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: var(--fg-muted);
+	}
+	.status-line span {
+		margin-left: 2px;
 	}
 	.status-line.connected {
 		color: var(--ok-text);
@@ -413,9 +416,9 @@
 	}
 	.headline {
 		margin: 0;
-		font-size: 26px;
+		font-size: 20px;
 		font-weight: 700;
-		line-height: 1.1;
+		line-height: 1.15;
 		letter-spacing: -0.01em;
 	}
 	.headline.connected {
@@ -428,14 +431,14 @@
 		color: var(--warn);
 	}
 	.cta {
-		margin-top: 4px;
-		min-height: 44px;
-		padding: 0 24px;
+		margin-top: 2px;
+		min-height: 34px;
+		padding: 0 20px;
 		border: 0;
-		border-radius: 10px;
+		border-radius: 9px;
 		background: var(--accent);
 		color: #fff;
-		font-size: 14px;
+		font-size: 13px;
 		font-weight: 600;
 	}
 	.cta.stop {
@@ -460,16 +463,16 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: 8px;
-		min-height: 24px;
-		font-size: 12.5px;
+		gap: 6px;
+		min-height: 22px;
+		font-size: 12px;
 	}
 	.ip-chip {
 		border: 1px solid var(--hairline);
 		background: var(--surface-strong);
-		padding: 3px 10px;
+		padding: 2px 9px;
 		border-radius: 999px;
-		font-size: 12px;
+		font-size: 11.5px;
 	}
 	.ip-chip:hover {
 		border-color: var(--accent);
@@ -480,12 +483,12 @@
 	.controls {
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
-		padding: 18px 20px;
+		gap: 10px;
+		padding: 14px 16px;
 	}
 	.field {
 		display: grid;
-		gap: 6px;
+		gap: 4px;
 	}
 	.server-sub {
 		display: flex;
@@ -507,14 +510,14 @@
 		font-weight: 600;
 	}
 	.controls :global(.segmented button) {
-		padding: 7px 10px;
+		padding: 5px 10px;
 	}
 	/* Traffic */
 	.traffic {
-		padding: 16px 20px 14px;
+		padding: 12px 16px 10px;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 6px;
 	}
 	.chart-head {
 		display: flex;
@@ -553,7 +556,7 @@
 	}
 	.chart-body :global(svg) {
 		width: 100%;
-		height: 130px !important;
+		height: 84px !important;
 	}
 	.chart-empty {
 		position: absolute;
@@ -569,11 +572,11 @@
 	}
 	.today-block {
 		display: grid;
-		gap: 6px;
-		padding: 14px 18px;
+		gap: 4px;
+		padding: 12px 16px;
 	}
 	.today-total {
-		font-size: 26px;
+		font-size: 20px;
 		font-weight: 700;
 	}
 	.quota-note {

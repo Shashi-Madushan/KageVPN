@@ -24,7 +24,6 @@
 	import ProfilesPage from '$lib/components/ProfilesPage.svelte';
 	import RoutingPage from '$lib/components/RoutingPage.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
-	import Icon from '$lib/components/Icon.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppsPage from '$lib/components/AppsPage.svelte';
 	import { pageForKey, type Page } from '$lib/pages';
@@ -124,7 +123,7 @@
 			<div class="actions">
 				{#if page === 'home'}
 					<button class="whatsnew" class:unread={whatsNew.unread} onclick={() => (page = 'whatsnew')}>
-						<Icon name="sparkle" size={13} />What's new
+						What's new
 					</button>
 				{/if}
 				{#if header.actions}{@render header.actions()}{/if}
@@ -251,23 +250,17 @@
 		flex-wrap: wrap;
 	}
 	.whatsnew {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-		padding: 3px 10px;
+		padding: 0;
+		border: 0;
+		background: none;
 		font-size: var(--text-sm);
-		border-radius: 999px;
-		border: 1px solid var(--hairline);
-		background: transparent;
 		color: var(--fg-muted);
 	}
 	.whatsnew:hover {
-		background: var(--hairline);
 		color: var(--fg);
+		text-decoration: underline;
 	}
 	.whatsnew.unread {
-		border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-		background: color-mix(in srgb, var(--accent) 14%, transparent);
 		color: var(--accent);
 		font-weight: 600;
 	}

@@ -109,7 +109,7 @@
 		</div>
 
 		<section class="hero {tone}">
-			<MascotButton size={92} />
+			<MascotButton size={80} />
 			<div class="hero-text">
 				<h1 class="headline {tone}">{headline}</h1>
 				{#if sub}<p class="sub">{sub}</p>{/if}
@@ -143,21 +143,18 @@
 				</div>
 			{/if}
 
-			<div class="tiles">
-				<div class="tile"><small>Download</small><strong class="down tabular">{formatRate(app.traffic.down)}</strong></div>
-				<div class="tile"><small>Upload</small><strong class="up tabular">{formatRate(app.traffic.up)}</strong></div>
-			</div>
-
 			<section class="card usage" class:with-plan={plan} aria-label="Data usage">
-				<div class="today-row">
-					<span>Today</span>
-					<strong class="tabular">{#if usage.todayLoading}<Skeleton width="36px" height="11px" />{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</strong>
+				<h2 class="usage-title">Data usage</h2>
+				<div class="rates">
+					<span class="rate down tabular" title="Download speed">↓ {formatRate(app.traffic.down)}</span>
+					<span class="rate up tabular" title="Upload speed">↑ {formatRate(app.traffic.up)}</span>
+					<span class="today tabular" title="Total used today">Today: {#if usage.todayLoading}…{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</span>
 				</div>
+				{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
 				<div class="graph">
 					<Sparkline samples={app.history} height={72} fill />
 					{#if !app.connected}<span class="graph-empty">Connect to see live traffic</span>{/if}
 				</div>
-				{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
 			</section>
 
 			<div title={app.connected ? 'Disconnect to change mode' : undefined}>
@@ -184,8 +181,8 @@
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-		padding: 14px 12px 6px;
+		gap: 10px;
+		padding: 12px 12px 6px;
 		background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -230,12 +227,13 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		font-size: 13px;
+		font-size: 12px;
 		color: var(--fg-muted);
-		padding-right: 32px;
+		padding-right: 24px;
 		white-space: nowrap;
 	}
 	.statusbar .dot {
+		flex: none;
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
@@ -251,22 +249,24 @@
 		color: var(--danger);
 	}
 	.statusbar .dim {
+		font-size: 11.5px;
 		color: var(--fg-muted);
 	}
 	.statusbar .pill {
 		margin: 0 0 0 auto;
-		min-height: 24px;
-		padding: 2px 9px;
-		font-size: 11.5px;
+		min-height: 22px;
+		padding: 1px 7px;
+		gap: 4px;
+		font-size: 11px;
 		white-space: nowrap;
 	}
 	.hero {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		padding: 8px 12px 8px 4px;
+		padding: 10px 12px 10px 4px;
 		border: 1px solid var(--hairline);
-		border-radius: 14px;
+		border-radius: 12px;
 		background: var(--surface);
 	}
 	.hero.ok {
@@ -281,10 +281,10 @@
 		flex: 1;
 	}
 	.cta {
-		min-height: 44px;
+		min-height: 38px;
 		align-self: stretch;
-		margin-top: 6px;
-		padding: 0 14px;
+		margin-top: 2px;
+		padding: 0 12px;
 		border: 0;
 		border-radius: 9px;
 		background: var(--accent);
@@ -307,41 +307,38 @@
 		color: var(--fg-muted);
 		user-select: text;
 	}
-	.tiles {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 8px;
-	}
-	.tile {
-		display: grid;
-		gap: 2px;
-		padding: 8px 12px;
-		border: 1px solid var(--hairline);
-		border-radius: 12px;
-		background: var(--surface);
-	}
-	.tile small {
-		font-size: 10px;
+	.usage-title {
+		margin: 0;
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--fg-muted);
-	}
-	.tile strong {
-		font-size: 16px;
-	}
-	.today-row {
-		display: flex;
-		justify-content: space-between;
-		width: 100%;
-		font-size: 12px;
-		color: var(--fg-muted);
-	}
-	.today-row strong {
+		text-align: center;
 		color: var(--fg);
+	}
+	.rates {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 6px;
+		width: 100%;
+		white-space: nowrap;
+	}
+	.rate {
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.today {
+		padding: 2px 9px;
+		border-radius: 999px;
+		background: var(--accent);
+		color: #fff;
+		font-size: 12px;
+		font-weight: 700;
 	}
 	.headline {
 		margin: 0;
-		font-size: 17px;
+		font-size: 15px;
 		font-weight: 700;
 	}
 	.headline.ok {
@@ -385,7 +382,7 @@
 		align-items: center;
 		gap: 5px;
 		min-height: 26px;
-		margin-top: 6px;
+		margin-top: 0;
 		padding: 3px 12px;
 		border: 1px solid var(--hairline);
 		border-radius: 999px;
@@ -417,10 +414,11 @@
 		flex: 1 1 auto;
 		min-height: 0;
 		display: grid;
-		grid-template-rows: auto minmax(56px, 1fr);
+		grid-template-rows: auto auto minmax(36px, 1fr);
 		gap: 8px;
 		justify-items: center;
-		padding-bottom: 10px;
+		padding: 10px 12px 0;
+		overflow: hidden;
 	}
 	.down {
 		color: var(--down);
@@ -429,11 +427,10 @@
 		color: var(--up);
 	}
 	.usage.with-plan {
-		grid-template-rows: auto minmax(48px, 1fr) auto;
+		grid-template-rows: auto auto auto minmax(36px, 1fr);
 	}
 	.plan {
 		width: 100%;
-		margin-top: -4px;
 		font-size: 11px;
 		text-align: center;
 		color: var(--fg-muted);
@@ -444,7 +441,8 @@
 	}
 	.graph {
 		position: relative;
-		width: 100%;
+		width: calc(100% + 24px);
+		margin: 0 -12px;
 		min-height: 0;
 	}
 	/* Sized by the row, not by the chart's own aspect ratio. */
