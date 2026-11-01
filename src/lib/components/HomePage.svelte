@@ -577,10 +577,11 @@
 		flex: none;
 		padding: 3px 12px;
 		border-radius: 999px;
-		background: var(--accent);
-		color: #fff;
+		background: var(--surface);
+		border: 1px solid var(--hairline);
+		color: var(--fg);
 		font-size: 12px;
-		font-weight: 600;
+		font-weight: 500;
 	}
 	.quota {
 		display: grid;
