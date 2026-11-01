@@ -7,7 +7,7 @@ window.DOCS_PAGES["getting-started/overview"] = {
   category: "Getting Started",
   title: "Introduction & Overview",
   featureBadge: "v0.2.0 Native",
-  lead: "Kage VPN is a modern, lightweight, native-feeling macOS VPN client engineered around the sing-box proxy engine. It unites enterprise-grade proxy protocols with an elegant macOS interface built using Tauri 2 and Svelte 5.",
+  lead: "Kage VPN is a macOS client for the sing-box proxy engine. It puts VLESS and other proxy protocols behind one menu bar app, built with Tauri 2 and Svelte 5.",
   heroImage: {
     src: "assets/images/home.png",
     alt: "Kage VPN Dashboard Connected State",

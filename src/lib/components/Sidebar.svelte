@@ -83,9 +83,7 @@
 	}
 	.section-title {
 		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
+		font-weight: 500;
 		color: var(--fg-muted);
 		padding: 0 10px 4px;
 	}
@@ -142,7 +140,7 @@
 		margin-left: auto;
 		font-style: normal;
 		font-size: 11px;
-		font-weight: 700;
+		font-weight: 600;
 		padding: 1px 6px;
 		border-radius: 999px;
 		background: var(--accent);

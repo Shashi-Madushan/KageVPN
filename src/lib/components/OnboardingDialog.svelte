@@ -309,7 +309,6 @@
 		overflow: hidden;
 		border-bottom: 1px solid var(--hairline);
 		background:
-			radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
 			color-mix(in srgb, var(--hairline) 35%, transparent);
 	}
 	.demo {
@@ -532,8 +531,6 @@
 	.d-tray-speeds em {
 		font-style: normal;
 		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
 		color: var(--fg-muted);
 	}
 	.d-tray-speeds .down {
@@ -603,7 +600,7 @@
 		background: var(--accent);
 		color: #fff;
 		font-size: 11px;
-		font-weight: 700;
+		font-weight: 600;
 		box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
 	}
 	.d-arrow {
@@ -660,7 +657,7 @@
 		background: color-mix(in srgb, var(--ok) 12%, var(--surface));
 		color: var(--ok-text);
 		font-size: 11.5px;
-		font-weight: 700;
+		font-weight: 600;
 	}
 	.d-usage {
 		width: min(100%, 380px);

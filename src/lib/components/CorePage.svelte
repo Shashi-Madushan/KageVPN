@@ -274,8 +274,6 @@
 		padding-block: 4px;
 		font-size: 11px;
 		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
 		color: var(--fg-muted);
 		background: color-mix(in srgb, var(--hairline) 50%, transparent);
 	}

@@ -383,10 +383,10 @@
 		align-items: center;
 		gap: 14px;
 		padding: 14px 18px;
-		transition: background 0.3s;
+		transition: background-color 0.3s;
 	}
 	.hero.on {
-		background: linear-gradient(135deg, color-mix(in srgb, var(--ok) 13%, var(--surface)), var(--surface) 75%);
+		background: color-mix(in srgb, var(--ok) 8%, var(--surface));
 	}
 	.hero-text {
 		display: flex;
@@ -397,8 +397,6 @@
 	}
 	.status-line {
 		font-size: 11px;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		color: var(--fg-muted);
 	}
 	.status-line span {
@@ -416,7 +414,7 @@
 	.headline {
 		margin: 0;
 		font-size: 20px;
-		font-weight: 700;
+		font-weight: 600;
 		line-height: 1.15;
 		letter-spacing: -0.01em;
 	}
@@ -582,7 +580,7 @@
 		background: var(--accent);
 		color: #fff;
 		font-size: 12px;
-		font-weight: 700;
+		font-weight: 600;
 	}
 	.quota {
 		display: grid;

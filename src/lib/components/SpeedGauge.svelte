@@ -170,10 +170,8 @@
 	.phase {
 		fill: var(--fg-muted);
 		font-size: 11px;
-		font-weight: 650;
-		letter-spacing: 0.08em;
+		font-weight: 500;
 		text-anchor: middle;
-		text-transform: uppercase;
 	}
 	.big {
 		fill: var(--fg);
