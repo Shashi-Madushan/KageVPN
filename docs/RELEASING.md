@@ -59,6 +59,11 @@ What it does:
    `darwin-aarch64` and `darwin-x86_64`, so every Mac finds its update.
 5. With `--publish`: creates the GitHub release `v<version>` (or adds to it) with all of those files.
 
+**Windows:** run the same command on a Windows PC; it builds the NSIS installer instead and adds a
+`windows-x86_64` entry to the same `latest.json`, keeping the macOS entries (see
+[WINDOWS.md](WINDOWS.md#5-releasing-for-windows)). Whichever OS goes second downloads the published
+`latest.json` first, so the two releases add up.
+
 Other options: `--dmg`, `--base-url <url>` for a host other than GitHub, `--notes-file`, `--draft`,
 `--allow-dirty`, and `--dry-run` to print the plan without building.
 

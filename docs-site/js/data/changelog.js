@@ -31,6 +31,7 @@ window.DOCS_PAGES["changelog/changelog"] = {
       <h2 id="nov-2">2 November 2026</h2>
       <ul>
         <li><strong>New:</strong> Add servers from a <strong>QR code image</strong>: drop a screenshot on <strong>Add server</strong>, choose an image file, paste one into the box, or use <strong>QR from clipboard</strong>. A code holding a web address offers <strong>Add as subscription</strong>.</li>
+        <li><strong>New:</strong> A <strong>Windows preview</strong> (not released yet): Proxy Only mode with the Windows system proxy, the engine manager, a Windows title bar and tray, installed apps with icons, and an installer. TUN mode and the kill switch come later. Build and test steps are in <code>docs/WINDOWS.md</code>.</li>
         <li><strong>Improved:</strong> Releases are one <strong>universal</strong> app that runs natively on Apple Silicon and Intel Macs. The update feed serves it to both.</li>
       </ul>
       <h2 id="oct-21">25 October 2026: version 0.3.0</h2>

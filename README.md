@@ -6,7 +6,7 @@
 
 Import your VLESS, VMess, Trojan, Shadowsocks, Hysteria, Hysteria2, TUIC, SSH or WireGuard servers, connect with one click, and see exactly where your traffic goes.
 
-![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20(preview)-lightgrey)
 ![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%2B%20Svelte-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Latest release](https://img.shields.io/github/v/release/Shashi-Madushan/KageVPN)](https://github.com/Shashi-Madushan/KageVPN/releases/latest)
@@ -28,7 +28,7 @@ It is for people who already have a VLESS, VMess, Trojan, Shadowsocks, Hysteria,
 
 ## Install
 
-> **Requirements:** a Mac (Apple Silicon or Intel) and a server link or subscription. The app downloads the sing-box engine for you on first run.
+> **Requirements:** a Mac (Apple Silicon or Intel) and a server link or subscription. A Windows preview (Proxy Only mode) is in progress, see [docs/WINDOWS.md](docs/WINDOWS.md). The app downloads the sing-box engine for you on first run.
 
 1. **Download** the latest `.dmg` from the [Releases page](https://github.com/Shashi-Madushan/KageVPN/releases).
 2. **Open** the disk image and drag **Kage VPN** into your **Applications** folder.

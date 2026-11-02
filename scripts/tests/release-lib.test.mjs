@@ -13,7 +13,9 @@ import {
 	readRustOption,
 	setCargoVersion,
 	setJsonVersion,
-	UNIVERSAL_PLATFORMS
+	UNIVERSAL_PLATFORMS,
+	WINDOWS_PLATFORM,
+	windowsInstallerName
 } from '../release-lib.mjs';
 
 test('versions must be semver', () => {
@@ -105,4 +107,12 @@ test('a universal manifest points both updater keys at the same file', () => {
 	const previous = { version: '1.0.0', platforms: { 'windows-x86_64': { signature: 'W', url: 'w' } } };
 	const kept = buildManifest({ version: '1.0.0', notes: '', platforms: UNIVERSAL_PLATFORMS, signature: 'S', url: 'u', previous });
 	assert.deepEqual(Object.keys(kept.platforms).sort(), ['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64']);
+});
+
+test('the Windows installer and its feed entry are named for x64', () => {
+	assert.equal(windowsInstallerName('Kage', '1.0.0'), 'Kage_1.0.0_x64-setup.exe');
+	assert.equal(artifactName('kage-vpn', '1.0.0', WINDOWS_PLATFORM, 'setup.exe'), 'kage-vpn_1.0.0_windows-x86_64.setup.exe');
+	const mac = buildManifest({ version: '1.0.0', notes: '', platforms: UNIVERSAL_PLATFORMS, signature: 'M', url: 'm' });
+	const both = buildManifest({ version: '1.0.0', notes: '', platform: WINDOWS_PLATFORM, signature: 'W', url: 'w', previous: mac });
+	assert.deepEqual(Object.keys(both.platforms).sort(), ['darwin-aarch64', 'darwin-x86_64', WINDOWS_PLATFORM]);
 });

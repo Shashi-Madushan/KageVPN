@@ -594,3 +594,11 @@ keep the network exteion part for later"
 **Context**: CONSTRUCTION - W4 complete, Round 5
 
 ---
+
+## W5 complete; phase 1 Build and Test (Mac side)
+**Timestamp**: 2026-11-02T06:40:00Z
+**User Input**: (none; continuing under "approve and do all with your recomandations")
+**AI Response**: W5 done: Windows release path (NSIS, windows-x86_64 feed entry, merge with published latest.json), docs/WINDOWS.md with the phase 1 checklist, release docs, README and changelog. Wrote construction/build-and-test/round5-phase1-build-and-test.md. Stopping before phase 2 (privileged Windows service) and phase 3 (WFP kill switch): the execution plan gates each phase on the user's Windows results, and building privileged code on an untested base would compound risk.
+**Context**: CONSTRUCTION - Phase 1 complete on the Mac side; waiting for Windows results, Round 5
+
+---

@@ -7,9 +7,9 @@
 // Nothing is published unless --publish is given. See docs/RELEASING.md.
 
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
@@ -25,7 +25,9 @@ import {
 	setCargoVersion,
 	setJsonVersion,
 	UNIVERSAL_PLATFORMS,
-	UNIVERSAL_TARGET
+	UNIVERSAL_TARGET,
+	WINDOWS_PLATFORM,
+	windowsInstallerName
 } from './release-lib.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -68,14 +70,17 @@ const configSource = readFileSync(file('src-tauri', 'src', 'app_config.rs'), 'ut
 const current = JSON.parse(readFileSync(confPath, 'utf8')).version;
 const version = assertVersion(opt.version ?? current);
 const productName = JSON.parse(readFileSync(confPath, 'utf8')).productName;
-// One universal app serves Apple Silicon and Intel.
-const platform = 'universal';
+// macOS releases are one universal app for Apple Silicon and Intel; Windows releases are an x64 installer.
+const windows = process.platform === 'win32';
+const platform = windows ? WINDOWS_PLATFORM : 'universal';
+const osLabel = windows ? 'Windows (x64 installer)' : 'macOS (universal: Apple Silicon and Intel)';
 
 const keyPath = process.env.APZUR_UPDATER_KEY_PATH ?? join(homedir(), '.tauri', 'apzur-vpn-updater.key');
 if (!existsSync(keyPath)) fail(`signing key not found at ${keyPath} (see docs/RELEASING.md)`);
 
 function signingPassword() {
 	if (process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD !== undefined) return process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD;
+	if (windows) fail('no signing password: set TAURI_SIGNING_PRIVATE_KEY_PASSWORD');
 	const found = capture('security', ['find-generic-password', '-s', KEYCHAIN_SERVICE, '-w']);
 	if (found.status !== 0) fail(`no signing password: set TAURI_SIGNING_PRIVATE_KEY_PASSWORD or add Keychain item "${KEYCHAIN_SERVICE}"`);
 	return found.stdout.trim();
@@ -96,8 +101,8 @@ const notes = opt['notes-file'] ? readFileSync(resolve(opt['notes-file']), 'utf8
 const dirty = capture('git', ['status', '--porcelain']).stdout.trim();
 if (dirty && !opt['allow-dirty'] && !opt['dry-run']) fail('the working tree has uncommitted changes (commit them or pass --allow-dirty)');
 
-const missing = missingTargets(capture('rustup', ['target', 'list', '--installed']).stdout ?? '');
-console.log(`Release ${productName} ${version} for macOS (universal: Apple Silicon and Intel)`);
+const missing = windows ? [] : missingTargets(capture('rustup', ['target', 'list', '--installed']).stdout ?? '');
+console.log(`Release ${productName} ${version} for ${osLabel}`);
 if (missing.length) {
 	const fix = `rustup target add ${missing.join(' ')}`;
 	if (!opt['dry-run']) fail(`a universal build needs more Rust targets. Run: ${fix}`);
@@ -120,33 +125,43 @@ if (version !== current || readCargoVersion(readFileSync(cargoPath, 'utf8')) !==
 	console.log(`Set version ${version} in tauri.conf.json, package.json and Cargo.toml`);
 }
 
-const bundleDir = file('src-tauri', 'target', UNIVERSAL_TARGET, 'release', 'bundle');
-const tarball = join(bundleDir, 'macos', `${productName}.app.tar.gz`);
+const bundleDir = windows ? file('src-tauri', 'target', 'release', 'bundle') : file('src-tauri', 'target', UNIVERSAL_TARGET, 'release', 'bundle');
+// The file the updater downloads: the app archive on macOS, the installer itself on Windows.
+const update = windows ? join(bundleDir, 'nsis', windowsInstallerName(productName, version)) : join(bundleDir, 'macos', `${productName}.app.tar.gz`);
 // The CLI checks the signature it just made against `plugins.updater.pubkey`, so hand it the key
-// from app_config.rs for this build only. tauri.conf.json keeps an empty placeholder.
-const keyOverride = ['--config', JSON.stringify({ plugins: { updater: { pubkey: compiledKey } } })];
+// from app_config.rs for this build only. tauri.conf.json keeps an empty placeholder. It goes in a
+// file because quoting JSON on a Windows command line is unreliable.
+const overridePath = join(tmpdir(), `kage-release-${process.pid}.json`);
+writeFileSync(overridePath, JSON.stringify({ plugins: { updater: { pubkey: compiledKey } } }));
+const keyOverride = ['--config', overridePath];
 const signingEnv = { ...process.env, TAURI_SIGNING_PRIVATE_KEY: keyPath, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: signingPassword() };
+// npm is a .cmd script on Windows, which Node only starts through a shell.
+const npm = (args, options = {}) => spawnSync('npm', args, { cwd: root, stdio: 'inherit', env: signingEnv, shell: windows, ...options });
 if (!opt['skip-build']) {
-	// The app bundle is all the updater needs. The .dmg (first installs only) is a separate,
-	// optional step because macOS can refuse the disk-image styling when run without a desktop session.
-	const target = ['--target', UNIVERSAL_TARGET];
-	run('npm', ['run', 'tauri', '--', 'build', ...target, '--bundles', 'app', ...keyOverride], { env: signingEnv });
-	if (opt.dmg) {
-		const made = spawnSync('npm', ['run', 'tauri', '--', 'build', ...target, '--bundles', 'dmg', ...keyOverride], { cwd: root, stdio: 'inherit', env: signingEnv });
-		if (made.status !== 0) console.warn('\nrelease: the .dmg could not be built, continuing without it');
+	if (windows) {
+		if (npm(['run', 'tauri', '--', 'build', '--bundles', 'nsis', ...keyOverride]).status !== 0) fail('the Windows build failed');
+	} else {
+		// The app bundle is all the updater needs. The .dmg (first installs only) is a separate,
+		// optional step because macOS can refuse the disk-image styling when run without a desktop session.
+		const target = ['--target', UNIVERSAL_TARGET];
+		if (npm(['run', 'tauri', '--', 'build', ...target, '--bundles', 'app', ...keyOverride]).status !== 0) fail('the macOS build failed');
+		if (opt.dmg && npm(['run', 'tauri', '--', 'build', ...target, '--bundles', 'dmg', ...keyOverride]).status !== 0) {
+			console.warn('\nrelease: the .dmg could not be built, continuing without it');
+		}
 	}
 }
-if (!existsSync(tarball) || !existsSync(`${tarball}.sig`)) fail(`the build did not produce a signed update at ${tarball}`);
+rmSync(overridePath, { force: true });
+if (!existsSync(update) || !existsSync(`${update}.sig`)) fail(`the build did not produce a signed update at ${update}`);
 
 // ── Stage the files ─────────────────────────────────────────────────────────
 const out = file('release', version);
 mkdirSync(out, { recursive: true });
-const stagedTar = artifactName(slug, version, platform, 'app.tar.gz');
-copyFileSync(tarball, join(out, stagedTar));
-const staged = [join(out, stagedTar)];
+const stagedUpdate = artifactName(slug, version, platform, windows ? 'setup.exe' : 'app.tar.gz');
+copyFileSync(update, join(out, stagedUpdate));
+const staged = [join(out, stagedUpdate)];
 
 const dmg = join(bundleDir, 'dmg', `${productName}_${version}_universal.dmg`);
-if (existsSync(dmg)) {
+if (!windows && existsSync(dmg)) {
 	const name = artifactName(slug, version, platform, 'dmg');
 	copyFileSync(dmg, join(out, name));
 	staged.push(join(out, name));
@@ -154,19 +169,24 @@ if (existsSync(dmg)) {
 
 if (baseUrl) {
 	const manifestPath = join(out, 'latest.json');
+	// The other OS may have published this version already (from another machine); its entries
+	// are kept, so the two releases add up instead of replacing each other.
+	if (!existsSync(manifestPath) && opt.github) {
+		capture('gh', ['release', 'download', `v${version}`, '--repo', opt.github, '--pattern', 'latest.json', '--dir', out]);
+	}
 	const previous = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null;
 	const manifest = buildManifest({
 		version,
 		notes,
-		platforms: UNIVERSAL_PLATFORMS,
-		signature: readFileSync(`${tarball}.sig`, 'utf8'),
-		url: `${baseUrl}/${stagedTar}`,
+		platforms: windows ? [WINDOWS_PLATFORM] : UNIVERSAL_PLATFORMS,
+		signature: readFileSync(`${update}.sig`, 'utf8'),
+		url: `${baseUrl}/${stagedUpdate}`,
 		previous
 	});
 	writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 	staged.push(manifestPath);
 }
-console.log(`\nStaged in ${out}:\n${staged.map((f) => `  ${f.replace(`${root}/`, '')}`).join('\n')}`);
+console.log(`\nStaged in ${out}:\n${staged.map((f) => `  ${f.replace(`${root}${sep}`, '')}`).join('\n')}`);
 
 // ── Publish (only on request) ───────────────────────────────────────────────
 if (!opt.publish) {

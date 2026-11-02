@@ -49,6 +49,14 @@ export function missingTargets(installed) {
 	return UNIVERSAL_PARTS.filter((t) => !have.has(t));
 }
 
+/** The updater key for a Windows x64 build. */
+export const WINDOWS_PLATFORM = 'windows-x86_64';
+
+/** The installer Tauri's NSIS bundler writes, under `bundle/nsis/`. */
+export function windowsInstallerName(productName, version) {
+	return `${productName}_${version}_x64-setup.exe`;
+}
+
 /** Safe file name for a published artifact (no spaces, includes version and CPU). */
 export function artifactName(slug, version, platform, extension) {
 	return `${slug}_${version}_${platform.replace('darwin-', '')}.${extension}`;
