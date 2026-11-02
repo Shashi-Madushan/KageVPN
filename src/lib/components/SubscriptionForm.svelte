@@ -8,6 +8,7 @@
 		subscription = null,
 		busy = false,
 		error = null,
+		initialUrl = '',
 		submitLabel,
 		onsubmit,
 		oncancel
@@ -16,6 +17,8 @@
 		subscription?: Subscription | null;
 		busy?: boolean;
 		error?: string | null;
+		/** Fills the address of a new subscription, for one read from a QR code. */
+		initialUrl?: string;
 		submitLabel: string;
 		onsubmit: (name: string, url: string, options: SubscriptionOptions) => void;
 		oncancel: () => void;
@@ -36,7 +39,7 @@
 	const preset = clients.some((c) => c.value === initialAgent && c.value !== 'custom');
 
 	let name = $state(initial?.name ?? '');
-	let url = $state(initial?.url ?? '');
+	let url = $state(initial?.url ?? untrack(() => initialUrl));
 	let client = $state(preset ? initialAgent : 'custom');
 	let customAgent = $state(preset ? '' : initialAgent);
 	let sendDeviceId = $state(initial?.sendDeviceId ?? false);

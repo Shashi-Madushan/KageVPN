@@ -96,7 +96,7 @@ Then open the app normally. You only need to do this once per downloaded version
 
 ### Servers
 
-- **Import** from pasted links, text files, **Clash or sing-box configuration files**, or **subscription URLs** (share-link, Clash and sing-box lists), with scheduled refresh and the data and expiry information your provider reports. You are told once when 90% of the plan's data is used and when it runs out, and 7 days, 3 days and 1 day before the plan expires.
+- **Import** from pasted links, text files, **QR code images** (dropped, chosen or on the clipboard), **Clash or sing-box configuration files**, or **subscription URLs** (share-link, Clash and sing-box lists), with scheduled refresh and the data and expiry information your provider reports. You are told once when 90% of the plan's data is used and when it runs out, and 7 days, 3 days and 1 day before the plan expires.
 - **Subscription options** for providers that are picky: choose which client the app asks as (v2rayN, sing-box, Clash Meta or your own), and send a device ID for providers that limit how many devices may use a subscription. Errors such as a reached device limit or an expired link say what to do.
 - **Search, group, favorite and sort** servers. Duplicates are detected and skipped.
 - **Latency tests** for every server, with a small history graph for each, and one button to remove every server the last test could not reach.
@@ -182,7 +182,7 @@ Build an app bundle:
 npm run build:app
 ```
 
-The result is in `src-tauri/target/release/bundle/macos/`. This is an unsigned local build. A plain `npm run tauri build` asks for the update signing key (`TAURI_SIGNING_PRIVATE_KEY`) because the project is set up to produce signed update archives; use `npm run release` for that (see [docs/RELEASING.md](docs/RELEASING.md)).
+The result is in `src-tauri/target/release/bundle/macos/`. This is an unsigned local build for your Mac's CPU; releases are universal (see [docs/RELEASING.md](docs/RELEASING.md)). A plain `npm run tauri build` asks for the update signing key (`TAURI_SIGNING_PRIVATE_KEY`) because the project is set up to produce signed update archives; use `npm run release` for that (see [docs/RELEASING.md](docs/RELEASING.md)).
 
 ### Checks
 

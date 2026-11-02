@@ -48,12 +48,15 @@ What it does:
    `app_config.rs` matches the signing key**. A mismatch stops the release, because shipping it
    would strand every installed copy.
 2. Sets the version in `tauri.conf.json`, `package.json` and `Cargo.toml`. Commit that change.
-3. Runs `tauri build --bundles app`, which produces the app and a signed update archive
-   (`.app.tar.gz` plus its `.sig`). Add `--dmg` to also build the disk image for first installs;
-   it needs a normal desktop session, and if it fails the release carries on without it.
-4. Copies them to `release/<version>/` with plain file names, and writes `latest.json` with the
-   signature and download URL for this Mac's CPU. Run it on an Intel Mac too (same version) and
-   that CPU is added to the same `latest.json`.
+3. Runs `tauri build --target universal-apple-darwin --bundles app`, which produces one app for
+   Apple Silicon and Intel and a signed update archive (`.app.tar.gz` plus its `.sig`). It needs
+   both Rust targets; if one is missing the script stops and prints the command, which is once per
+   machine: `rustup target add aarch64-apple-darwin x86_64-apple-darwin`. Add `--dmg` to also
+   build the disk image for first installs; it needs a normal desktop session, and if it fails the
+   release carries on without it.
+4. Copies them to `release/<version>/` as `kage-vpn_<version>_universal.app.tar.gz` (and
+   `.dmg`), and writes `latest.json` with the same signature and download URL under both
+   `darwin-aarch64` and `darwin-x86_64`, so every Mac finds its update.
 5. With `--publish`: creates the GitHub release `v<version>` (or adds to it) with all of those files.
 
 Other options: `--dmg`, `--base-url <url>` for a host other than GitHub, `--notes-file`, `--draft`,
@@ -70,7 +73,10 @@ Other options: `--dmg`, `--base-url <url>` for a host other than GitHub, `--note
 
 ## Checking a release
 
-- Open `latest.json`: `version` is the new version and `platforms` has your CPU.
+- Open `latest.json`: `version` is the new version and `platforms` has `darwin-aarch64` and
+  `darwin-x86_64`.
+- `lipo -archs "src-tauri/target/universal-apple-darwin/release/bundle/macos/Kage.app/Contents/MacOS/kage-vpn"`
+  prints `x86_64 arm64`.
 - From an older installed build, Settings → App updates → **Check now** should offer it.
 - `npm run test:scripts` covers the script's helpers, and `cargo test` covers the updater
   against a local fake feed, including rejection of a tampered download.

@@ -1,15 +1,23 @@
 <script lang="ts">
-	import { readText } from '@tauri-apps/plugin-clipboard-manager';
+	import { readImage, readText } from '@tauri-apps/plugin-clipboard-manager';
 	import { protocols } from '$lib/protocols.svelte';
 	import { app } from '$lib/app.svelte';
 	import { importMessage, isWireGuardFile } from '$lib/format';
+	import { decodeImage, decodeRgba, isImageFile, webAddress } from '$lib/qr';
 	import Dialog from './Dialog.svelte';
 
 	let {
 		open = $bindable(),
 		initial = '',
-		onmanual
-	}: { open: boolean; initial?: string; onmanual?: () => void } = $props();
+		onmanual,
+		onsubscription
+	}: {
+		open: boolean;
+		initial?: string;
+		onmanual?: () => void;
+		/** A lone web address was pasted or read from a QR code; offered as a subscription. */
+		onsubscription?: (url: string) => void;
+	} = $props();
 
 	let text = $state('');
 	let error = $state<string | null>(null);
@@ -24,6 +32,8 @@
 	/** A dropped file and the text it held: its name names a WireGuard server, until the text is edited. */
 	let dropped = $state<{ name: string; text: string } | null>(null);
 	const ready = $derived(found > 0 || isConfig);
+	const address = $derived(found === 0 && !isConfig ? webAddress(text) : null);
+	let reading = $state(false);
 
 	$effect(() => {
 		if (open) {
@@ -47,6 +57,7 @@
 
 	async function loadFile(file: File | undefined) {
 		if (!file) return;
+		if (isImageFile(file)) return readQr(() => decodeImage(file), 'No QR code found in this image.');
 		try {
 			text = await file.text();
 			dropped = { name: file.name, text };
@@ -54,6 +65,41 @@
 		} catch (err) {
 			error = `Could not read the file: ${err}`;
 		}
+	}
+
+	/** Puts the text of a QR code in the box, so it is checked like pasted text before adding. */
+	async function readQr(decode: () => Promise<string | null>, notFound: string) {
+		reading = true;
+		try {
+			const decoded = await decode();
+			if (decoded) {
+				text = decoded;
+				dropped = null;
+				error = null;
+			} else {
+				error = notFound;
+			}
+		} catch (err) {
+			error = `Could not read the image: ${err}`;
+		} finally {
+			reading = false;
+		}
+	}
+
+	function qrFromClipboard() {
+		readQr(async () => {
+			const image = await readImage().catch(() => null);
+			if (!image) throw 'the clipboard has no image';
+			const { width, height } = await image.size();
+			return decodeRgba(new Uint8ClampedArray(await image.rgba()), width, height);
+		}, 'No QR code found in the image on the clipboard.');
+	}
+
+	function onpaste(e: ClipboardEvent) {
+		const file = [...(e.clipboardData?.files ?? [])].find(isImageFile);
+		if (!file) return;
+		e.preventDefault();
+		readQr(() => decodeImage(file), 'No QR code found in the pasted image.');
 	}
 
 	function ondrop(e: DragEvent) {
@@ -80,7 +126,7 @@
 	}
 </script>
 
-<Dialog {open} title="Add server" subtitle="Paste server links or a Clash or sing-box configuration, or drop a file." onclose={() => (open = false)}>
+<Dialog {open} title="Add server" subtitle="Paste server links or a Clash or sing-box configuration, or drop a file or a QR code image." onclose={() => (open = false)}>
 	<div
 		class="drop"
 		class:dragging
@@ -90,17 +136,18 @@
 		role="region"
 		aria-label="Drop a file with links"
 	>
-		<textarea class="input mono" bind:value={text} rows="6" spellcheck="false" placeholder="vless://…  trojan://…  ss://…  hysteria2://…  tuic://…  wireguard://…  or a WireGuard .conf file" aria-label="Server links"></textarea>
+		<textarea class="input mono" bind:value={text} {onpaste} rows="6" spellcheck="false" placeholder="vless://…  trojan://…  ss://…  hysteria2://…  tuic://…  wireguard://…  or a WireGuard .conf file" aria-label="Server links"></textarea>
 		{#if dragging}<div class="overlay">Drop the file to load its servers</div>{/if}
 	</div>
 
 	<div class="meta">
 		<span class="found" class:ok={ready}>
-			{#if wireGuardFile}WireGuard file: its server will be added{:else if isConfig}Configuration file: its servers will be added{:else if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No supported links found{:else}Nothing pasted yet{/if}
+			{#if reading}Reading the QR code…{:else if address}A web address, likely a subscription{:else if wireGuardFile}WireGuard file: its server will be added{:else if isConfig}Configuration file: its servers will be added{:else if found > 0}{found} link{found === 1 ? '' : 's'} ready to add{:else if text.trim()}No supported links found{:else}Nothing pasted yet{/if}
 		</span>
 		<span class="links">
-			<input type="file" accept=".txt,.json,.yaml,.yml,.conf,text/plain" hidden bind:this={fileInput} onchange={(e) => loadFile(e.currentTarget.files?.[0])} />
+			<input type="file" accept=".txt,.json,.yaml,.yml,.conf,text/plain,image/*" hidden bind:this={fileInput} onchange={(e) => loadFile(e.currentTarget.files?.[0])} />
 			<button type="button" class="linkbtn" onclick={() => fileInput.click()}>Choose file…</button>
+			<button type="button" class="linkbtn" onclick={qrFromClipboard} disabled={reading}>QR from clipboard</button>
 			<button type="button" class="linkbtn" onclick={manual}>Enter details manually</button>
 		</span>
 	</div>
@@ -109,9 +156,13 @@
 
 	{#snippet footer()}
 		<button class="btn" onclick={() => (open = false)}>Cancel</button>
-		<button class="btn primary" disabled={!ready || busy} onclick={save}>
-			{busy ? 'Adding…' : wireGuardFile ? 'Add server' : isConfig ? 'Add servers' : found > 1 ? `Add ${found} servers` : 'Add server'}
-		</button>
+		{#if address && onsubscription}
+			<button class="btn primary" onclick={() => ((open = false), onsubscription(address))}>Add as subscription</button>
+		{:else}
+			<button class="btn primary" disabled={!ready || busy} onclick={save}>
+				{busy ? 'Adding…' : wireGuardFile ? 'Add server' : isConfig ? 'Add servers' : found > 1 ? `Add ${found} servers` : 'Add server'}
+			</button>
+		{/if}
 	{/snippet}
 </Dialog>
 

@@ -13,6 +13,7 @@
     "core:window:allow-set-size",
     "notification:default",
     "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-read-image",
     "deep-link:default"
   ]
 }

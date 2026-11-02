@@ -78,3 +78,19 @@ Extensions for this round: Security Baseline No, Property-Based Testing No, Resi
 - PR 2 system proxy (branch feature/system-proxy, from PR 1's branch): [x] U5 functional design (approved; construction/u5-system-proxy/functional-design/), [x] U5 code (approved, committed db08ecc), [x] Build and Test (approved); PR https://github.com/Shashi-Madushan/KageVPN/pull/7 merged into dev as b653d13
 - NFR Requirements, NFR Design, Infrastructure Design: SKIP
 Extensions for this round: Security Baseline No, Property-Based Testing No, Resiliency Baseline No.
+
+## Round 5: universal macOS build, QR import, Windows support
+- **Current Stage**: CONSTRUCTION - Part B Application Design
+- [x] Workspace Detection (resumed; brownfield)
+- [x] Reverse Engineering (reused)
+- [x] Requirements Analysis (approved): inception/requirements/universal-qr-windows-requirements.md (recommended answers used)
+Extensions for this round: Security Baseline No, Property-Based Testing No, Resiliency Baseline No.
+- [-] User Stories (skip)
+- [x] Workflow Planning (approved): inception/plans/universal-qr-windows-execution-plan.md
+- [ ] Application Design (Part B only, before W1)
+- [-] Units Generation (skip; units in the execution plan)
+### Construction (planned)
+- Part A (branch feature/universal-and-qr): [x] A1 universal build (construction/a1-universal-build/code/summary.md), [x] A2 QR import (construction/a2-qr-import/code/summary.md), [x] Build and Test (in the summaries), committed; PR not opened yet
+- Part B phase 1: [ ] W1, [ ] W2 (FD), [ ] W3, [ ] W4, [ ] W5, [ ] Build and Test, PR
+- Part B phase 2: [ ] W6 (FD), [ ] W7, [ ] Build and Test, PR
+- Part B phase 3: [ ] W8 (FD), [ ] Build and Test, PR

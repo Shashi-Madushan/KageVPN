@@ -9,6 +9,15 @@ export type Release = { version: string; date: string; headline: string; notes: 
 
 export const releaseNotes: Release[] = [
 	{
+		version: '0.4.0',
+		date: '2026-11-02',
+		headline: 'QR codes and Intel Macs',
+		notes: [
+			{ kind: 'new', title: 'Add servers from a QR code image', text: 'Drop a screenshot on Add server, choose an image, or paste one. A code with a web address can be added as a subscription.', page: 'profiles' },
+			{ kind: 'improved', title: 'One app for every Mac', text: 'The app now runs natively on both Apple Silicon and Intel Macs.' }
+		]
+	},
+	{
 		version: '0.3.0',
 		date: '2026-10-25',
 		headline: 'More protocols, per-app controls and a fresh Home',

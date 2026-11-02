@@ -7,11 +7,13 @@ import {
 	githubBase,
 	githubFeed,
 	keysMatch,
+	missingTargets,
 	platformKey,
 	readCargoVersion,
 	readRustOption,
 	setCargoVersion,
-	setJsonVersion
+	setJsonVersion,
+	UNIVERSAL_PLATFORMS
 } from '../release-lib.mjs';
 
 test('versions must be semver', () => {
@@ -82,4 +84,25 @@ test('a mismatched or missing public key is caught before shipping', () => {
 	assert.ok(keysMatch('KEY==', 'KEY==\n'));
 	assert.ok(!keysMatch('OTHER==', 'KEY=='));
 	assert.ok(!keysMatch(null, 'KEY=='));
+});
+
+test('a universal build names the Rust targets it is missing', () => {
+	assert.deepEqual(missingTargets('aarch64-apple-darwin\nx86_64-apple-darwin\n'), []);
+	assert.deepEqual(missingTargets('aarch64-apple-darwin\nx86_64-pc-windows-msvc\n'), ['x86_64-apple-darwin']);
+	assert.deepEqual(missingTargets(''), ['aarch64-apple-darwin', 'x86_64-apple-darwin']);
+});
+
+test('universal artifacts are named for both CPUs at once', () => {
+	assert.equal(artifactName('kage-vpn', '1.0.0', 'universal', 'app.tar.gz'), 'kage-vpn_1.0.0_universal.app.tar.gz');
+	assert.equal(artifactName('kage-vpn', '1.0.0', 'universal', 'dmg'), 'kage-vpn_1.0.0_universal.dmg');
+});
+
+test('a universal manifest points both updater keys at the same file', () => {
+	const m = buildManifest({ version: '1.0.0', notes: '', platforms: UNIVERSAL_PLATFORMS, signature: 'SIG\n', url: 'https://h/u.tar.gz' });
+	assert.deepEqual(Object.keys(m.platforms).sort(), ['darwin-aarch64', 'darwin-x86_64']);
+	assert.deepEqual(m.platforms['darwin-aarch64'], { signature: 'SIG', url: 'https://h/u.tar.gz' });
+	assert.deepEqual(m.platforms['darwin-x86_64'], m.platforms['darwin-aarch64']);
+	const previous = { version: '1.0.0', platforms: { 'windows-x86_64': { signature: 'W', url: 'w' } } };
+	const kept = buildManifest({ version: '1.0.0', notes: '', platforms: UNIVERSAL_PLATFORMS, signature: 'S', url: 'u', previous });
+	assert.deepEqual(Object.keys(kept.platforms).sort(), ['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64']);
 });

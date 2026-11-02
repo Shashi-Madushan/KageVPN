@@ -156,6 +156,7 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
         </div>
         <div class="step-body">
           <p>Drag any <code>.txt</code> file of links onto the <strong>Add server</strong> box to import many servers at once. Clash and Clash Meta configuration files (<code>.yaml</code>, the <code>proxies</code> list) and sing-box configuration files (<code>.json</code>, the <code>outbounds</code> list) work too: every server Kage can run is added, and the ones it cannot (such as TUIC, WireGuard or servers chained through another server) are listed with the reason.</p>
+          <p><strong>QR codes:</strong> drop a screenshot or photo of a QR code on the box, pick one with <strong>Choose file…</strong>, paste an image into the box, or copy the image and click <strong>QR from clipboard</strong>. The code's text appears in the box so you can check it before adding. If the code holds a web address, it is most likely a subscription: <strong>Add as subscription</strong> opens the subscription form with the address filled in.</p>
         </div>
       </div>
     </div>

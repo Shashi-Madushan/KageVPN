@@ -37,22 +37,37 @@ export function platformKey(arch = process.arch) {
 	return `darwin-${cpu}`;
 }
 
+/** The Rust target that builds one app for Apple Silicon and Intel. */
+export const UNIVERSAL_TARGET = 'universal-apple-darwin';
+/** A universal build serves both updater keys. */
+export const UNIVERSAL_PLATFORMS = ['darwin-aarch64', 'darwin-x86_64'];
+const UNIVERSAL_PARTS = ['aarch64-apple-darwin', 'x86_64-apple-darwin'];
+
+/** The targets a universal build needs that `rustup target list --installed` does not list. */
+export function missingTargets(installed) {
+	const have = new Set(installed.split(/\s+/).filter(Boolean));
+	return UNIVERSAL_PARTS.filter((t) => !have.has(t));
+}
+
 /** Safe file name for a published artifact (no spaces, includes version and CPU). */
 export function artifactName(slug, version, platform, extension) {
 	return `${slug}_${version}_${platform.replace('darwin-', '')}.${extension}`;
 }
 
 /**
- * The update manifest the app downloads. Platforms from an earlier build of the same version
- * (say the other CPU) are kept, so two machines can each add their own.
+ * The update manifest the app downloads. Pass `platform` for one key or `platforms` for several
+ * that share the file (a universal build). Platforms from an earlier build of the same version
+ * are kept, so two machines can each add their own.
  */
-export function buildManifest({ version, notes, platform, signature, url, previous, now = new Date() }) {
+export function buildManifest({ version, notes, platform, platforms, signature, url, previous, now = new Date() }) {
 	const keep = previous && previous.version === version ? previous.platforms : {};
+	const entry = { signature: signature.trim(), url };
+	const added = Object.fromEntries((platforms ?? [platform]).map((key) => [key, entry]));
 	return {
 		version,
 		notes,
 		pub_date: now.toISOString(),
-		platforms: { ...keep, [platform]: { signature: signature.trim(), url } }
+		platforms: { ...keep, ...added }
 	};
 }
 

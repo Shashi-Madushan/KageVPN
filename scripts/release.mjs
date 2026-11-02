@@ -19,11 +19,13 @@ import {
 	githubBase,
 	githubFeed,
 	keysMatch,
-	platformKey,
+	missingTargets,
 	readCargoVersion,
 	readRustOption,
 	setCargoVersion,
-	setJsonVersion
+	setJsonVersion,
+	UNIVERSAL_PLATFORMS,
+	UNIVERSAL_TARGET
 } from './release-lib.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -66,7 +68,8 @@ const configSource = readFileSync(file('src-tauri', 'src', 'app_config.rs'), 'ut
 const current = JSON.parse(readFileSync(confPath, 'utf8')).version;
 const version = assertVersion(opt.version ?? current);
 const productName = JSON.parse(readFileSync(confPath, 'utf8')).productName;
-const platform = platformKey();
+// One universal app serves Apple Silicon and Intel.
+const platform = 'universal';
 
 const keyPath = process.env.APZUR_UPDATER_KEY_PATH ?? join(homedir(), '.tauri', 'apzur-vpn-updater.key');
 if (!existsSync(keyPath)) fail(`signing key not found at ${keyPath} (see docs/RELEASING.md)`);
@@ -93,7 +96,13 @@ const notes = opt['notes-file'] ? readFileSync(resolve(opt['notes-file']), 'utf8
 const dirty = capture('git', ['status', '--porcelain']).stdout.trim();
 if (dirty && !opt['allow-dirty'] && !opt['dry-run']) fail('the working tree has uncommitted changes (commit them or pass --allow-dirty)');
 
-console.log(`Release ${productName} ${version} for ${platform}`);
+const missing = missingTargets(capture('rustup', ['target', 'list', '--installed']).stdout ?? '');
+console.log(`Release ${productName} ${version} for macOS (universal: Apple Silicon and Intel)`);
+if (missing.length) {
+	const fix = `rustup target add ${missing.join(' ')}`;
+	if (!opt['dry-run']) fail(`a universal build needs more Rust targets. Run: ${fix}`);
+	console.log(`  missing     : ${missing.join(', ')} (run: ${fix})`);
+}
 console.log(`  signing key : ${keyPath} (matches the key in app_config.rs)`);
 console.log(`  download URL: ${baseUrl ?? '(none, latest.json will not be written)'}`);
 console.log(`  app feed    : ${feed ?? 'not set in app_config.rs yet'}`);
@@ -111,7 +120,7 @@ if (version !== current || readCargoVersion(readFileSync(cargoPath, 'utf8')) !==
 	console.log(`Set version ${version} in tauri.conf.json, package.json and Cargo.toml`);
 }
 
-const bundleDir = file('src-tauri', 'target', 'release', 'bundle');
+const bundleDir = file('src-tauri', 'target', UNIVERSAL_TARGET, 'release', 'bundle');
 const tarball = join(bundleDir, 'macos', `${productName}.app.tar.gz`);
 // The CLI checks the signature it just made against `plugins.updater.pubkey`, so hand it the key
 // from app_config.rs for this build only. tauri.conf.json keeps an empty placeholder.
@@ -120,9 +129,10 @@ const signingEnv = { ...process.env, TAURI_SIGNING_PRIVATE_KEY: keyPath, TAURI_S
 if (!opt['skip-build']) {
 	// The app bundle is all the updater needs. The .dmg (first installs only) is a separate,
 	// optional step because macOS can refuse the disk-image styling when run without a desktop session.
-	run('npm', ['run', 'tauri', '--', 'build', '--bundles', 'app', ...keyOverride], { env: signingEnv });
+	const target = ['--target', UNIVERSAL_TARGET];
+	run('npm', ['run', 'tauri', '--', 'build', ...target, '--bundles', 'app', ...keyOverride], { env: signingEnv });
 	if (opt.dmg) {
-		const made = spawnSync('npm', ['run', 'tauri', '--', 'build', '--bundles', 'dmg', ...keyOverride], { cwd: root, stdio: 'inherit', env: signingEnv });
+		const made = spawnSync('npm', ['run', 'tauri', '--', 'build', ...target, '--bundles', 'dmg', ...keyOverride], { cwd: root, stdio: 'inherit', env: signingEnv });
 		if (made.status !== 0) console.warn('\nrelease: the .dmg could not be built, continuing without it');
 	}
 }
@@ -135,8 +145,7 @@ const stagedTar = artifactName(slug, version, platform, 'app.tar.gz');
 copyFileSync(tarball, join(out, stagedTar));
 const staged = [join(out, stagedTar)];
 
-const dmgArch = { arm64: 'aarch64', x64: 'x64' }[process.arch];
-const dmg = join(bundleDir, 'dmg', `${productName}_${version}_${dmgArch}.dmg`);
+const dmg = join(bundleDir, 'dmg', `${productName}_${version}_universal.dmg`);
 if (existsSync(dmg)) {
 	const name = artifactName(slug, version, platform, 'dmg');
 	copyFileSync(dmg, join(out, name));
@@ -149,7 +158,7 @@ if (baseUrl) {
 	const manifest = buildManifest({
 		version,
 		notes,
-		platform,
+		platforms: UNIVERSAL_PLATFORMS,
 		signature: readFileSync(`${tarball}.sig`, 'utf8'),
 		url: `${baseUrl}/${stagedTar}`,
 		previous

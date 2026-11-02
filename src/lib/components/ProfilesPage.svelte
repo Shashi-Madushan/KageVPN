@@ -48,6 +48,8 @@
 	let subError = $state<string | null>(null);
 	let subBusy = $state(false);
 	let showSubForm = $state(false);
+	/** An address read from a QR code or pasted into Add server, for the new subscription form. */
+	let subUrl = $state('');
 	let editingSub = $state<string | null>(null);
 	let confirmPrune = $state(false);
 
@@ -134,6 +136,7 @@
 		subError = null;
 		editingSub = id;
 		showSubForm = id === null;
+		subUrl = '';
 	}
 
 	/** Servers the last test could not reach. The one carrying the live connection is never offered. */
@@ -358,7 +361,9 @@
 				{/if}
 			{/each}
 			{#if showSubForm}
-				<SubscriptionForm busy={subBusy} error={subError} submitLabel="Add" onsubmit={addSubscription} oncancel={() => ((showSubForm = false), (subError = null))} />
+				{#key subUrl}
+					<SubscriptionForm busy={subBusy} error={subError} initialUrl={subUrl} submitLabel="Add" onsubmit={addSubscription} oncancel={() => ((showSubForm = false), (subError = null))} />
+				{/key}
 			{:else}
 				<div class="item">
 					<button class="linkbtn" onclick={() => openSubForm(null)}>+ Add subscription…</button>
@@ -395,7 +400,7 @@
 	onclose={() => (confirmPrune = false)}
 />
 
-<ImportDialog bind:open={importing} initial={importText} onmanual={async () => (editing = await api.newProfile(protocols.list[0]?.id ?? 'vless'))} />
+<ImportDialog bind:open={importing} initial={importText} onsubscription={(url) => (openSubForm(null), (subUrl = url))} onmanual={async () => (editing = await api.newProfile(protocols.list[0]?.id ?? 'vless'))} />
 <ProfileDialog profile={editing} onclose={() => (editing = null)} />
 <QrDialog profile={sharing} onclose={() => (sharing = null)} />
 
