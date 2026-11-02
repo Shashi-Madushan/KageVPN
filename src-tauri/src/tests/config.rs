@@ -221,6 +221,8 @@ fn an_app_rule_matches_every_process_inside_the_bundle() {
     assert_eq!(app_path_pattern("/Applications/Slack.app"), r"^/Applications/Slack\.app/");
     // Characters that mean something in a pattern are taken literally.
     assert_eq!(app_path_pattern("/Applications/C++ (Beta) [x].app/"), r"^/Applications/C\+\+ \(Beta\) \[x\]\.app/");
+    assert_eq!(app_path_pattern(r"C:\Program Files\Slack"), r"(?i)^C:\\Program Files\\Slack\\");
+    assert_eq!(app_path_pattern(r"C:\Program Files (x86)\App\"), r"(?i)^C:\\Program Files \(x86\)\\App\\");
     assert_eq!(quote_meta(r"a\b$^{}|?*"), r"a\\b\$\^\{\}\|\?\*");
 }
 
@@ -416,6 +418,9 @@ fn blocking_this_app_or_the_engine_is_refused() {
         (RuleKind::App, "/Users/me/Applications/Kage VPN.app/"),
         (RuleKind::ProcessName, "sing-box"),
         (RuleKind::ProcessName, "Kage VPN"),
+        (RuleKind::App, r"C:\Users\me\AppData\Local\Kage"),
+        (RuleKind::ProcessName, "sing-box.exe"),
+        (RuleKind::ProcessName, "kage-vpn.exe"),
     ] {
         let err = validate_rules(&[rule(kind, value, Action::Block, true)]).unwrap_err().to_string();
         assert!(err.contains("cannot be blocked"), "{value}: {err}");

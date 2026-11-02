@@ -3,6 +3,7 @@ mod app_config;
 mod applog;
 mod app_update;
 mod appnap;
+#[cfg_attr(windows, path = "apps_windows.rs")]
 mod apps;
 mod backup;
 mod clash;
@@ -26,6 +27,8 @@ mod networks;
 mod notify;
 mod paths;
 mod platform;
+#[cfg(any(windows, test))]
+mod pngenc;
 mod profile;
 mod reliability;
 mod repair;
@@ -45,6 +48,8 @@ mod sysproxy;
 mod tray;
 mod traffic;
 mod usage;
+#[cfg(any(windows, test))]
+mod winapps;
 #[cfg(windows)]
 mod winnet;
 #[cfg(any(windows, test))]
@@ -75,8 +80,18 @@ pub fn run() {
     if sysproxy::run_guard_if_asked() {
         return;
     }
+    let builder = tauri::Builder::default();
+    // On Windows a link or a second launch starts another copy of the program; this hands its
+    // `kagevpn://` link to the copy already running (the deep-link feature) and shows its window.
+    // It has to be the first plugin.
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        if !argv.iter().any(|arg| arg.starts_with("kagevpn:")) {
+            tray::show_main_window(app);
+        }
+    }));
     #[allow(unused_mut)]
-    let mut app = tauri::Builder::default()
+    let mut app = builder
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_deep_link::init())
@@ -272,6 +287,9 @@ fn auto_connect(app: &tauri::AppHandle) {
 }
 
 fn register_deep_links(app: &tauri::AppHandle) {
+    // The installer registers the scheme on Windows; a development build registers it itself.
+    #[cfg(all(windows, debug_assertions))]
+    let _ = app.deep_link().register_all();
     let handle = app.clone();
     app.deep_link().on_open_url(move |event| {
         for url in event.urls() {

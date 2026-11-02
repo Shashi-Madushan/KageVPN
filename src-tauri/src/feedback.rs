@@ -265,7 +265,8 @@ fn gather(state: &AppState) -> Context {
     Context {
         app: AppRef { name: app_config::APP_NAME.into(), version: app_config::APP_VERSION.into() },
         diagnostics: DiagnosticsInfo {
-            macos: crate::device::macos_version(),
+            // The field keeps its name for the feedback service; a Windows version says so.
+            macos: if cfg!(windows) { format!("Windows {}", crate::device::os_version()) } else { crate::device::os_version() },
             arch: std::env::consts::ARCH.into(),
             core: CoreRef { id: spec.id.into(), version: core_version },
             mode: text_of(&mode),

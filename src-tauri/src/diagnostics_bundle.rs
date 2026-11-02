@@ -187,10 +187,11 @@ fn gather(state: &AppState) -> Material {
     let reliability = store.reliability();
     let status = state.status.lock().unwrap().clone();
     let versions = format!(
-        "app {} {}\nmacOS {} ({})\nengine {} {}\nstate {:?}, mode {:?}",
+        "app {} {}\n{} {} ({})\nengine {} {}\nstate {:?}, mode {:?}",
         crate::app_config::APP_NAME,
         crate::app_config::APP_VERSION,
-        crate::device::macos_version(),
+        crate::device::OS_NAME,
+        crate::device::os_version(),
         std::env::consts::ARCH,
         spec.id,
         core_version,

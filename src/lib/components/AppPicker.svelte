@@ -8,9 +8,9 @@
 		return cache;
 	}
 
-	/** "Slack" for `/Applications/Slack.app`. */
+	/** "Slack" for `/Applications/Slack.app`, or the folder name for a Windows app (`C:\\Program Files\\Slack`). */
 	export function appLabel(path: string): string {
-		return path.replace(/\/+$/, '').split('/').pop()?.replace(/\.app$/i, '') || path;
+		return path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()?.replace(/\.app$/i, '') || path;
 	}
 </script>
 

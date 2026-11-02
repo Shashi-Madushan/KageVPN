@@ -586,3 +586,11 @@ keep the network exteion part for later"
 **Context**: CONSTRUCTION - W3 complete, Round 5
 
 ---
+
+## W4 complete
+**Timestamp**: 2026-11-02T06:00:00Z
+**User Input**: (none; continuing under "approve and do all with your recomandations")
+**AI Response**: W4 done per plans/w4-platform-areas-code-generation-plan.md: Windows apps list with icons, Windows app-rule patterns, single instance with deep links, device info. 471 macOS tests pass; clippy clean for macOS and Windows.
+**Context**: CONSTRUCTION - W4 complete, Round 5
+
+---
