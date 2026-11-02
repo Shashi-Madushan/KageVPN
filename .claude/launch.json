@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "design-preview", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "dev", "--config", "vite.mock.config.js"], "port": 1431 }
+    { "name": "design-preview", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "dev", "--config", "vite.mock.config.js"], "port": 1431 },
+    { "name": "docs-site", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "4322", "--directory", "docs-site"], "port": 4322 }
   ]
 }

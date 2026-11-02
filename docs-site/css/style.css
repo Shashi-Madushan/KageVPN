@@ -77,6 +77,14 @@ kbd { font: 12px var(--mono); padding: 1px 6px; border: 1px solid var(--hairline
 .btn-primary { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; background: var(--accent); color: #fff; font-weight: 500; border-radius: var(--radius-sm); }
 .btn-primary:hover { text-decoration: none; filter: brightness(1.08); }
 
+/* Platform switch: pages carry both versions of OS-specific text and show the chosen one. */
+.os-switch { display: flex; padding: 2px; background: var(--bg-subtle); border-radius: var(--radius-sm); }
+.os-switch button { height: 32px; padding: 0 12px; border: 0; border-radius: 6px; background: none; color: var(--fg-muted); font-size: 13px; font-weight: 500; }
+.os-switch button:hover { color: var(--fg); }
+.os-switch button[aria-checked="true"] { background: var(--bg); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+:root[data-os="windows"] .os-mac, :root:not([data-os="windows"]) .os-win { display: none !important; }
+@media (max-width: 640px) { .os-switch button { padding: 0 8px; } }
+
 /* Layout */
 .docs-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr) 210px; max-width: 1480px; margin: 0 auto; }
 .docs-sidebar, .docs-toc { position: sticky; top: var(--header-h); align-self: start; height: calc(100vh - var(--header-h)); overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
@@ -118,6 +126,7 @@ summary.nav-group-title:hover { color: var(--fg); }
 .shot { margin: 0 0 40px; }
 .shot img { display: block; width: 100%; height: auto; border: 1px solid var(--hairline); border-radius: var(--radius); cursor: zoom-in; }
 .shot.narrow img { max-width: 300px; margin: 0 auto; }
+.shot figcaption { margin-top: 8px; font-size: 13px; color: var(--fg-muted); text-align: center; }
 .article h2 { font-size: 22px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; margin: 48px 0 12px; scroll-margin-top: 80px; }
 .article h3 { font-size: 17px; font-weight: 600; margin: 28px 0 6px; scroll-margin-top: 80px; }
 .article [id] { scroll-margin-top: 80px; }
@@ -219,6 +228,7 @@ pre code { background: none; padding: 0; overflow-wrap: normal; font-size: 13.5p
 }
 @media (max-width: 480px) {
   .docs-main { padding: 24px 16px 12px; }
+  .brand-sub { display: none; }
   .article h2 { font-size: 20px; }
   .code-block-container pre { padding-right: 16px; padding-top: 44px; }
 }

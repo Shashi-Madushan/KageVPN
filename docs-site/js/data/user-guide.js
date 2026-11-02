@@ -15,12 +15,15 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
   },
   toc: [
     { id: "modes-comparison", label: "Mode Comparison" },
-    { id: "tun-mode-deep-dive", label: "Full System TUN Mode" },
+    { id: "tun-mode-deep-dive", label: "Full System TUN Mode", os: "macos" },
     { id: "proxy-only-mode", label: "Proxy Only Mode" },
     { id: "system-proxy", label: "Set system proxy" },
     { id: "dns-handling", label: "DNS Hijacking & Resolution" }
   ],
   contentHtml: `
+    <div class="callout-banner warn os-win">
+      <div><strong>Windows preview.</strong> Only Proxy Only mode is available on Windows for now. Full System (TUN) mode needs a small helper service that is coming in a later release; until then turn on <strong>Set system proxy</strong> so browsers and most apps use the VPN.</div>
+    </div>
     <div class="docs-prose">
       <h2 id="modes-comparison">Mode Comparison</h2>
       <p>
@@ -40,7 +43,7 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
             <tr>
               <td><strong>Scope</strong></td>
               <td>100% of all apps (browsers, Terminal, background daemons, games)</td>
-              <td>Apps respecting macOS system proxy settings (browsers, curl)</td>
+              <td>Apps respecting <span class="os-mac">macOS</span><span class="os-win">Windows</span> system proxy settings (browsers, curl)</td>
             </tr>
             <tr>
               <td><strong>Virtual Adapter</strong></td>
@@ -66,6 +69,7 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
         </table>
       </div>
 
+      <div class="os-mac">
       <h2 id="tun-mode-deep-dive">Full System TUN Mode</h2>
       <p>
         In TUN mode, Kage instructs sing-box to spin up a virtual point-to-point network adapter (e.g. <code>utun3</code>). It modifies the macOS kernel routing table to route <code>0.0.0.0/1</code> and <code>128.0.0.0/1</code> through the virtual adapter, overriding your default gateway without altering the underlying physical Wi-Fi or Ethernet routing tables.
@@ -74,26 +78,32 @@ window.DOCS_PAGES["user-guide/connection-modes"] = {
         This ensures zero configuration is needed across terminal commands, Git pushes, Docker daemons, or non-proxy aware desktop software.
       </p>
 
+      </div>
       <h2 id="proxy-only-mode">Proxy Only Mode</h2>
       <p>
         If you are on a restricted machine without administrator privileges or only need a browser to browse through an encrypted server:
       </p>
       <ul>
         <li>Kage launches sing-box with a mixed SOCKS5/HTTP inbound listener on <code>127.0.0.1:2080</code>. If another program already uses that port, Kage picks the next free one and shows the address on the Home page.</li>
-        <li>By default Kage does not change the proxy settings in System Settings: point each app (a browser, a terminal tool) at the address yourself, as a SOCKS5 or HTTP proxy.</li>
-        <li>With <strong>Set system proxy</strong> on (Settings), Kage points the macOS proxy settings at the VPN while you are connected, so apps that follow them (Safari, most browsers, many other apps) use it without any setup. Details below.</li>
+        <li>By default Kage does not change the <span class="os-mac">proxy settings in System Settings</span><span class="os-win">Windows proxy settings</span>: point each app (a browser, a terminal tool) at the address yourself, as a SOCKS5 or HTTP proxy.</li>
+        <li>With <strong>Set system proxy</strong> on (Settings), Kage points the <span class="os-mac">macOS</span><span class="os-win">Windows</span> proxy settings at the VPN while you are connected, so apps that follow them (<span class="os-mac">Safari, most browsers, many other apps</span><span class="os-win">Edge, Chrome, most other browsers and many apps</span>) use it without any setup. Details below.</li>
         <li>With <strong>Password for the local proxy</strong> on (Settings), apps must log in as <code>kage</code> with the password shown there. The system proxy option is unavailable then, because apps that follow the system proxy usually ignore the login.</li>
       </ul>
 
       <h3 id="system-proxy">Set system proxy</h3>
       <p>When you connect in Proxy Only mode with this option on, Kage:</p>
-      <ul>
+      <ul class="os-mac">
         <li>saves the current proxy settings of every network service (Wi-Fi, Ethernet and so on), including an automatic proxy (PAC) file if you use one;</li>
         <li>sets the Web, Secure Web and SOCKS proxies to the local address, and turns off automatic proxy configuration while connected (it would take precedence);</li>
         <li>skips the proxy for localhost, <code>*.local</code> and private address ranges, plus any hosts you add under the option (one per line, such as <code>*.corp.example</code> or <code>10.20.0.0/16</code>).</li>
       </ul>
-      <p>Your saved settings come back when you disconnect or quit, when you turn the option off, and when a reconnect gives up. A reconnect keeps the proxy set. If the app quits unexpectedly, the background process that runs sing-box puts them back; if even that is stopped (a power cut), Kage puts them back the next time it opens. Kage only puts back a service that still points at it, so a change you made yourself while connected is kept.</p>
-      <p>Home shows <em>System proxy on</em> while it is set. If setting or restoring fails, Home shows a warning with a <strong>Repair</strong> button, which puts back the settings Kage saved. A network service whose proxy needs a login is left alone (macOS keeps that password where Kage cannot put it back). No administrator password is needed: macOS allows its own <code>networksetup</code> tool to change these settings.</p>
+      <ul class="os-win">
+        <li>saves your current Windows proxy settings (the ones under <em>Settings &rarr; Network &amp; internet &rarr; Proxy</em>), including a setup script address if you use one;</li>
+        <li>turns on <em>Use a proxy server</em> with the local address, and removes the setup script while connected (it would take precedence);</li>
+        <li>skips the proxy for local names (<code>&lt;local&gt;</code>), localhost and private address ranges, plus any hosts you add under the option. Windows writes ranges as patterns, so <code>10.20.0.0/16</code> becomes <code>10.20.*</code>; IPv6 ranges cannot be written that way and are left out.</li>
+      </ul>
+      <p>Your saved settings come back when you disconnect or quit, when you turn the option off, and when a reconnect gives up. A reconnect keeps the proxy set. If the app quits unexpectedly, <span class="os-mac">the background process that runs sing-box puts them back</span><span class="os-win">a small guard process puts them back within a second or two</span>; if even that is stopped (a power cut), Kage puts them back the next time it opens. Kage only puts back a service that still points at it, so a change you made yourself while connected is kept.</p>
+      <p>Home shows <em>System proxy on</em> while it is set. If setting or restoring fails, Home shows a warning with a <strong>Repair</strong> button, which puts back the settings Kage saved. <span class="os-mac">A network service whose proxy needs a login is left alone (macOS keeps that password where Kage cannot put it back). No administrator password is needed: macOS allows its own <code>networksetup</code> tool to change these settings.</span><span class="os-win">These are your own account's settings, so no administrator rights are needed; running apps are told about the change straight away.</span></p>
 
       <h2 id="dns-handling">DNS Hijacking & Resolution</h2>
       <p>
@@ -133,7 +143,7 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
           <span class="step-badge-tag">Clipboard</span>
         </div>
         <div class="step-body">
-          <p>Copy any standard proxy link to your clipboard and hit <strong>Import</strong> or press <kbd>⌘V</kbd> inside the Servers tab. Kage supports:</p>
+          <p>Copy any standard proxy link to your clipboard and hit <strong>Import</strong> or press <kbd><span class="os-mac">⌘V</span><span class="os-win">Ctrl+V</span></kbd> inside the Servers tab. Kage supports:</p>
           <ul>
             <li><code>vless://...#ServerName</code> (including Reality, Vision, and Flow parameters)</li>
             <li><code>vmess://...</code> (standard Base64 JSON configurations)</li>
@@ -168,10 +178,10 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
       </p>
       <ul>
         <li><strong>Refresh:</strong> subscriptions refresh every 12 hours on their own; <strong>Refresh</strong> does it now. A subscription that keeps failing is retried less and less often.</li>
-        <li><strong>Your plan:</strong> when the provider reports it, the subscription shows how much data is used and when it ends, and the menu bar popover shows what is left for the server you use. You get one notification at 90% of the data and one when it runs out. For the end date there are notifications 7 days, 3 days and 1 day before it, and one when the plan ends; each is sent once, and the end date is checked every half hour even if the subscription itself cannot be refreshed. The plan line in the popover turns to the warning colour at 10% of the data or 7 days left.</li>
+        <li><strong>Your plan:</strong> when the provider reports it, the subscription shows how much data is used and when it ends, and the <span class="os-mac">menu bar</span><span class="os-win">tray</span> popover shows what is left for the server you use. You get one notification at 90% of the data and one when it runs out. For the end date there are notifications 7 days, 3 days and 1 day before it, and one when the plan ends; each is sent once, and the end date is checked every half hour even if the subscription itself cannot be refreshed. The plan line in the popover turns to the warning colour at 10% of the data or 7 days left.</li>
         <li><strong>Edit:</strong> change the name or the link (for example after your provider gives you a new one), and the options below. Saving refreshes the subscription.</li>
         <li><strong>Ask as:</strong> some providers send a different list, or none, depending on the app asking. If a subscription comes back empty, try <em>v2rayN</em>, <em>sing-box</em> or <em>Clash Meta</em>, or type the client name your provider expects.</li>
-        <li><strong>Send device ID:</strong> some providers limit how many devices may use one subscription and refuse apps that do not identify the device. Turn this on for them. Kage sends a random ID made for this Mac (not a hardware serial), the macOS version and the Mac model, and only to that subscription's address. If the provider says its device limit is reached, remove a device you no longer use in the provider's panel.</li>
+        <li><strong>Send device ID:</strong> some providers limit how many devices may use one subscription and refuse apps that do not identify the device. Turn this on for them. Kage sends a random ID made for this <span class="os-mac">Mac</span><span class="os-win">PC</span> (not a hardware serial), the <span class="os-mac">macOS</span><span class="os-win">Windows</span> version and the <span class="os-mac">Mac</span><span class="os-win">PC</span> model, and only to that subscription's address. If the provider says its device limit is reached, remove a device you no longer use in the provider's panel.</li>
       </ul>
 
       <h2 id="latency-testing">Latency & Ping Testing</h2>
@@ -189,7 +199,7 @@ window.DOCS_PAGES["user-guide/servers-subscriptions"] = {
 
       <h2 id="server-tagging">Favorites & Node Renaming</h2>
       <p>
-        Star your favorite nodes to keep them pinned to the top of the menu bar popover for instant single-click connection switching.
+        Star your favorite nodes to keep them pinned to the top of the <span class="os-mac">menu bar</span><span class="os-win">tray</span> popover for instant single-click connection switching.
       </p>
     </div>
   `
@@ -261,7 +271,7 @@ window.DOCS_PAGES["user-guide/routing-rules"] = {
         <li><strong>Domain Suffix:</strong> Match <code>.company.internal</code> &rarr; <code>direct</code>.</li>
         <li><strong>Domain Keyword:</strong> Match any domain containing <code>netflix</code> &rarr; <code>proxy</code>.</li>
         <li><strong>IP CIDR:</strong> Route specific subnet <code>1.2.3.0/24</code> &rarr; <code>direct</code>.</li>
-        <li><strong>App:</strong> pick an installed app, such as Zoom &rarr; <code>direct</code> or a game launcher &rarr; <code>proxy</code>. The rule covers every process inside the app, including the helper processes most browsers and chat apps send their traffic from. Safari and apps built on its engine send traffic from a shared system process, so they cannot be routed by app; use domain rules for them.</li>
+        <li><strong>App:</strong> pick an installed app, such as Zoom &rarr; <code>direct</code> or a game launcher &rarr; <code>proxy</code>. The rule covers every process inside the app, including the helper processes most browsers and chat apps send their traffic from. <span class="os-mac">Safari and apps built on its engine send traffic from a shared system process, so they cannot be routed by app; use domain rules for them.</span><span class="os-win">On Windows an app is the folder its program is installed in (for example <code>C:\\Program Files\\Slack</code>), so helpers in that folder count too. Until TUN mode arrives, app rules only see apps that use the proxy (the system proxy or one set by hand).</span></li>
         <li><strong>Process name:</strong> an executable outside an app, such as <code>curl</code> or <code>ssh</code>.</li>
       </ul>
       <p>
@@ -311,7 +321,7 @@ window.DOCS_PAGES["user-guide/app-controls"] = {
     <div class="docs-prose">
       <h2 id="app-rules">Choosing by App</h2>
       <p>
-        The <strong>App controls</strong> page (in the sidebar's <strong>Apps</strong> section, with Connections) lists the apps installed on your Mac. Next to each one, choose <em>VPN</em>, <em>Direct</em> or <em>Block</em>, or press the reset arrow to follow the default again. A bright button is a rule you made; a quiet outline is what the app does by default, because it has no rule. A bar under the app's name shows its data cap when it has one. An app you have not chosen for follows the default set under <strong>Routing</strong>, <strong>Everything else</strong>. Blocked apps are listed above the search box with an <em>Unblock</em> button, and each row shows how much data the app used through the VPN this billing period when app tracking is on. Programs without an app icon, and rules for apps you have since removed, appear at the bottom and are edited under <strong>Your rules</strong>. This app and its engine cannot be blocked, because the VPN itself needs the network. Changes apply when you press <strong>Save changes</strong>.
+        The <strong>App controls</strong> page (in the sidebar's <strong>Apps</strong> section, with Connections) lists the apps installed on your <span class="os-mac">Mac</span><span class="os-win">PC (from the list Windows keeps in <em>Settings &rarr; Apps &rarr; Installed apps</em>; Microsoft Store apps are not included, so use a process-name rule for them)</span>. Next to each one, choose <em>VPN</em>, <em>Direct</em> or <em>Block</em>, or press the reset arrow to follow the default again. A bright button is a rule you made; a quiet outline is what the app does by default, because it has no rule. A bar under the app's name shows its data cap when it has one. An app you have not chosen for follows the default set under <strong>Routing</strong>, <strong>Everything else</strong>. Blocked apps are listed above the search box with an <em>Unblock</em> button, and each row shows how much data the app used through the VPN this billing period when app tracking is on. Programs without an app icon, and rules for apps you have since removed, appear at the bottom and are edited under <strong>Your rules</strong>. This app and its engine cannot be blocked, because the VPN itself needs the network. Changes apply when you press <strong>Save changes</strong>.
       </p>
 
       <figure class="shot"><img src="assets/images/app-cap-editor.png" alt="The data cap editor open under Slack, with limit, period and what happens at the limit" decoding="async"></figure>
@@ -346,25 +356,28 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
   category: "User Guide",
   title: "Kill Switch & Connection Health",
   featureBadge: "Fail-Safe",
-  lead: "Prevent accidental IP leaks when a server disconnects or your Wi-Fi renegotiates using macOS packet filter (pfctl) locks.",
+  lead: "Prevent accidental IP leaks when a server disconnects or your Wi-Fi renegotiates<span class='os-mac'> using macOS packet filter (pfctl) locks</span>, and keep the connection healthy.",
   heroImage: {
     src: "assets/images/settings.png",
     alt: "Kill Switch Configuration in Settings",
     title: "Kill Switch & Security Controls"
   },
   toc: [
-    { id: "threat-model", label: "The Leak Threat Model" },
-    { id: "pfctl-anchor-mechanism", label: "macOS pfctl Anchor Mechanism" },
-    { id: "reconnect-block", label: "While Reconnecting" },
-    { id: "unblock", label: "Unblock Internet" },
+    { id: "threat-model", label: "The Leak Threat Model", os: "macos" },
+    { id: "pfctl-anchor-mechanism", label: "macOS pfctl Anchor Mechanism" , os: "macos" },
+    { id: "reconnect-block", label: "While Reconnecting" , os: "macos" },
+    { id: "unblock", label: "Unblock Internet" , os: "macos" },
     { id: "watchdog-monitoring", label: "Process Watchdog Loop" },
     { id: "connection-health", label: "Connection Health Monitor" },
     { id: "crash-log", label: "When the VPN Stops Unexpectedly" },
     { id: "by-network", label: "Connect or Disconnect by Network" },
-    { id: "manual-recovery", label: "Emergency Network Recovery" }
+    { id: "manual-recovery", label: "Emergency Network Recovery" , os: "macos" }
   ],
   contentHtml: `
-    <div class="callout-banner danger" id="threat-model">
+    <div class="callout-banner warn os-win">
+      <div><strong>Windows preview.</strong> The kill switch is not available on Windows yet; it needs the helper service that also brings TUN mode. The health monitor, the watchdog, reconnecting and connect-by-network below all work on Windows.</div>
+    </div>
+    <div class="callout-banner danger os-mac" id="threat-model">
       <div class="callout-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
@@ -374,6 +387,7 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
     </div>
 
     <div class="docs-prose">
+      <div class="os-mac">
       <h2 id="pfctl-anchor-mechanism">macOS pfctl Anchor Mechanism</h2>
       <p>
         Kage VPN uses macOS's built-in packet filter (<code>pfctl</code>) through a dedicated anchor, <code>com.apple/250.KageVPN</code>. The kill switch is <strong>experimental</strong>, works in TUN mode only, and is off by default. The firewall rules are managed by the root helper that runs sing-box, so they stay in place even if the app itself crashes. While a block is up, the helper allows only:
@@ -402,9 +416,11 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
         While a block is up, Home shows <strong>Internet blocked by the kill switch</strong> with an <strong>Unblock internet</strong> button. It needs no password: it stops the reconnect in progress and lets traffic out. If the app crashed and your internet stays blocked, use <strong>Settings &rarr; Restore internet access</strong> (asks for your password) or the command under Emergency Network Recovery.
       </p>
 
+      </div>
+
       <h2 id="watchdog-monitoring">Process Watchdog Loop</h2>
       <p>
-        The Rust backend polls the sing-box child PID. If the core terminates unexpectedly, the app flags it in the menu bar and starts the usual reconnect attempts.
+        The Rust backend polls the sing-box child PID. If the core terminates unexpectedly, the app flags it in the <span class="os-mac">menu bar</span><span class="os-win">tray</span> and starts the usual reconnect attempts.
       </p>
       <p>
         Separately, a health monitor checks that traffic really flows through the tunnel: once right after connecting, then with one small request every 15 seconds. When checks fail, the app shows "Connected, but no internet" with the reason, and backs off to at most one check a minute. Turn on <strong>Restart a dead tunnel</strong> in Settings to have it restart automatically. It also re-checks right away when your Mac wakes or changes network.
@@ -419,7 +435,7 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
         <li><strong>Connected, but no internet (red):</strong> the tunnel is up but traffic does not pass. The reason is one of <em>server not answering</em> (offline, blocked, wrong address or port), <em>server rejected the connection</em> (credentials, TLS or protocol settings) or <em>no traffic passes</em> (the server answers but DNS or routing is broken).</li>
       </ul>
       <p>
-        A red state offers <strong>Try another server</strong>, <strong>Reconnect</strong>, <strong>Diagnostics</strong> and <strong>Disconnect</strong>. The menu bar icon switches to a warning icon and the menu shows the status on its first line. When traffic returns, the status turns green on its own.
+        A red state offers <strong>Try another server</strong>, <strong>Reconnect</strong>, <strong>Diagnostics</strong> and <strong>Disconnect</strong>. The <span class="os-mac">menu bar</span><span class="os-win">tray</span> icon switches to a warning icon and the menu shows the status on its first line. When traffic returns, the status turns green on its own.
       </p>
       <p>
         Before connecting, Kage also checks that the server name resolves and (for TCP protocols) accepts a connection, so an unusable server fails in seconds with a clear message. Hysteria, Hysteria2, TUIC and WireGuard use UDP and skip the TCP check.
@@ -432,16 +448,16 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
 
       <h2 id="by-network">Connect or Disconnect by Network</h2>
       <p>
-        <strong>Settings, Networks</strong> can connect or disconnect the VPN by itself when your Mac joins a network you know, for example connect on café Wi-Fi and do nothing at home. Each network is recognised by its router's hardware address, so no location permission is needed. The first time you join a network the app asks once; afterwards choose <em>Connect</em>, <em>Disconnect</em> or <em>Do nothing</em> for it, rename it or forget it. Connecting or disconnecting by hand wins until the network changes.
+        <strong>Settings, Networks</strong> can connect or disconnect the VPN by itself when your <span class="os-mac">Mac</span><span class="os-win">PC</span> joins a network you know, for example connect on café Wi-Fi and do nothing at home. Each network is recognised by its router's hardware address, so no location permission is needed. The first time you join a network the app asks once<span class="os-win"> in a small Windows message box</span>; afterwards choose <em>Connect</em>, <em>Disconnect</em> or <em>Do nothing</em> for it, rename it or forget it. Connecting or disconnecting by hand wins until the network changes.
       </p>
 
-      <h2 id="manual-recovery">Emergency Network Recovery</h2>
-      <p>
+      <h2 id="manual-recovery" class="os-mac">Emergency Network Recovery</h2>
+      <p class="os-mac">
         If the app is force-killed or uninstalled while the Kill Switch anchor is active, you can restore full internet access with a single command:
       </p>
     </div>
 
-    <div class="code-block-container">
+    <div class="code-block-container os-mac">
       <div class="code-header">
         <span class="code-lang-label">bash</span>
         <button class="btn-copy-code" data-code="sudo pfctl -a &quot;com.apple/250.KageVPN&quot; -F all">Copy Command</button>
@@ -450,7 +466,7 @@ window.DOCS_PAGES["user-guide/kill-switch"] = {
     </div>
 
     <div class="docs-prose">
-      <p>Alternatively, launch Kage VPN and click <strong>Settings &rarr; Restore Internet Access</strong>.</p>
+      <p class="os-mac">Alternatively, launch Kage VPN and click <strong>Settings &rarr; Restore Internet Access</strong>.</p>
     </div>
   `
 };
@@ -459,7 +475,7 @@ window.DOCS_PAGES["user-guide/diagnostics-speedtest"] = {
   category: "User Guide",
   title: "Leak Diagnostics & Speed Testing",
   featureBadge: "Audit Tools",
-  lead: "See what the internet sees through the tunnel and through your Mac's normal route, which DNS resolver answers, and how fast the tunnel is.",
+  lead: "See what the internet sees through the tunnel and through your <span class='os-mac'>Mac</span><span class='os-win'>PC</span>'s normal route, which DNS resolver answers, and how fast the tunnel is.",
   heroImage: {
     src: "assets/images/diagnostics.png",
     alt: "Diagnostics Screen Showing Leak Test Results",
@@ -479,7 +495,7 @@ window.DOCS_PAGES["user-guide/diagnostics-speedtest"] = {
       </p>
       <ul>
         <li><strong>Tunnel:</strong> the IP address, place and network the internet sees for traffic sent through the VPN.</li>
-        <li><strong>System route:</strong> the same, for a request made the way any other app on your Mac makes it. In Full System (TUN) mode both should match; if they differ, the page says <em>Possible leak</em>.</li>
+        <li><strong>System route:</strong> the same, for a request made the way any other app on your <span class="os-mac">Mac</span><span class="os-win">PC</span> makes it. In Full System (TUN) mode both should match; if they differ, the page says <em>Possible leak</em>.</li>
         <li><strong>DNS resolver:</strong> the address and place of the DNS resolver that answered.</li>
       </ul>
 
@@ -490,7 +506,7 @@ window.DOCS_PAGES["user-guide/diagnostics-speedtest"] = {
 
       <h2 id="ipv6-webrtc-shield">IPv6 and WebRTC</h2>
       <p>
-        In Full System (TUN) mode the tunnel carries both IPv4 and IPv6, so traffic to IPv6 addresses goes through the VPN too instead of leaving through your Mac's normal connection. If your VPN server has no IPv6, apps fall back to IPv4 by themselves.
+        In Full System (TUN) mode the tunnel carries both IPv4 and IPv6, so traffic to IPv6 addresses goes through the VPN too instead of leaving through your <span class="os-mac">Mac</span><span class="os-win">PC</span>’s normal connection. If your VPN server has no IPv6, apps fall back to IPv4 by themselves.
       </p>
       <p>
         Kage does not test for WebRTC leaks. Because the tunnel carries all traffic, the public address a browser's WebRTC reports is the tunnel's, but to be sure, open a WebRTC test page in your browser while connected.
@@ -508,7 +524,7 @@ window.DOCS_PAGES["user-guide/data-usage"] = {
   category: "User Guide",
   title: "Data Usage & Limits",
   featureBadge: "Telemetry",
-  lead: "See in plain words how much data you used, which apps and servers used it, and stay under your monthly limit. Everything is stored locally on your Mac.",
+  lead: "See in plain words how much data you used, which apps and servers used it, and stay under your monthly limit. Everything is stored locally on your <span class='os-mac'>Mac</span><span class='os-win'>PC</span>.",
   heroImage: {
     src: "assets/images/usage.png",
     alt: "Data Usage page",
@@ -561,7 +577,7 @@ window.DOCS_PAGES["user-guide/data-usage"] = {
 
       <h2 id="sqlite-wal">SQLite Write-Ahead Logging (WAL)</h2>
       <p>
-        To prevent battery drain and disk thrashing on Mac laptops, the SQLite engine is configured with:
+        To prevent battery drain and disk thrashing on laptops, the SQLite engine is configured with:
       </p>
       <ul>
         <li><code>PRAGMA journal_mode = WAL;</code> — Allows concurrent read operations while writes happen asynchronously.</li>

@@ -21,7 +21,31 @@
   var pages = window.DOCS_PAGES || {};
   var flat = [];
   nav.forEach(function (g) {
-    g.items.forEach(function (it) { flat.push({ slug: it.slug, title: it.title, description: it.description || '', category: g.category }); });
+    g.items.forEach(function (it) { flat.push({ slug: it.slug, title: it.title, description: it.description || '', category: g.category, os: it.os, counterpart: it.counterpart }); });
+  });
+
+  // ---- Platform ----
+  // Pages hold both versions of OS-specific text (.os-mac / .os-win) and CSS shows the chosen one.
+  // A nav item or TOC entry with `os` belongs to one platform; `counterpart` names its twin page.
+  function currentOs() { return document.documentElement.getAttribute('data-os') === 'windows' ? 'windows' : 'macos'; }
+  function forOs(item) { return !item.os || item.os === currentOs(); }
+  function navItem(slug) { return flat.find(function (p) { return p.slug === slug; }); }
+  function syncOsSwitch() {
+    document.querySelectorAll('#os-switch button').forEach(function (b) { b.setAttribute('aria-checked', String(b.getAttribute('data-os') === currentOs())); });
+  }
+  document.getElementById('os-switch').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-os]');
+    if (!b || b.getAttribute('data-os') === currentOs()) return;
+    document.documentElement.setAttribute('data-os', b.getAttribute('data-os'));
+    store('kage-docs-os', b.getAttribute('data-os'));
+    syncOsSwitch();
+    index = null;
+    renderSidebar();
+    var item = navItem(currentSlug);
+    if (item && !forOs(item) && item.counterpart) { location.hash = '#/' + item.counterpart; return; }
+    var y = window.scrollY;
+    renderPage(currentSlug, '');
+    window.scrollTo(0, y);
   });
 
   var $ = function (id) { return document.getElementById(id); };
@@ -57,6 +81,7 @@
   var COLLAPSED = { 'Architecture': 1, 'Developer Guide': 1, 'Protocol Reference': 1 };
   function renderSidebar() {
     var link = function (it) {
+      if (!forOs(it)) return '';
       return '<li><a class="nav-link" href="#/' + esc(it.slug) + '" data-slug="' + esc(it.slug) + '">' + esc(it.title) + '</a></li>';
     };
     var pinned = nav.filter(function (g) { return g.category === 'Changelog'; });
@@ -104,13 +129,18 @@
     var dark = file === 'home.png' ? ' data-light="' + esc(h.src) + '" data-dark="' + esc(h.src.replace('home.png', 'home-dark.png')) + '"' : '';
     var src = dark && isDark() ? h.src.replace('home.png', 'home-dark.png') : h.src;
     return '<figure class="shot' + (file === 'menu-bar-popover.png' ? ' narrow' : '') + '"><img src="' + esc(src) + '"' + dims + dark +
-      ' alt="' + esc(h.alt || '') + '" decoding="async">' + '' + '</figure>';
+      ' alt="' + esc(h.alt || '') + '" decoding="async">' +
+      // Pictures are of the macOS app; the Windows window has the same pages with its own title bar.
+      '<figcaption class="os-win">Shown on macOS. On Windows the window and pages are the same, with minimize, maximize and close at the top right.</figcaption></figure>';
   }
 
   function renderPage(slug, section) {
     var page = pages[slug];
+    // A page for the other platform: go to its twin, if it has one.
+    var item = navItem(slug);
+    if (item && !forOs(item) && item.counterpart) { location.replace('#/' + item.counterpart); return; }
     // The changelog is pinned in the sidebar, so it sits outside the previous/next order.
-    var ordered = flat.filter(function (p) { return p.category !== 'Changelog'; });
+    var ordered = flat.filter(function (p) { return p.category !== 'Changelog' && forOs(p); });
     var idx = ordered.findIndex(function (p) { return p.slug === slug; });
     currentSlug = slug;
     markActive(page ? slug : '');
@@ -125,7 +155,7 @@
     }
 
     document.title = page.title + ' — Kage VPN Docs';
-    var toc = page.toc || [];
+    var toc = (page.toc || []).filter(forOs);
     var html = '<header><h1 tabindex="-1">' + esc(page.title) + '</h1>' +
       (page.lead ? '<p class="lead">' + page.lead + '</p>' : '') + '</header>';
     if (page.heroImage) html += figure(page.heroImage);
@@ -218,9 +248,11 @@
   function buildIndex() {
     if (index) return;
     var tmp = document.createElement('div');
-    index = flat.map(function (p) {
+    var hidden = currentOs() === 'windows' ? '.os-mac' : '.os-win';
+    index = flat.filter(forOs).map(function (p) {
       var pg = pages[p.slug] || {};
       tmp.innerHTML = pg.contentHtml || '';
+      tmp.querySelectorAll(hidden).forEach(function (el) { el.remove(); });
       return { p: p, text: (tmp.textContent || '').replace(/\s+/g, ' ').trim(), lead: pg.lead || '' };
     });
   }
@@ -239,7 +271,7 @@
     var q = raw.toLowerCase().trim();
     active = 0;
     if (!q) {
-      hits = flat.map(function (p) { return { p: p, snip: p.description }; }).slice(0, 8);
+      hits = flat.filter(forOs).map(function (p) { return { p: p, snip: p.description }; }).slice(0, 8);
     } else {
       buildIndex();
       hits = [];
@@ -319,6 +351,7 @@
   }
   window.addEventListener('hashchange', route);
 
+  syncOsSwitch();
   renderSidebar();
   route();
 })();

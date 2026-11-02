@@ -602,3 +602,11 @@ keep the network exteion part for later"
 **Context**: CONSTRUCTION - Phase 1 complete on the Mac side; waiting for Windows results, Round 5
 
 ---
+
+## Docs site: macOS / Windows switch
+**Timestamp**: 2026-11-02T07:30:00Z
+**User Input**: "didi you update the docs with the new windows related things like daynmicaly change the content based on the slected plantform , like thing add to the docs ,"
+**AI Response**: The docs site had not been updated (only README, RELEASING.md, WINDOWS.md and a changelog line). Added a macOS / Windows switch to the docs site header (remembered, defaulting to the visitor's OS): pages carry paired os-mac / os-win text, nav items and TOC entries can belong to one OS, and the Gatekeeper page swaps with a new Install on Windows page. Paired Windows text in Getting Started, the User Guide and the Developer Guide; added an Architecture page on the Windows platform layer; search only indexes the chosen OS's text. Checked in the browser at desktop and phone width.
+**Context**: Documentation follow-up, Round 5 (feature/windows)
+
+---
