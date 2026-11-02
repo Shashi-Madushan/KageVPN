@@ -12,7 +12,7 @@ pub fn installed() -> bool {
 }
 
 pub async fn install(_paths: &AppPaths, _binary: &Path, _cancel: Option<&AtomicBool>) -> Result<()> {
-    Err(AppError::Launch(super::TUN_UNAVAILABLE.into()))
+    Err(AppError::Launch(crate::platform::TUN_UNAVAILABLE.into()))
 }
 
 pub async fn uninstall() -> Result<()> {

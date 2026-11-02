@@ -182,8 +182,10 @@ impl Store {
         self.data.profiles.iter().find(|p| p.id == id)
     }
 
+    /// The saved mode, or Proxy Only where this OS has no TUN mode (a Windows install that was set
+    /// to TUN by a restored backup, say).
     pub fn mode(&self) -> Mode {
-        self.data.mode
+        if crate::platform::CURRENT.tun { self.data.mode } else { Mode::Proxy }
     }
 
     pub fn settings(&self) -> Settings {

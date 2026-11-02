@@ -62,3 +62,25 @@ fn the_status_line_says_disconnecting_rather_than_protected() {
     status.disconnecting = true;
     assert_eq!(status_text(&status), "Disconnecting…");
 }
+
+#[test]
+fn template_icons_are_repainted_keeping_their_shape() {
+    let rgba = [0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 128];
+    assert_eq!(tint(&rgba, [255, 255, 255]), [255, 255, 255, 255, 255, 255, 255, 0, 255, 255, 255, 128]);
+}
+
+#[test]
+fn the_popover_hangs_below_a_menu_bar_icon() {
+    // macOS: a 1440x900 screen, icon at the top right.
+    let (x, y) = popover_origin((1300.0, 0.0, 24.0, 24.0), (272.0, 450.0), Some((0.0, 0.0, 1440.0, 900.0)), 1.0);
+    assert_eq!(y, 24.0 + POPOVER_GAP);
+    assert_eq!(x, 1440.0 - 272.0 - SCREEN_MARGIN, "kept inside the screen");
+}
+
+#[test]
+fn the_popover_sits_above_a_taskbar_icon() {
+    // Windows: a 1920x1080 screen at 150%, icon in the taskbar at the bottom right.
+    let (x, y) = popover_origin((1700.0, 1032.0, 48.0, 48.0), (408.0, 675.0), Some((0.0, 0.0, 1920.0, 1080.0)), 1.5);
+    assert_eq!(y, 1032.0 - 675.0 - POPOVER_GAP * 1.5);
+    assert!(x + 408.0 <= 1920.0 - SCREEN_MARGIN * 1.5);
+}

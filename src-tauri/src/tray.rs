@@ -143,7 +143,31 @@ fn icon(state: State) -> tauri::Result<Image<'static>> {
         State::Connecting => include_bytes!("../icons/tray/connecting.png"),
         State::Connected => include_bytes!("../icons/tray/connected.png"),
     };
-    Image::from_bytes(bytes)
+    Image::from_bytes(bytes).map(for_taskbar)
+}
+
+/// The icons are black macOS template images, which macOS recolours for the menu bar. Windows shows
+/// them as they are, so there they are painted in the taskbar's text colour instead.
+#[cfg(windows)]
+fn for_taskbar(image: Image<'static>) -> Image<'static> {
+    let light = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER)
+        .open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        .and_then(|key| key.get_value::<u32, _>("SystemUsesLightTheme"))
+        .is_ok_and(|v| v == 1);
+    let colour = if light { [0x1c, 0x1c, 0x1c] } else { [0xff, 0xff, 0xff] };
+    let (width, height) = (image.width(), image.height());
+    Image::new_owned(tint(image.rgba(), colour), width, height)
+}
+
+#[cfg(not(windows))]
+fn for_taskbar(image: Image<'static>) -> Image<'static> {
+    image
+}
+
+/// Every pixel in `colour`, keeping its transparency.
+#[cfg_attr(not(any(windows, test)), allow(dead_code))]
+fn tint(rgba: &[u8], colour: [u8; 3]) -> Vec<u8> {
+    rgba.as_chunks::<4>().0.iter().flat_map(|px| [colour[0], colour[1], colour[2], px[3]]).collect()
 }
 
 pub fn set_speed(app: &AppHandle, traffic: Option<Traffic>) {
@@ -183,16 +207,16 @@ fn smooth(traffic: Option<Traffic>) -> Option<(u64, u64)> {
 fn refresh(app: &AppHandle, state: State, traffic: Option<Traffic>) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
     let down = state == State::Connected && TUNNEL_DOWN.load(Ordering::Relaxed);
-    let show = app.state::<AppState>().store.lock().unwrap().settings().show_speed;
+    // The Windows tray only has room for a square icon, so the speed readout is macOS only.
+    let show = crate::platform::CURRENT.speed_in_tray && app.state::<AppState>().store.lock().unwrap().settings().show_speed;
     let rates = smooth(traffic.filter(|_| show && state == State::Connected));
 
     let (frame, image) = if down {
-        (Frame::Warning, Image::from_bytes(include_bytes!("../icons/tray/warning.png")))
+        (Frame::Warning, Image::from_bytes(include_bytes!("../icons/tray/warning.png")).map(for_taskbar))
     } else if show && state == State::Connected {
         let (up, down) = rates.unwrap_or((0, 0));
         let (up, down) = (format_rate(up), format_rate(down));
-        let image = icon(State::Connected)
-            .map(|base| speed_icon::compose(&base, &up, &down));
+        let image = icon(State::Connected).map(|base| speed_icon::compose(&base, &up, &down));
         (Frame::Speed { up, down }, image)
     } else {
         (Frame::Plain(state), icon(state))
@@ -314,19 +338,32 @@ fn place_below(app: &AppHandle, window: &tauri::WebviewWindow, anchor: Rect) {
     let Ok(window_size) = window.outer_size() else { return };
 
     let center_x = position.x + size.width / 2.0;
-    let mut x = center_x - f64::from(window_size.width) / 2.0;
-    let y = position.y + size.height + POPOVER_GAP * scale;
-
-    if let Ok(Some(monitor)) = app.monitor_from_point(center_x, position.y) {
-        let margin = SCREEN_MARGIN * scale;
-        let left = f64::from(monitor.position().x) + margin;
-        let right = f64::from(monitor.position().x)
-            + f64::from(monitor.size().width)
-            - f64::from(window_size.width)
-            - margin;
-        x = x.clamp(left, right.max(left));
-    }
+    let monitor = app.monitor_from_point(center_x, position.y).ok().flatten().map(|m| {
+        let (origin, extent) = (m.position(), m.size());
+        (f64::from(origin.x), f64::from(origin.y), f64::from(extent.width), f64::from(extent.height))
+    });
+    let popover = (f64::from(window_size.width), f64::from(window_size.height));
+    let (x, y) = popover_origin((position.x, position.y, size.width, size.height), popover, monitor, scale);
     let _ = window.set_position(PhysicalPosition::new(x as i32, y as i32));
+}
+
+/// Where the popover goes for a tray icon at `anchor` (x, y, width, height): centred under it, or
+/// above it when the icon is in the lower half of the screen (the Windows taskbar), kept inside the
+/// monitor (x, y, width, height). All in physical pixels.
+fn popover_origin(anchor: (f64, f64, f64, f64), window: (f64, f64), monitor: Option<(f64, f64, f64, f64)>, scale: f64) -> (f64, f64) {
+    let (ax, ay, aw, ah) = anchor;
+    let (ww, wh) = window;
+    let gap = POPOVER_GAP * scale;
+    let mut x = ax + aw / 2.0 - ww / 2.0;
+    let mut y = ay + ah + gap;
+    if let Some((mx, my, mw, mh)) = monitor {
+        let margin = SCREEN_MARGIN * scale;
+        x = x.clamp(mx + margin, (mx + mw - ww - margin).max(mx + margin));
+        if ay + ah / 2.0 > my + mh / 2.0 {
+            y = (ay - wh - gap).max(my + margin);
+        }
+    }
+    (x, y)
 }
 
 pub fn toggle_connection(app: &AppHandle) {

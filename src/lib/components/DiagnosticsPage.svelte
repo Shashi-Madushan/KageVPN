@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { onDestroy } from 'svelte';
 	import { api, type Diagnostics, type IpInfo, type SpeedProgress, type SpeedResult } from '$lib/api';
 	import { app } from '$lib/app.svelte';
@@ -146,7 +147,7 @@
 <HeaderActions>
 	<button class="btn" onclick={copyReport}>Copy report</button>
 	<button class="btn" disabled={exporting} onclick={exportBundle}>{exporting ? 'Exporting…' : 'Export diagnostics'}</button>
-	<button class="btn" disabled={repairing || app.locked} onclick={() => (repairAsk = true)}>{repairing ? 'Repairing…' : 'Repair VPN service'}</button>
+	{#if platform.info.rootService}<button class="btn" disabled={repairing || app.locked} onclick={() => (repairAsk = true)}>{repairing ? 'Repairing…' : 'Repair VPN service'}</button>{/if}
 	{#if app.info.feedbackConfigured}<button class="btn" onclick={() => feedback.show('bug')}>Report a problem</button>{/if}
 </HeaderActions>
 
@@ -161,7 +162,7 @@
 			</div>
 			<button class="btn primary" disabled={checking} onclick={run}>{checking ? 'Checking…' : result ? 'Run again' : 'Run checks'}</button>
 		</div>
-		{#if verdict && app.connected && app.status.mode === 'proxy'}
+		{#if verdict && app.connected && app.status.mode === 'proxy' && platform.info.tun}
 			<div class="remediation">
 				<span>Want every app protected?</span>
 				<button class="btn" onclick={() => app.setMode('tun')}>Switch to full system (TUN)</button>

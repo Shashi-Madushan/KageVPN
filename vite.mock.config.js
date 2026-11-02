@@ -26,7 +26,10 @@ const mock = `
     networks: { enabled: false, networks: [] }, hotkey: ''
   };
   const info = { name: 'Kage', brand: 'Apzur', version: '0.3.0', updatesConfigured: true, feedbackConfigured: false, protocols: [{ id: 'vless', label: 'VLESS', schemes: ['vless'], fields: [] }] };
-  const platform = { os: 'macos', tun: true, killSwitch: true, rootService: true, systemProxy: true, appNap: true };
+  const win = new URLSearchParams(location.search).get('os') === 'windows';
+  const platform = win
+    ? { os: 'windows', tun: false, killSwitch: false, rootService: false, systemProxy: true, appNap: false, speedInTray: false }
+    : { os: 'macos', tun: true, killSwitch: true, rootService: true, systemProxy: true, appNap: true, speedInTray: true };
   const rows = { app_info: info, platform, snapshot: snap, exit_ip: '203.0.113.42' };
   let n = 0;
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };

@@ -31,7 +31,6 @@ use crate::paths::AppPaths;
 pub(crate) const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const POLL: Duration = Duration::from_millis(500);
 const MAX_STDERR_LOG: u64 = 1_000_000;
-pub(crate) const TUN_UNAVAILABLE: &str = "TUN mode is not available on Windows yet. Use Proxy Only mode.";
 
 /// The Job Object of the current run. Kept open for the run's lifetime: when the app exits, Windows
 /// closes it and the job kills sing-box.
@@ -52,7 +51,7 @@ pub fn forget_repair_attempts() {}
 
 pub async fn start(paths: &AppPaths, binary: &Path, mode: Mode, _kill_switch_ips: Option<String>, _cancel: &AtomicBool) -> Result<u32> {
     match mode {
-        Mode::Tun => Err(AppError::Launch(TUN_UNAVAILABLE.into())),
+        Mode::Tun => Err(AppError::Launch(crate::platform::TUN_UNAVAILABLE.into())),
         Mode::Proxy => start_plain(paths, binary),
     }
 }

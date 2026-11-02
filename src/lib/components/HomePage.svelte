@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { privacy, privacyKey } from '$lib/privacy.svelte';
@@ -30,10 +31,12 @@
 	onMount(() => caps.use());
 	let { onnavigate }: { onnavigate: (page: Page) => void } = $props();
 
-	const modes = [
-		{ value: 'tun' as const, label: 'Full System (TUN)' },
-		{ value: 'proxy' as const, label: 'Proxy Only' }
-	];
+	const modes = $derived(
+		[
+			{ value: 'tun' as const, label: 'Full System (TUN)' },
+			{ value: 'proxy' as const, label: 'Proxy Only' }
+		].filter((m) => m.value !== 'tun' || platform.info.tun)
+	);
 
 	let now = $state(Math.floor(Date.now() / 1000));
 
@@ -181,9 +184,9 @@
 			<span class="chip mono" title={app.reliability.proxyAuth ? 'Point apps at this address (SOCKS5 or HTTP). Login: user kage, password in Settings' : 'Point apps at this address (SOCKS5 or HTTP)'}>127.0.0.1:{app.status.proxyPort}</span>
 		{/if}
 		{#if app.connected && app.status.systemProxy?.state === 'set'}
-			<span class="chip" title="The macOS proxy settings point at the VPN; they come back when you disconnect">System proxy on</span>
+			<span class="chip" title="The {platform.osName} proxy settings point at the VPN; they come back when you disconnect">System proxy on</span>
 		{/if}
-		{#if app.reliability.killSwitch}
+		{#if app.reliability.killSwitch && platform.info.killSwitch}
 			<span class="chip" title="Kill switch is armed"><Icon name="shield" size={12} /> Kill switch</span>
 		{/if}
 		{#if app.reliability.autoReconnect}
@@ -208,7 +211,7 @@
 						{/if}
 						<PingButton />
 					{:else}
-						<span class="ready-sub">{app.profiles.length ? (isConnecting ? 'Establishing secure tunnel…' : 'Traffic leaves your Mac directly.') : 'Add a server to connect'}</span>
+						<span class="ready-sub">{app.profiles.length ? (isConnecting ? 'Establishing secure tunnel…' : `Traffic leaves your ${platform.device} directly.`) : 'Add a server to connect'}</span>
 						{#if app.profiles.length && !isConnecting}<PingButton />{/if}
 					{/if}
 				</div>
@@ -242,8 +245,8 @@
 			</div>
 			<div class="field">
 				<span class="caption">Mode</span>
-				<Segmented options={modes} value={app.mode} label="Connection Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
-				<small class="server-sub">{app.mode === 'tun' ? 'Every app on your Mac goes through the VPN.' : 'Only apps pointed at the local proxy use the VPN.'}</small>
+				{#if modes.length > 1}<Segmented options={modes} value={app.mode} label="Connection Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />{/if}
+				<small class="server-sub">{app.mode === 'tun' ? `Every app on your ${platform.device} goes through the VPN.` : 'Only apps pointed at the local proxy use the VPN.'}</small>
 			</div>
 		</section>
 	</div>

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "title": "Kage",
+        "width": 960,
+        "height": 620,
+        "minWidth": 520,
+        "minHeight": 480,
+        "visible": false,
+        "label": "main",
+        "create": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
+        "windowEffects": {
+          "effects": ["mica"]
+        }
+      },
+      {
+        "label": "tray",
+        "create": false,
+        "url": "/tray",
+        "width": 272,
+        "height": 450,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "shadow": true,
+        "focus": false,
+        "windowEffects": {
+          "effects": ["acrylic"]
+        }
+      }
+    ]
+  },
+  "bundle": {
+    "targets": ["nsis"],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

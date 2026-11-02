@@ -3,7 +3,7 @@ use super::*;
 #[test]
 #[cfg(target_os = "macos")]
 fn macos_offers_everything() {
-    assert_eq!(platform(), Platform { os: "macos", tun: true, kill_switch: true, root_service: true, system_proxy: true, app_nap: true });
+    assert_eq!(platform(), Platform { os: "macos", tun: true, kill_switch: true, root_service: true, system_proxy: true, app_nap: true, speed_in_tray: true });
 }
 
 #[test]

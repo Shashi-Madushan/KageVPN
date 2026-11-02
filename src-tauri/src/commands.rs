@@ -196,6 +196,9 @@ pub async fn select_profile(app: AppHandle, id: String) -> Result<()> {
 
 #[tauri::command]
 pub fn set_mode(state: State<AppState>, mode: Mode) -> Result<()> {
+    if mode == Mode::Tun && !crate::platform::CURRENT.tun {
+        return Err(AppError::Launch(crate::platform::TUN_UNAVAILABLE.into()));
+    }
     state.store.lock().unwrap().set_mode(mode)
 }
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import WindowControls from '$lib/components/WindowControls.svelte';
+	import { platform } from '$lib/platform.svelte';
 	import { onMount } from 'svelte';
 	import { app } from '$lib/app.svelte';
 	import { importMessage } from '$lib/format';
@@ -62,7 +64,8 @@
 	let page = $state<Page>('home');
 
 	function onkeydown(e: KeyboardEvent) {
-		if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+		// Cmd on a Mac, Ctrl on Windows (where Cmd does not exist and the Windows key belongs to the system).
+		if (!(platform.isMac ? e.metaKey || e.ctrlKey : e.ctrlKey) || e.altKey || e.shiftKey) return;
 		const next = pageForKey(e.key);
 		if (next) {
 			e.preventDefault();
@@ -107,9 +110,10 @@
 
 <svelte:window {onkeydown} />
 
-<div class="app">
+<div class="app" class:windows={platform.isWindows}>
 	<!-- The window has no native title bar, so this strip is what drags it and zooms it on double-click. -->
-	<div class="titlebar" data-tauri-drag-region></div>
+	<div class="titlebar" data-tauri-drag-region>{#if platform.isWindows}<span class="app-name">{app.info.name}</span>{/if}</div>
+	{#if platform.isWindows}<WindowControls />{/if}
 	<aside data-tauri-drag-region>
 		<Sidebar {page} {badges} onselect={(p) => (page = p)} />
 		<div class="aside-foot">
@@ -194,6 +198,27 @@
 		inset: 0 0 auto 0;
 		height: 44px;
 		z-index: 1;
+	}
+	/* Windows: the app's name sits at the left of the title strip, as in other Windows apps. */
+	.app-name {
+		position: absolute;
+		left: 14px;
+		top: 0;
+		line-height: 32px;
+		font-size: 12px;
+		color: var(--fg-muted);
+		pointer-events: none;
+	}
+	/* Windows: no window buttons on the left, but the strip is still there; and the header's buttons
+	   keep clear of minimize, maximize and close on the right. */
+	.windows .titlebar {
+		height: 32px;
+	}
+	.windows aside {
+		padding-top: 40px;
+	}
+	.windows header {
+		padding-top: 36px;
 	}
 	/* Let presses on the title text fall through to the drag strip beneath it. */
 	.titles {

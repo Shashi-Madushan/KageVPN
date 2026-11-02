@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { onMount } from 'svelte';
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 	import { api } from '$lib/api';
@@ -16,10 +17,12 @@
 	import Skeleton from '$lib/components/Skeleton.svelte';
 
 	const WIDTH = 272;
-	const modes = [
-		{ value: 'tun' as const, label: 'Full System' },
-		{ value: 'proxy' as const, label: 'Proxy Only' }
-	];
+	const modes = $derived(
+		[
+			{ value: 'tun' as const, label: 'Full System' },
+			{ value: 'proxy' as const, label: 'Proxy Only' }
+		].filter((m) => m.value !== 'tun' || platform.info.tun)
+	);
 	const tone = $derived(app.disconnecting ? 'checking' : app.tunnelDown ? 'down' : app.verifying ? 'checking' : app.protectedNow ? 'ok' : 'off');
 	const via = $derived(app.connected ? 'tunnel' : 'server');
 	const check = $derived(
@@ -168,7 +171,7 @@
 			</section>
 
 			<div class="mode" title={app.connected ? 'Disconnect to change mode' : undefined}>
-				<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
+				{#if modes.length > 1}<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />{/if}
 			</div>
 			{#if app.busy}<p class="lock">Disconnect to change server or mode</p>{/if}
 		{:else}

@@ -525,6 +525,7 @@ export interface Platform {
 	rootService: boolean;
 	systemProxy: boolean;
 	appNap: boolean;
+	speedInTray: boolean;
 }
 
 export interface AppInfo {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { app } from '$lib/app.svelte';
 	import { core } from '$lib/core.svelte';
 	import { onboarding } from '$lib/onboarding.svelte';
@@ -20,16 +21,16 @@
 	let step = $state(0);
 
 	const slides = $derived([
-		{ id: 'welcome', title: `Welcome to ${app.info.name}`, text: 'A simple way to run a private, encrypted connection on your Mac. Meet the Kage mascot: it is your connect button and your status light. Three quick steps get you set up.' },
+		{ id: 'welcome', title: `Welcome to ${app.info.name}`, text: `A simple way to run a private, encrypted connection on your ${platform.device}. Meet the Kage mascot: it is your connect button and your status light. Three quick steps get you set up.` },
 		{ id: 'engine', title: 'Get the engine', text: 'The engine is the program that carries your traffic. It is downloaded once from its official release page and checked before use.' },
 		{ id: 'add', title: 'Add a server', text: 'Your VPN provider gives you a server link (vless://, vmess://, trojan://, ss://, hysteria://, hysteria2://, tuic://, ssh:// or wireguard://, or a WireGuard .conf file) or a subscription URL. Paste it here and the app saves and keeps it for you.' },
 		{ id: 'mode', title: 'Choose how to connect', text: 'Full system sends every app through the VPN and asks for your password once to set it up. Proxy only protects just the apps you point at the local proxy. You can change this later.' },
 		{ id: 'tap', title: 'Tap the mascot to connect', text: 'Pick a server, then tap the mascot to start the VPN. Tap it again any time to disconnect. A sleeping mascot means you are not connected; a smiling one means you are protected.' },
 		{ id: 'face', title: 'Read the mascot’s face', text: 'The mascot shows what is happening. “Protected” appears only after a real request has gone through the tunnel. If it looks worried, you are connected but no internet is getting through. Open Home to see why and use the one-click fix.' },
-		{ id: 'tray', title: 'Always within reach', text: 'Click the menu bar icon to open the popover. Tap the mascot there too, check your latency, switch mode and watch live traffic, without opening the window.' },
+		{ id: 'tray', title: 'Always within reach', text: `Click the ${platform.trayName} icon to open the popover. Tap the mascot there too, check your latency, switch mode and watch live traffic, without opening the window.` },
 		{ id: 'usage', title: 'See what uses your data', text: 'Data usage tells you in plain words how much you used this month. Connections shows which apps are sending and receiving data right now.' },
 		{ id: 'rules', title: 'Decide what uses the VPN', text: 'Under Routing you can send some sites through the VPN, let others go direct, or block them. Add your own rules, pick ready-made lists (a country, streaming, ads), or type a website to see what would happen to it.' },
-		{ id: 'apps', title: 'Control each app', text: 'App controls lists the apps on your Mac. For each one choose VPN, Direct or Block, and see what it does right now. The Connections page has the same Route button on every app that is sending data.' },
+		{ id: 'apps', title: 'Control each app', text: `App controls lists the apps on your ${platform.device}. For each one choose VPN, Direct or Block, and see what it does right now. The Connections page has the same Route button on every app that is sending data.` },
 		{ id: 'caps', title: 'Set a data limit for an app', text: 'Give any app a daily, weekly or monthly limit. You are told at 80% and 100%, and can choose to block the app until the period ends. Nothing is blocked unless you say so.' },
 		{ id: 'done', title: "You're all set", text: 'Here is where your setup stands.' }
 	]);
@@ -90,13 +91,15 @@
 	const last = $derived(slides.length - 1);
 	const hasServer = $derived(app.profiles.length > 0);
 	const hotkey = $derived(
-		app.reliability.hotkey && app.hotkey ? app.hotkey.replace('CommandOrControl', '⌘').replace('Alt', '⌥').replace(/\+/g, ' ') : ''
+		app.reliability.hotkey && app.hotkey ? platform.shortcut(app.hotkey) : ''
 	);
 
-	const modes = [
-		{ value: 'tun' as const, label: 'Full System (TUN)' },
-		{ value: 'proxy' as const, label: 'Proxy Only' }
-	];
+	const modes = $derived(
+		[
+			{ value: 'tun' as const, label: 'Full System (TUN)' },
+			{ value: 'proxy' as const, label: 'Proxy Only' }
+		].filter((m) => m.value !== 'tun' || platform.info.tun)
+	);
 
 	$effect(() => {
 		if (onboarding.open) step = 0;
@@ -146,7 +149,7 @@
 						</div>
 					{:else if id === 'mode'}
 						<div class="d-modes">
-							<Segmented options={modes} value="tun" label="Connection mode" onchange={() => {}} />
+							<Segmented options={modes} value={modes[0].value} label="Connection mode" onchange={() => {}} />
 							<div class="d-mode-cards">
 								<div class="d-card on"><strong>Full system</strong><span>Every app and background service goes through the VPN.</span></div>
 								<div class="d-card"><strong>Proxy only</strong><span>Only apps set to use the local proxy are protected.</span></div>
@@ -276,7 +279,7 @@
 					{#if addError}<p class="tip bad" role="alert">{addError}</p>{/if}
 				{/if}
 				{#if id === 'mode'}
-					<Segmented options={modes} value={app.mode} label="Connection mode" onchange={(m) => app.setMode(m)} />
+					{#if modes.length > 1}<Segmented options={modes} value={app.mode} label="Connection mode" onchange={(m) => app.setMode(m)} />{/if}
 				{/if}
 				{#if id === 'done'}<p class="tip">You can run this setup again any time from Settings.</p>{/if}
 				{#if step === last && core.missing}

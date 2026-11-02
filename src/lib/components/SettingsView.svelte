@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import type { LogLevel, UpdatePolicy } from '$lib/api';
@@ -103,19 +104,21 @@
 	<span class="caption">General</span>
 	<div class="settings card">
 		<label>
-			<span><strong>Launch at login</strong><small>Start in the menu bar when you sign in.</small></span>
+			<span><strong>Launch at login</strong><small>Start in the {platform.trayName} when you sign in.</small></span>
 			<input type="checkbox" checked={app.launchAtLogin} onchange={(e) => saveToggle(e, (on) => app.setLaunchAtLogin(on))} />
 		</label>
 		<label>
 			<span><strong>Connect on launch</strong><small>Connect the selected profile automatically.</small></span>
 			<input type="checkbox" checked={app.settings.autoConnect} onchange={(e) => saveToggle(e, (on) => app.updateSettings({ autoConnect: on }))} />
 		</label>
+		{#if platform.info.speedInTray}
+			<label>
+				<span><strong>Speed in menu bar</strong><small>Show live download and upload next to the icon.</small></span>
+				<input type="checkbox" checked={app.settings.showSpeed} onchange={(e) => saveToggle(e, (on) => app.updateSettings({ showSpeed: on }))} />
+			</label>
+		{/if}
 		<label>
-			<span><strong>Speed in menu bar</strong><small>Show live download and upload next to the icon.</small></span>
-			<input type="checkbox" checked={app.settings.showSpeed} onchange={(e) => saveToggle(e, (on) => app.updateSettings({ showSpeed: on }))} />
-		</label>
-		<label>
-			<span><strong>Offer to import copied links</strong><small>While this window is focused, notice a copied vless:// link. macOS may ask to allow clipboard access.</small></span>
+			<span><strong>Offer to import copied links</strong><small>While this window is focused, notice a copied vless:// link.{platform.isMac ? ' macOS may ask to allow clipboard access.' : ''}</small></span>
 			<input type="checkbox" checked={clipboardWatch.enabled} onchange={(e) => clipboardWatch.setEnabled(e.currentTarget.checked)} />
 		</label>
 	</div>
@@ -123,23 +126,25 @@
 	<span class="caption">Reliability</span>
 	<div class="settings card">
 		<label>
-			<span><strong>Reconnect automatically</strong><small>Retry when the tunnel drops, and after your Mac wakes or changes network.</small></span>
+			<span><strong>Reconnect automatically</strong><small>Retry when the tunnel drops, and after your {platform.device} wakes or changes network.</small></span>
 			<input type="checkbox" checked={app.reliability.autoReconnect} onchange={(e) => saveToggle(e, (on) => app.saveReliability({ autoReconnect: on }))} />
 		</label>
 		<label>
 			<span><strong>Restart a dead tunnel</strong><small>The tunnel is always checked in the background. When it stops passing traffic, restart it automatically.</small></span>
 			<input type="checkbox" checked={app.reliability.watchdog} onchange={(e) => saveToggle(e, (on) => app.saveReliability({ watchdog: on }))} />
 		</label>
+		{#if platform.info.rootService}
 		<label>
 			<span><strong>Run as a root service</strong><small>Install a background service once so TUN mode never asks for your password again. It runs only when you connect, and sing-box still stops if the app quits. Needs your password to install or remove.</small></span>
 			<input type="checkbox" checked={rootService} disabled={rootBusy} onchange={(e) => saveToggle(e, (on) => toggleRootService(on))} />
 		</label>
+		{/if}
 		<label>
-			<span><strong>Global shortcut</strong><small>Toggle the VPN from anywhere with {app.hotkey.replace('CommandOrControl', '⌘').replace('Alt', '⌥').replace(/\+/g, ' ')}.</small></span>
+			<span><strong>Global shortcut</strong><small>Toggle the VPN from anywhere with {platform.shortcut(app.hotkey)}.</small></span>
 			<input type="checkbox" checked={app.reliability.hotkey} onchange={(e) => saveToggle(e, (on) => app.saveReliability({ hotkey: on }))} />
 		</label>
 		<label>
-			<span><strong>Password for the local proxy</strong><small>Require a login (user <code>kage</code>) on 127.0.0.1, so other users on this Mac cannot use your tunnel. In Proxy Only mode, enter the password in each app. Applies the next time you connect.</small></span>
+			<span><strong>Password for the local proxy</strong><small>Require a login (user <code>kage</code>) on 127.0.0.1, so other users on this {platform.device} cannot use your tunnel. In Proxy Only mode, enter the password in each app. Applies the next time you connect.</small></span>
 			<input type="checkbox" checked={app.reliability.proxyAuth} onchange={(e) => saveToggle(e, (on) => toggleProxyAuth(on))} />
 		</label>
 		{#if app.reliability.proxyAuth}
@@ -154,7 +159,7 @@
 					{#if app.reliability.proxyAuth}
 						Unavailable while the proxy password is on: apps that follow the system proxy usually ignore the login.
 					{:else}
-						Proxy Only mode: apps that follow the macOS proxy settings use the VPN without setting each one up. Your previous settings come back when you disconnect, and if the app quits unexpectedly.{app.status.mode === 'tun' ? ' Not used in TUN mode, which already carries every app.' : ''}
+						Proxy Only mode: apps that follow the {platform.osName} proxy settings use the VPN without setting each one up. Your previous settings come back when you disconnect, and if the app quits unexpectedly.{app.status.mode === 'tun' && platform.info.tun ? ' Not used in TUN mode, which already carries every app.' : ''}
 					{/if}
 				</small>
 			</span>
@@ -167,6 +172,7 @@
 				<button class="btn" disabled={!bypassChanged || bypassSaving} onclick={saveBypass}>{bypassSaving ? 'Saving…' : 'Save'}</button>
 			</div>
 		{/if}
+		{#if platform.info.killSwitch}
 		<label>
 			<span>
 				<strong>Kill switch <em>experimental</em></strong>
@@ -180,6 +186,7 @@
 				<button class="btn" disabled={restoring} onclick={restore}>{restoring ? 'Working…' : 'Restore internet access'}</button>
 			</div>
 		{/if}
+		{/if}
 	</div>
 
 	<NetworksSection />
@@ -191,7 +198,7 @@
 			<Select options={logLevels} value={app.settings.logLevel} label="Log detail" onchange={(level: LogLevel) => app.updateSettings({ logLevel: level })} />
 		</div>
 		<label>
-			<span><strong>Clear logs when disconnected</strong><small>Empty the engine's log files each time the VPN turns off, so no list of visited sites stays on this Mac.</small></span>
+			<span><strong>Clear logs when disconnected</strong><small>Empty the engine's log files each time the VPN turns off, so no list of visited sites stays on this {platform.device}.</small></span>
 			<input type="checkbox" checked={app.settings.clearLogs} onchange={(e) => saveToggle(e, (on) => app.updateSettings({ clearLogs: on }))} />
 		</label>
 	</div>
