@@ -69,6 +69,6 @@ fn applescript_escape(value: &str) -> String {
         .replace('\r', "")
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 #[path = "tests/notify.rs"]
 mod tests;

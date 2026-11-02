@@ -5,6 +5,7 @@ use std::path::Path;
 /// Options for a file only its owner may read: new files get mode 0600. Logs and the usage history
 /// list the sites a person visited, so they are never left readable by other accounts on the Mac.
 pub fn private_options() -> OpenOptions {
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut options = OpenOptions::new();
     #[cfg(unix)]
     {

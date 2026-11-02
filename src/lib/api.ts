@@ -406,6 +406,7 @@ export interface Snapshot {
 
 export const api = {
 	appInfo: () => invoke<AppInfo>('app_info'),
+	platform: () => invoke<Platform>('platform'),
 	snapshot: () => invoke<Snapshot>('snapshot'),
 	/** `fileName`: a dropped file's name, which names a WireGuard server read from it. */
 	importText: (text: string, fileName?: string) => invoke<ImportSummary>('import_text', { text, fileName: fileName ?? null }),
@@ -514,6 +515,16 @@ export interface CoreRef {
 	runnable: boolean;
 	minVersion: string;
 	requiredFeatures: string[];
+}
+
+/** What this build can do on the OS it runs on (`platform.rs`). */
+export interface Platform {
+	os: 'macos' | 'windows' | 'other';
+	tun: boolean;
+	killSwitch: boolean;
+	rootService: boolean;
+	systemProxy: boolean;
+	appNap: boolean;
 }
 
 export interface AppInfo {

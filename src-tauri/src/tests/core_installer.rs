@@ -1,4 +1,5 @@
 use super::*;
+use std::io::Write;
 
 fn make_archive(dir: &Path, entry_name: &str) -> std::path::PathBuf {
     let path = dir.join("test.tar.gz");
@@ -89,4 +90,47 @@ fn a_release_whose_version_could_leave_the_engine_folder_is_refused() {
         assert!(check_release(&release(bad, "https://github.com/x")).is_err(), "{bad} was accepted");
     }
     assert!(check_release(&release("1.14.2", "http://github.com/x")).is_err(), "plain http is refused");
+}
+
+fn make_zip(dir: &Path, entries: &[(&str, &[u8])]) -> std::path::PathBuf {
+    let path = dir.join("test.zip");
+    let mut zip = zip::ZipWriter::new(File::create(&path).unwrap());
+    let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    for (name, data) in entries {
+        zip.start_file(*name, options).unwrap();
+        zip.write_all(data).unwrap();
+    }
+    zip.finish().unwrap();
+    path
+}
+
+#[test]
+fn extracts_the_windows_binary_from_a_zip() {
+    let dir = scratch("zip");
+    let archive = make_zip(&dir, &[("sing-box-1.0.0-windows-amd64/LICENSE", b"text"), ("sing-box-1.0.0-windows-amd64/sing-box.exe", b"MZ binary")]);
+    let out = dir.join("sing-box.exe");
+    extract_binary("sing-box.exe", &archive, &out).unwrap();
+    assert_eq!(fs::read(&out).unwrap(), b"MZ binary");
+}
+
+#[test]
+fn a_zip_without_the_binary_is_refused() {
+    let dir = scratch("zip-missing");
+    let archive = make_zip(&dir, &[("sing-box-1.0.0-windows-amd64/LICENSE", b"text")]);
+    assert!(extract_binary("sing-box.exe", &archive, &dir.join("sing-box.exe")).is_err());
+}
+
+#[test]
+fn a_zip_that_unpacks_into_something_huge_is_stopped() {
+    let dir = scratch("zip-bomb");
+    let zeros = vec![0u8; (MAX_BINARY_BYTES + 1) as usize];
+    let archive = make_zip(&dir, &[("sing-box.exe", &zeros)]);
+    let error = extract_binary("sing-box.exe", &archive, &dir.join("sing-box.exe")).unwrap_err();
+    assert!(error.to_string().contains("larger than expected"), "{error}");
+}
+
+#[test]
+fn the_download_keeps_the_extension_that_says_how_to_unpack_it() {
+    assert_eq!(archive_name("https://x/sing-box-1.0.0-windows-amd64.zip"), "archive.zip");
+    assert_eq!(archive_name("https://x/sing-box-1.0.0-darwin-arm64.tar.gz"), "archive.tar.gz");
 }

@@ -2,7 +2,6 @@
 //! no permission (the Wi-Fi name needs Location access). What to do on each network is a setting;
 //! `decide` is the whole policy and the rest only reads the network and acts on the answer.
 
-use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
@@ -17,6 +16,7 @@ use crate::{applog, notify};
 
 const MAX_NAME: usize = 40;
 /// How long the question about a new network waits before it counts as "Ignore".
+#[cfg(not(windows))]
 const ASK_SECONDS: u32 = 60;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,6 +44,7 @@ pub fn decide(settings: &NetworkSettings, id: &str, state: Conn, has_servers: bo
 /// The default gateway of the first physical interface, from `netstat -rn -f inet`. While the tunnel
 /// is up the plain default route points into it, but the interface-scoped one still names the
 /// real gateway.
+#[cfg_attr(windows, allow(dead_code))]
 pub fn parse_gateway(netstat: &str) -> Option<(String, String)> {
     netstat.lines().find_map(|line| {
         let mut columns = line.split_whitespace();
@@ -55,6 +56,7 @@ pub fn parse_gateway(netstat: &str) -> Option<(String, String)> {
 }
 
 /// A hardware address from `arp -n <ip>` output, lower case with two digits per part.
+#[cfg_attr(windows, allow(dead_code))]
 pub fn parse_mac(arp: &str) -> Option<String> {
     let token = arp.split_whitespace().skip_while(|t| *t != "at").nth(1)?;
     let parts: Vec<&str> = token.split(':').collect();
@@ -76,8 +78,9 @@ pub fn clean_name(name: &str) -> Option<String> {
     (!name.is_empty() && name.chars().count() <= MAX_NAME).then(|| name.to_string())
 }
 
+#[cfg(not(windows))]
 fn run(program: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new(program).args(args).output().ok()?;
+    let output = std::process::Command::new(program).args(args).output().ok()?;
     output.status.success().then(|| String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
@@ -88,7 +91,18 @@ pub struct CurrentNetwork {
     pub name: String,
 }
 
+/// The network the PC is on: the main adapter's gateway, named after the adapter ("Wi-Fi",
+/// "Ethernet") unless the user renames it.
+#[cfg(windows)]
+pub fn current() -> Option<CurrentNetwork> {
+    let adapter = crate::winnet::primary()?;
+    let id = crate::winnet::gateway_mac(adapter.index, adapter.gateway?)?;
+    let name = clean_name(&adapter.name).unwrap_or_else(|| default_name(&id));
+    Some(CurrentNetwork { id, name })
+}
+
 /// The network the Mac is on, or `None` without a gateway or hardware address.
+#[cfg(not(windows))]
 pub fn current() -> Option<CurrentNetwork> {
     let (gateway, interface) = parse_gateway(&run("/usr/sbin/netstat", &["-rn", "-f", "inet"])?)?;
     let id = parse_mac(&run("/usr/sbin/arp", &["-n", &gateway])?)?;
@@ -165,7 +179,21 @@ fn ask(app: &AppHandle, network: CurrentNetwork) {
     });
 }
 
+/// A small Windows message box with Yes (connect) and No. It waits for an answer; the network
+/// stays on Ignore until then.
+#[cfg(windows)]
+fn question(name: &str) -> Option<String> {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, IDYES, MB_ICONQUESTION, MB_SETFOREGROUND, MB_TOPMOST, MB_YESNO};
+    let wide = |text: &str| text.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+    let text = wide(&format!("New network: {name}.\n\nConnect the VPN whenever you are on it? You can change this in Settings, Networks."));
+    let title = wide("Kage");
+    // SAFETY: both strings are NUL-terminated and outlive the call; no owner window is needed.
+    let answer = unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), title.as_ptr(), MB_YESNO | MB_ICONQUESTION | MB_TOPMOST | MB_SETFOREGROUND) };
+    Some(if answer == IDYES { "Connect".into() } else { "Ignore".into() })
+}
+
 /// A small macOS dialog; `None` when it timed out or was closed.
+#[cfg(not(windows))]
 fn question(name: &str) -> Option<String> {
     let name: String = name.chars().filter(|c| !matches!(c, '"' | '\\')).collect();
     let script = format!(

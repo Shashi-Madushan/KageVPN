@@ -25,10 +25,12 @@ mod network_watch;
 mod networks;
 mod notify;
 mod paths;
+mod platform;
 mod profile;
 mod reliability;
 mod repair;
 mod rulesets;
+#[cfg_attr(windows, path = "runner_windows/mod.rs")]
 mod runner;
 mod sampler;
 mod session;
@@ -38,10 +40,15 @@ mod speed_icon;
 mod state;
 mod store;
 mod subscriptions;
+#[cfg_attr(windows, path = "sysproxy_windows.rs")]
 mod sysproxy;
 mod tray;
 mod traffic;
 mod usage;
+#[cfg(windows)]
+mod winnet;
+#[cfg(any(windows, test))]
+mod wininet;
 
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -63,6 +70,11 @@ fn updater_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry, tauri_plugin_updat
 }
 
 pub fn run() {
+    // The guard that puts the Windows proxy settings back if the app dies runs as this same program.
+    #[cfg(windows)]
+    if sysproxy::run_guard_if_asked() {
+        return;
+    }
     #[allow(unused_mut)]
     let mut app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -123,6 +135,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            platform::platform,
             app_update::app_update_check,
             app_update::app_update_install,
             app_update::app_update_settings,

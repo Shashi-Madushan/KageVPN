@@ -175,6 +175,7 @@ function install(opts) {
 	window.__demoEmit = emit;
 
 	const handlers = {
+		platform: () => ({ os: 'macos', tun: true, killSwitch: true, rootService: true, systemProxy: true, appNap: true }),
 		app_info: () => ({ name: opts.name, brand: 'Apzur', version: opts.version, updatesConfigured: false, feedbackConfigured: false, protocols: opts.protocols }),
 		new_profile: (a) => {
 			const base = { id: '', protocol: a.protocol, name: '', server: '', port: 443, group: null, favorite: false, subscriptionId: null };

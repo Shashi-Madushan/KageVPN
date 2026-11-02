@@ -140,10 +140,12 @@ impl AppPaths {
     }
 
     /// Puts the saved proxy settings back; the supervisor runs it if the app dies.
+    #[cfg_attr(windows, allow(dead_code))]
     pub fn system_proxy_script(&self) -> PathBuf {
         self.data_dir.join("system-proxy-restore.sh")
     }
 
+    #[cfg_attr(windows, allow(dead_code))]
     pub fn supervisor_script(&self) -> PathBuf {
         self.data_dir.join("supervisor.sh")
     }

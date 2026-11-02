@@ -18,7 +18,14 @@ use crate::singbox;
 
 const PROGRESS_STEP: u64 = 256 * 1024;
 const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
-const ARCHIVE_NAME: &str = "archive.tar.gz";
+/// Where the download is kept while it is checked; the extension says how to unpack it.
+fn archive_name(url: &str) -> &'static str {
+    if url.ends_with(".zip") {
+        "archive.zip"
+    } else {
+        "archive.tar.gz"
+    }
+}
 /// A sing-box archive is about 30 MB. These limits stop a damaged or hostile download from filling
 /// the disk, and a small archive that unpacks into something huge (a decompression bomb) from doing
 /// the same through the extraction.
@@ -75,7 +82,7 @@ async fn run(
     staging: &Path,
     check_config: Option<Value>,
 ) -> Result<()> {
-    let archive = staging.join(ARCHIVE_NAME);
+    let archive = staging.join(archive_name(&release.url));
     let archive_sha256 = download(reporter, release, &archive).await?;
 
     reporter.report(Stage::Verify, 0, 0);
@@ -149,6 +156,9 @@ async fn download(reporter: &Reporter, release: &Release, destination: &Path) ->
 }
 
 pub fn extract_binary(binary_name: &str, archive: &Path, destination: &Path) -> Result<()> {
+    if archive.extension().is_some_and(|e| e == "zip") {
+        return extract_from_zip(binary_name, archive, destination);
+    }
     let mut tar = tar::Archive::new(GzDecoder::new(File::open(archive)?));
     for entry in tar.entries()? {
         let mut entry = entry?;
@@ -168,6 +178,32 @@ pub fn extract_binary(binary_name: &str, archive: &Path, destination: &Path) -> 
             set_executable(destination)?;
             return Ok(());
         }
+    }
+    Err(AppError::Launch(format!("the archive does not contain a {binary_name} binary")))
+}
+
+/// The zip half of `extract_binary`, for Windows releases, with the same size limits.
+fn extract_from_zip(binary_name: &str, archive: &Path, destination: &Path) -> Result<()> {
+    let too_large = || AppError::Launch(format!("the {binary_name} binary in the archive is larger than expected"));
+    let mut zip = zip::ZipArchive::new(File::open(archive)?).map_err(|e| AppError::Launch(format!("the archive could not be read: {e}")))?;
+    for index in 0..zip.len() {
+        let mut entry = zip.by_index(index).map_err(|e| AppError::Launch(format!("the archive could not be read: {e}")))?;
+        // `enclosed_name` refuses names that climb out of the archive; only the file name is used anyway.
+        let is_binary = entry.is_file() && entry.enclosed_name().is_some_and(|p| p.file_name().is_some_and(|n| n == binary_name));
+        if !is_binary {
+            continue;
+        }
+        if entry.size() > MAX_BINARY_BYTES {
+            return Err(too_large());
+        }
+        let mut out = File::create(destination)?;
+        let copied = std::io::copy(&mut (&mut entry).take(MAX_BINARY_BYTES + 1), &mut out)?;
+        if copied > MAX_BINARY_BYTES {
+            let _ = fs::remove_file(destination);
+            return Err(too_large());
+        }
+        set_executable(destination)?;
+        return Ok(());
     }
     Err(AppError::Launch(format!("the archive does not contain a {binary_name} binary")))
 }
@@ -195,6 +231,12 @@ fn verify_binary(spec: &CoreSpec, binary: &Path, staging: &Path, check_config: O
 fn set_executable(path: &Path) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(path, fs::Permissions::from_mode(0o755))?;
+    Ok(())
+}
+
+/// Windows runs any `.exe`; there is no executable bit.
+#[cfg(windows)]
+fn set_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 

@@ -2,7 +2,6 @@
 //! open file descriptors against the limit, and the number of live connections. If the app
 //! restarts under heavy traffic, the last samples before the restart show what was running out.
 
-use std::process::Command;
 use std::time::Duration;
 
 use tauri::{AppHandle, Manager};
@@ -12,10 +11,12 @@ use crate::state::AppState;
 use crate::{applog, clash};
 
 const INTERVAL: Duration = Duration::from_secs(30);
+#[cfg(unix)]
 /// macOS apps start with a soft limit of 256 open files, which heavy traffic can exhaust.
 const WANTED_FD_LIMIT: u64 = 10_240;
 
 /// Raises the soft file-descriptor limit as far as the system allows, up to `WANTED_FD_LIMIT`.
+#[cfg(unix)]
 pub fn raise_fd_limit() {
     // SAFETY: getrlimit/setrlimit only read and write the `rlimit` struct passed to them.
     unsafe {
@@ -31,12 +32,14 @@ pub fn raise_fd_limit() {
     }
 }
 
+#[cfg(unix)]
 fn open_fds(pid: u32) -> Option<usize> {
     // SAFETY: with a null buffer proc_pidinfo only reports how many bytes the list would need.
     let bytes = unsafe { libc::proc_pidinfo(pid as i32, libc::PROC_PIDLISTFDS, 0, std::ptr::null_mut(), 0) };
     (bytes > 0).then(|| bytes as usize / std::mem::size_of::<libc::proc_fdinfo>())
 }
 
+#[cfg(unix)]
 fn fd_limit() -> u64 {
     let mut limit = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
     // SAFETY: getrlimit only writes to the struct passed to it.
@@ -45,13 +48,55 @@ fn fd_limit() -> u64 {
 }
 
 /// `"rss=12MB cpu=0.4%"` for one process, from `ps`.
+#[cfg(unix)]
 fn usage_of(pid: u32) -> String {
-    let output = Command::new("ps").args(["-o", "rss=,%cpu=", "-p", &pid.to_string()]).output();
+    let output = std::process::Command::new("ps").args(["-o", "rss=,%cpu=", "-p", &pid.to_string()]).output();
     let text = output.map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
     let mut fields = text.split_whitespace();
     match (fields.next().and_then(|v| v.parse::<u64>().ok()), fields.next()) {
         (Some(kb), Some(cpu)) => format!("rss={}MB cpu={cpu}%", kb / 1024),
         _ => "gone".into(),
+    }
+}
+
+/// Windows has no small per-process file limit to raise.
+#[cfg(windows)]
+pub fn raise_fd_limit() {}
+
+#[cfg(windows)]
+fn open_fds(_pid: u32) -> Option<usize> {
+    None
+}
+
+#[cfg(windows)]
+fn fd_limit() -> u64 {
+    0
+}
+
+/// `"rss=12MB cpu=3.1s"` for one process: working set and total CPU time so far.
+#[cfg(windows)]
+fn usage_of(pid: u32) -> String {
+    use windows_sys::Win32::Foundation::{CloseHandle, FILETIME};
+    use windows_sys::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+    use windows_sys::Win32::System::Threading::{GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+
+    // SAFETY: the handle is checked, only passed to calls that read from it, and closed once.
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            return "gone".into();
+        }
+        let mut memory: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
+        let memory_ok = GetProcessMemoryInfo(handle, &mut memory, std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32) != 0;
+        let zero = FILETIME { dwLowDateTime: 0, dwHighDateTime: 0 };
+        let (mut created, mut exited, mut kernel, mut user) = (zero, zero, zero, zero);
+        let times_ok = GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user) != 0;
+        CloseHandle(handle);
+        let ticks = |t: FILETIME| (u64::from(t.dwHighDateTime) << 32) | u64::from(t.dwLowDateTime);
+        match (memory_ok, times_ok) {
+            (true, true) => format!("rss={}MB cpu={:.1}s", memory.WorkingSetSize / (1024 * 1024), (ticks(kernel) + ticks(user)) as f64 / 10_000_000.0),
+            _ => "gone".into(),
+        }
     }
 }
 

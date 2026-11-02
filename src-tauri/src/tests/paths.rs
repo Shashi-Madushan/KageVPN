@@ -80,6 +80,7 @@ fn the_last_runs_sing_box_log_is_kept_when_the_next_run_starts() {
 }
 
 #[test]
+#[cfg(unix)]
 fn the_data_folder_and_the_log_are_owner_only() {
     use std::os::unix::fs::PermissionsExt;
     let root = scratch("private");

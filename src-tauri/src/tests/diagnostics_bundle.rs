@@ -25,29 +25,20 @@ fn material() -> Material {
     }
 }
 
-/// Reads the archive back with macOS's own `unzip`, which also proves the bytes form a valid zip.
+/// Reads the archive back with an independent zip reader, which checks every entry's CRC, so the
+/// bytes are proven to form a valid zip on every OS.
 fn unzip(bytes: Vec<u8>) -> Vec<(String, String)> {
-    // Tests run in parallel and may build equally large bundles, so every call gets its own folder.
-    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let dir = std::env::temp_dir().join(format!("kage-bundle-{}-{}", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    let archive = dir.join("bundle.zip");
-    std::fs::write(&archive, bytes).unwrap();
-    let test = std::process::Command::new("/usr/bin/unzip").arg("-tq").arg(&archive).output().unwrap();
-    assert!(test.status.success(), "unzip rejected the archive: {}", String::from_utf8_lossy(&test.stdout));
-    let extracted = dir.join("out");
-    let status = std::process::Command::new("/usr/bin/unzip").arg("-q").arg(&archive).arg("-d").arg(&extracted).status().unwrap();
-    assert!(status.success());
-    let mut files: Vec<(String, String)> = std::fs::read_dir(&extracted)
-        .unwrap()
-        .map(|e| {
-            let e = e.unwrap();
-            (e.file_name().to_string_lossy().into_owned(), std::fs::read_to_string(e.path()).unwrap())
+    use std::io::Read;
+    let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("a readable zip");
+    let mut files: Vec<(String, String)> = (0..zip.len())
+        .map(|i| {
+            let mut entry = zip.by_index(i).unwrap();
+            let mut text = String::new();
+            entry.read_to_string(&mut text).expect("the entry's CRC matches");
+            (entry.name().to_string(), text)
         })
         .collect();
     files.sort();
-    let _ = std::fs::remove_dir_all(dir);
     files
 }
 

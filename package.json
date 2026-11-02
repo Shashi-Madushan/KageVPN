@@ -17,6 +17,7 @@
     "build:app": "tauri build --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
     "release": "node scripts/release.mjs",
     "test:scripts": "node --test scripts/tests/*.test.mjs",
+    "check:windows": "cd src-tauri && cargo clippy --target x86_64-pc-windows-gnu --all-targets -- -D warnings",
     "screenshots": "UPDATE_FIXTURES=1 cargo test --manifest-path src-tauri/Cargo.toml demo_protocols_fixture -q && node scripts/screenshots/capture.mjs"
   },
   "license": "MIT",
