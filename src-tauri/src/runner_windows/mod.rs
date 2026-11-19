@@ -2,9 +2,12 @@
 //! Object that kills it when the app's last handle closes, so a crashed app never leaves a proxy
 //! running. A watcher thread does what `supervisor.sh` does on macOS: it ends the run when the
 //! stop file appears, notes how sing-box exited, and puts the system proxy back if sing-box died
-//! on its own. TUN mode needs the helper service (phase 2) and is refused until then.
+//! on its own. TUN mode needs administrator rights, so it goes through the helper service
+//! (`service.rs`, installed by `daemon.rs`, reached by `client.rs`).
 
 pub mod daemon;
+mod client;
+pub mod service;
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -49,11 +52,21 @@ static JOB: Mutex<Option<Job>> = Mutex::new(None);
 /// Nothing to forget: Windows has no once-per-launch service repairs yet.
 pub fn forget_repair_attempts() {}
 
-pub async fn start(paths: &AppPaths, binary: &Path, mode: Mode, _kill_switch_ips: Option<String>, _cancel: &AtomicBool) -> Result<u32> {
+pub async fn start(paths: &AppPaths, binary: &Path, mode: Mode, _kill_switch_ips: Option<String>, cancel: &AtomicBool) -> Result<u32> {
     match mode {
-        Mode::Tun => Err(AppError::Launch(crate::platform::TUN_UNAVAILABLE.into())),
+        Mode::Tun => start_tun(paths, binary, cancel).await,
         Mode::Proxy => start_plain(paths, binary),
     }
+}
+
+/// TUN: make sure the helper service is installed and up to date, then hand it the configuration.
+async fn start_tun(paths: &AppPaths, binary: &Path, cancel: &AtomicBool) -> Result<u32> {
+    if !daemon::installed() || !daemon::binary_current(binary) {
+        daemon::install(paths, binary, Some(cancel)).await?;
+    }
+    daemon::ensure_running()?;
+    let config = serde_json::from_slice(&std::fs::read(paths.config_file())?).map_err(|e| AppError::Launch(format!("unreadable configuration: {e}")))?;
+    client::start(config)
 }
 
 fn start_plain(paths: &AppPaths, binary: &Path) -> Result<u32> {
@@ -130,6 +143,10 @@ fn watch(mut child: Child, stop: &Path, errlog: &Path, paths: &AppPaths) {
 }
 
 pub fn request_stop(paths: &AppPaths) -> Result<()> {
+    if client::is_connected() {
+        client::stop();
+        return Ok(());
+    }
     std::fs::write(paths.stop_file(), b"")?;
     Ok(())
 }
@@ -162,8 +179,8 @@ pub fn is_alive(pid: u32) -> bool {
     }
 }
 
-/// There is no administrator prompt for shell commands on Windows; the helper service (phase 2)
-/// takes over what needs one.
+/// Shell commands as administrator are a macOS thing (the kill switch); the Windows kill switch
+/// comes with phase 3.
 pub(crate) async fn run_admin_script(_command: &str, _prompt: &str) -> Result<String> {
-    Err(AppError::Launch("this needs the Kage helper service, which is not available on Windows yet".into()))
+    Err(AppError::Launch("this is not available on Windows yet".into()))
 }

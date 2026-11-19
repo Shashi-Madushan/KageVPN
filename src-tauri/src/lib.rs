@@ -50,6 +50,8 @@ mod traffic;
 mod usage;
 #[cfg(any(windows, test))]
 mod winapps;
+#[cfg(any(windows, test))]
+mod winservice;
 #[cfg(windows)]
 mod winnet;
 #[cfg(any(windows, test))]
@@ -72,6 +74,12 @@ fn updater_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry, tauri_plugin_updat
         builder = builder.pubkey(key);
     }
     builder.build()
+}
+
+/// The Windows helper service, started by the Service Control Manager.
+#[cfg(windows)]
+pub fn run_service() -> Result<(), String> {
+    runner::service::run()
 }
 
 pub fn run() {

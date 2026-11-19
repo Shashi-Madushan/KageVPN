@@ -4,7 +4,7 @@ import { api, type Platform } from './api';
 function guess(): Platform {
 	const windows = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent);
 	return windows
-		? { os: 'windows', tun: false, killSwitch: false, rootService: false, systemProxy: true, appNap: false, speedInTray: false }
+		? { os: 'windows', tun: true, killSwitch: false, rootService: true, systemProxy: true, appNap: false, speedInTray: false }
 		: { os: 'macos', tun: true, killSwitch: true, rootService: true, systemProxy: true, appNap: true, speedInTray: true };
 }
 

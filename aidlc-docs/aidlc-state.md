@@ -92,5 +92,5 @@ Extensions for this round: Security Baseline No, Property-Based Testing No, Resi
 ### Construction (planned)
 - Part A (branch feature/universal-and-qr): [x] A1 universal build (construction/a1-universal-build/code/summary.md), [x] A2 QR import (construction/a2-qr-import/code/summary.md), [x] Build and Test (in the summaries), committed; PR not opened yet
 - Part B phase 1 (branch feature/windows): [x] W1, [x] W2 (FD + code), [x] W3, [x] W4, [x] W5, [~] Build and Test (Mac side done; Windows device checks pending), PR not opened
-- Part B phase 2: [ ] W6 (FD), [ ] W7, [ ] Build and Test, PR
+- Part B phase 2 (branch feature/windows-tun, from dev): [x] W6 FD (recommended answers; construction/w6-windows-service/functional-design/business-logic.md), [x] W6 + W7 code (winservice.rs, runner_windows/{service,client,daemon}.rs; Mac tests, clippy, Windows check pass), [~] Build and Test (Windows device checks in docs/WINDOWS.md section 4b pending), PR
 - Part B phase 3: [ ] W8 (FD), [ ] Build and Test, PR

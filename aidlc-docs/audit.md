@@ -610,3 +610,19 @@ keep the network exteion part for later"
 **Context**: Documentation follow-up, Round 5 (feature/windows)
 
 ---
+
+## Round 5 phase 2: start W6 (Windows service) Functional Design
+**Timestamp**: 2026-11-19T00:00:00Z
+**User Input**: "use aidlc if we have it and plan this and build this" (after: "can we check and fix his TUN / full VPN mode: on Windows, sing-box needs the Wintun driver and administrator rights ... planned Windows service ... named-pipe link")
+**AI Response**: Checked the code: TUN on Windows is a deliberate stub (runner_windows/mod.rs, daemon.rs; platform.rs tun: false), not a bug. Resumed Round 5 at phase 2 on branch feature/windows-tun (from dev, which now contains Part A and phase 1). Wrote plans/w6-windows-service-functional-design-plan.md with six questions and recommended answers. Noted that the phase 1 report had deferred phase 2 until Windows device results.
+**Context**: CONSTRUCTION - W6 Functional Design, questions awaiting the user
+
+---
+
+## W6/W7 built (Windows TUN helper service)
+**Timestamp**: 2026-11-19T00:00:00Z
+**User Input**: "use recomaned and dont over engeneer , make the code maninatinable"
+**AI Response**: Used the recommended answers. Kept it small: a Start/Stop pipe protocol, one elevated PowerShell for install and remove, the service is the app exe with --service. Pure logic (messages, config validation, SDDL, scripts) is in winservice.rs with 13 tests; Windows-only code is runner_windows/{service,client,daemon}.rs. platform.tun and root_service are true on Windows; TUN adds strict_route on Windows only. 484 Mac tests, Mac and Windows clippy clean. Not run on Windows: manual checks added as docs/WINDOWS.md section 4b.
+**Context**: CONSTRUCTION - W6/W7 code complete, Build and Test pending on a Windows device
+
+---

@@ -5,10 +5,10 @@ Windows support is arriving in phases:
 | Phase | What works | State |
 |---|---|---|
 | 1 | Proxy Only mode, the Windows system proxy, the engine manager, the Windows title bar and tray, installed apps, Ctrl shortcuts, the NSIS installer and updates | Built; compiled and unit-tested from macOS; **needs the checks below on Windows** |
-| 2 | TUN mode through a helper service installed once (UAC) | Planned |
+| 2 | TUN mode through a helper service installed once (UAC) | Built, needs the checks in section 4b |
 | 3 | A firewall kill switch (WFP) | Planned |
 
-Until phase 2, TUN mode, the kill switch and the VPN service are hidden on Windows, and the app always connects in Proxy Only mode.
+TUN mode and the VPN service are available on Windows (phase 2). The kill switch is still hidden until phase 3; TUN uses sing-box's `strict_route` meanwhile.
 
 ## 1. Set up the PC (once)
 
@@ -64,7 +64,7 @@ Tick each one, and note anything that looks or behaves wrong.
 - [ ] Left-clicking the tray icon opens the popover **above** the taskbar, next to the icon, fully on screen. Clicking elsewhere closes it. Right-click shows the menu.
 - [ ] Ctrl+1 to Ctrl+9 switch pages. The sidebar tooltips say `Ctrl+1` and so on.
 - [ ] The text says "PC", "Windows" and "system tray", never "Mac", "macOS" or "menu bar". Look at Settings, Home, the setup guide (*Settings > Run setup again*) and the subscription options.
-- [ ] There is no TUN mode anywhere (Home, popover, setup guide, Diagnostics), and no kill switch, VPN service or "Speed in menu bar" setting.
+- [ ] There is no kill switch or "Speed in menu bar" setting.
 
 ### Engine
 - [ ] On first run the Engine page offers to download sing-box. It downloads `sing-box-<version>-windows-amd64.zip`, checks it, and lists the version as installed.
@@ -99,6 +99,19 @@ Tick each one, and note anything that looks or behaves wrong.
 - [ ] *Connect by network:* on a new network the app asks once in a Windows message box.
 - [ ] Feedback and *Export diagnostics* name the Windows version (for example `Windows 23H2 (build 22631)`).
 - [ ] QR import: drop a QR screenshot on *Add server*. HEIC files may not open on Windows; PNG and JPEG should.
+
+## 4b. Manual checks (phase 2: TUN and the helper service)
+Run these on a Windows PC with the app installed, signed in as the user you normally use.
+- [ ] Pick TUN mode and connect. Windows asks for permission once (UAC). Connecting works and Home turns green.
+- [ ] Services (`services.msc`) lists "Kage Helper"; `%ProgramData%\Kage` has `kage-vpn.exe`, `engine\sing-box.exe` and `run\`.
+- [ ] Your public IP is the server's, and all apps (not just ones that follow the proxy) go through it.
+- [ ] Disconnect, then connect again: no UAC prompt the second time.
+- [ ] Quit the app (or end it in Task Manager) while connected: `sing-box.exe` disappears and the internet works again.
+- [ ] Another Windows user on the PC cannot connect to `\\.\pipe\com.apzur.kage.helper`.
+- [ ] Diagnostics > Repair VPN service installs the service again after you delete it with `sc delete KageHelper`.
+- [ ] Settings > remove the VPN service removes the service and the `Kage` folder.
+- [ ] Declining the UAC prompt shows a cancel, not an error, and changes nothing.
+- [ ] After an app update, the first TUN connect asks once to update the service.
 
 ## 5. Releasing for Windows
 

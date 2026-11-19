@@ -137,7 +137,12 @@ pub fn build(input: &ConfigInput) -> Result<Value> {
         // server that may not reach it (sites half-load). On a network with native IPv6 that
         // traffic skips the VPN, which is the cost of the switch being off.
         let address = if input.routing.ipv6 { json!([TUN_ADDRESS_V4, TUN_ADDRESS_V6]) } else { json!([TUN_ADDRESS_V4]) };
-        inbounds.push(json!({ "type": "tun", "tag": "tun-in", "address": address, "auto_route": true }));
+        let mut tun = json!({ "type": "tun", "tag": "tun-in", "address": address, "auto_route": true });
+        if cfg!(windows) {
+            // Blocks traffic outside the tunnel while sing-box runs; it is the leak guard until the Windows kill switch exists.
+            tun["strict_route"] = json!(true);
+        }
+        inbounds.push(tun);
     }
 
     // Lists are local files, so a missing one is left out rather than failing the connection.

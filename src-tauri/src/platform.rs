@@ -23,10 +23,10 @@ pub struct Platform {
 #[cfg(target_os = "macos")]
 pub const CURRENT: Platform = Platform { os: "macos", tun: true, kill_switch: true, root_service: true, system_proxy: true, app_nap: true, speed_in_tray: true };
 
-/// Phase 1 on Windows: Proxy Only mode and the system proxy. TUN mode and the kill switch need the
-/// helper service, which comes later.
+/// Windows: Proxy Only, the system proxy, and TUN through the helper service. The kill switch
+/// comes in phase 3; until then TUN uses sing-box's `strict_route`.
 #[cfg(windows)]
-pub const CURRENT: Platform = Platform { os: "windows", tun: false, kill_switch: false, root_service: false, system_proxy: true, app_nap: false, speed_in_tray: false };
+pub const CURRENT: Platform = Platform { os: "windows", tun: true, kill_switch: false, root_service: true, system_proxy: true, app_nap: false, speed_in_tray: false };
 
 #[cfg(not(any(target_os = "macos", windows)))]
 pub const CURRENT: Platform = Platform { os: "other", tun: false, kill_switch: false, root_service: false, system_proxy: false, app_nap: false, speed_in_tray: false };
