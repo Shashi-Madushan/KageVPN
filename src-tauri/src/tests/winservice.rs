@@ -95,6 +95,7 @@ fn the_install_script_copies_checks_and_registers() {
     assert!(script.contains("'C:\\Users\\a\\it''s\\sing-box.exe'"), "quotes are doubled");
     assert!(script.contains("'abcdef'") && script.contains("the engine changed while it was being copied"));
     assert!(script.contains(&format!("--service --user-sid {SID}")));
+    assert!(script.contains("WebView2Loader.dll"), "builds that need the loader DLL get it beside the service exe");
     assert!(script.contains("icacls.exe $d /inheritance:r") && script.contains("sdset"));
     assert!(install_script("a", "b", "c", "S-1-5").is_err());
 }

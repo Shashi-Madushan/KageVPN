@@ -177,6 +177,8 @@ if (Get-Service -Name $name -ErrorAction SilentlyContinue) {{
 New-Item -ItemType Directory -Force -Path $d, (Join-Path $d 'engine'), (Join-Path $d 'run') | Out-Null
 & icacls.exe $d /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
 Copy-Item -LiteralPath {app} -Destination (Join-Path $d 'kage-vpn.exe') -Force
+$loader = Join-Path (Split-Path -Parent {app}) 'WebView2Loader.dll'
+if (Test-Path -LiteralPath $loader) {{ Copy-Item -LiteralPath $loader -Destination $d -Force }}
 Copy-Item -LiteralPath {engine} -Destination (Join-Path $d 'engine\sing-box.exe') -Force
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $d 'engine\sing-box.exe')).Hash.ToLower()
 if ($hash -ne {sha}) {{ throw 'the engine changed while it was being copied' }}

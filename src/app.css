@@ -76,6 +76,35 @@
 	}
 }
 
+/* Windows draws an opaque window (no Mica or vibrancy behind the page), so the translucent surfaces
+   above become solid colours. */
+:root[data-os='windows'] {
+	--win-bg: #f3f3f3;
+	--surface: #ffffff;
+	--surface-strong: #ffffff;
+	--content-bg: #fafafa;
+}
+
+:root[data-os='windows'][data-theme='dark'] {
+	--win-bg: #202020;
+	--surface: #2b2b2b;
+	--surface-strong: #323232;
+	--content-bg: #272727;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root[data-os='windows']:not([data-theme='light']):not([data-theme='dark']) {
+		--win-bg: #202020;
+		--surface: #2b2b2b;
+		--surface-strong: #323232;
+		--content-bg: #272727;
+	}
+}
+
+:root[data-os='windows'] body {
+	background: var(--win-bg);
+}
+
 * {
 	box-sizing: border-box;
 }

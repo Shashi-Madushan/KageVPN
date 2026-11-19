@@ -77,7 +77,7 @@ pub fn sing_box_asset(os: &str, version: &str, arch: &str) -> String {
 pub const SING_BOX: CoreSpec = CoreSpec {
     id: "sing-box",
     name: "sing-box",
-    releases_api: "https://api.github.com/repos/SagerNet/sing-box/releases?per_page=30",
+    releases_api: "https://api.github.com/repos/SagerNet/sing-box/releases?per_page=15",
     asset_name: |version, arch| sing_box_asset(ENGINE_OS, version, arch),
     binary_name: if cfg!(windows) { "sing-box.exe" } else { "sing-box" },
     version_args: &["version"],

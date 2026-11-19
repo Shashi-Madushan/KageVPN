@@ -184,6 +184,10 @@
 				</div>
 			{/each}
 
+			{#if core.checkError}
+				<div class="item note" role="row"><span class="grow">{core.checkError}</span></div>
+			{/if}
+
 			{#each available as release (release.version)}
 				{@const rel = relation(release)}
 				<div class="item avail" role="row">

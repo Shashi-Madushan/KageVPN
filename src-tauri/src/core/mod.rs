@@ -248,8 +248,46 @@ pub fn locate(spec: &CoreSpec) -> Result<PathBuf> {
         .iter()
         .map(PathBuf::from)
         .chain(on_path)
+        .chain(windows_locations(spec.binary_name))
         .find(|candidate| candidate.is_file())
         .ok_or(AppError::SingBoxMissing)
+}
+
+/// Where a Windows user is likely to have put a sing-box they installed themselves: the usual
+/// install folders and package-manager folders, and an unpacked download left in Downloads.
+#[cfg(windows)]
+fn windows_locations(binary: &str) -> Vec<PathBuf> {
+    let under = |var: &str, rest: &str| std::env::var_os(var).map(|base| PathBuf::from(base).join(rest));
+    let mut folders: Vec<PathBuf> = [
+        under("ProgramFiles", "sing-box"),
+        under("LOCALAPPDATA", r"Programs\sing-box"),
+        under("LOCALAPPDATA", r"Microsoft\WinGet\Links"),
+        under("USERPROFILE", r"scoop\shims"),
+        under("USERPROFILE", "sing-box"),
+        under("ProgramData", r"chocolatey\bin"),
+        Some(PathBuf::from(r"C:\sing-box")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    // An unpacked release zip: Downloads\sing-box-<version>-windows-amd64\, newest name first.
+    if let Some(downloads) = under("USERPROFILE", "Downloads") {
+        let mut unpacked: Vec<PathBuf> = fs::read_dir(downloads)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|entry| entry.file_name().to_string_lossy().starts_with("sing-box-"))
+            .map(|entry| entry.path())
+            .collect();
+        unpacked.sort_by(|a, b| b.cmp(a));
+        folders.extend(unpacked);
+    }
+    folders.into_iter().map(|folder| folder.join(binary)).collect()
+}
+
+#[cfg(not(windows))]
+fn windows_locations(_binary: &str) -> Vec<PathBuf> {
+    Vec::new()
 }
 
 /// Earlier versions kept downloads directly in `core/<version>/`; move them under the core's id.

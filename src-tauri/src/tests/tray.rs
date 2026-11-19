@@ -84,3 +84,11 @@ fn the_popover_sits_above_a_taskbar_icon() {
     assert_eq!(y, 1032.0 - 675.0 - POPOVER_GAP * 1.5);
     assert!(x + 408.0 <= 1920.0 - SCREEN_MARGIN * 1.5);
 }
+
+#[test]
+fn a_popover_anchored_at_a_click_in_the_taskbar_stays_above_the_work_area_edge() {
+    // The work area ends at 1040 (the taskbar is below); the click was inside the taskbar.
+    let (x, y) = popover_origin((1800.0, 1060.0, 1.0, 1.0), (272.0, 450.0), Some((0.0, 0.0, 1920.0, 1040.0)), 1.0);
+    assert!(y + 450.0 <= 1040.0 - SCREEN_MARGIN, "bottom edge {}", y + 450.0);
+    assert!(x + 272.0 <= 1920.0 - SCREEN_MARGIN);
+}

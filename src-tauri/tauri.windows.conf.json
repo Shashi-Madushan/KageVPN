@@ -12,11 +12,8 @@
         "label": "main",
         "create": false,
         "decorations": false,
-        "transparent": true,
-        "shadow": true,
-        "windowEffects": {
-          "effects": ["mica"]
-        }
+        "transparent": false,
+        "shadow": true
       },
       {
         "label": "tray",
@@ -25,16 +22,13 @@
         "width": 272,
         "height": 450,
         "decorations": false,
-        "transparent": true,
+        "transparent": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false,
         "resizable": false,
         "shadow": true,
-        "focus": false,
-        "windowEffects": {
-          "effects": ["acrylic"]
-        }
+        "focus": false
       }
     ]
   },

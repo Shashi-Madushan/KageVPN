@@ -79,10 +79,11 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 rect,
+                position,
                 ..
             } = event
             {
-                toggle_popover(tray.app_handle(), rect);
+                toggle_popover(tray.app_handle(), rect, position);
             }
         })
         .build(app)?;
@@ -313,7 +314,7 @@ pub fn handle_window_event(window: &Window, event: &WindowEvent) {
     }
 }
 
-fn toggle_popover(app: &AppHandle, anchor: Rect) {
+fn toggle_popover(app: &AppHandle, anchor: Rect, cursor: PhysicalPosition<f64>) {
     if let Some(window) = app.get_webview_window(POPOVER) {
         if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
@@ -326,20 +327,27 @@ fn toggle_popover(app: &AppHandle, anchor: Rect) {
     }
     POPOVER_GEN.fetch_add(1, Ordering::Relaxed);
     let Some(window) = window_or_create(app, POPOVER) else { return };
-    place_below(app, &window, anchor);
+    place_below(app, &window, anchor, cursor);
     let _ = window.show();
     let _ = window.set_focus();
 }
 
-fn place_below(app: &AppHandle, window: &tauri::WebviewWindow, anchor: Rect) {
+fn place_below(app: &AppHandle, window: &tauri::WebviewWindow, anchor: Rect, cursor: PhysicalPosition<f64>) {
     let scale = window.scale_factor().unwrap_or(1.0);
-    let position = anchor.position.to_physical::<f64>(scale);
-    let size = anchor.size.to_physical::<f64>(scale);
+    let mut position = anchor.position.to_physical::<f64>(scale);
+    let mut size = anchor.size.to_physical::<f64>(scale);
+    // Windows reports an empty rectangle (0, 0, 0, 0) for an icon in the hidden-icons flyout; the
+    // click itself is then the best anchor there is.
+    if size.width < 1.0 || size.height < 1.0 || (position.x == 0.0 && position.y == 0.0) {
+        position = cursor;
+        size = tauri::PhysicalSize::new(1.0, 1.0);
+    }
     let Ok(window_size) = window.outer_size() else { return };
 
     let center_x = position.x + size.width / 2.0;
     let monitor = app.monitor_from_point(center_x, position.y).ok().flatten().map(|m| {
-        let (origin, extent) = (m.position(), m.size());
+        // On Windows the popover stays clear of the taskbar, so it uses the monitor's work area.
+        let (origin, extent) = if cfg!(windows) { (&m.work_area().position, &m.work_area().size) } else { (m.position(), m.size()) };
         (f64::from(origin.x), f64::from(origin.y), f64::from(extent.width), f64::from(extent.height))
     });
     let popover = (f64::from(window_size.width), f64::from(window_size.height));
@@ -362,6 +370,7 @@ fn popover_origin(anchor: (f64, f64, f64, f64), window: (f64, f64), monitor: Opt
         if ay + ah / 2.0 > my + mh / 2.0 {
             y = (ay - wh - gap).max(my + margin);
         }
+        y = y.min((my + mh - wh - margin).max(my + margin));
     }
     (x, y)
 }

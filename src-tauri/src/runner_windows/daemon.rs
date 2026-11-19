@@ -57,10 +57,10 @@ pub async fn uninstall() -> Result<()> {
 
 /// Starts the service if it is stopped. The install lets the signed-in user do this.
 pub fn ensure_running() -> Result<()> {
-    let service = open_service(ServiceAccess::QUERY_STATUS | ServiceAccess::START).map_err(|e| AppError::Launch(format!("the Kage helper service is not available: {e}")))?;
+    let service = open_service(ServiceAccess::QUERY_STATUS | ServiceAccess::START).map_err(|e| AppError::Launch(format!("the Kage helper service is not available: {}", describe(&e))))?;
     let state = |s: &windows_service::service::Service| s.query_status().map(|status| status.current_state).unwrap_or(ServiceState::Stopped);
     if state(&service) == ServiceState::Stopped {
-        service.start::<&str>(&[]).map_err(|e| AppError::Launch(format!("the Kage helper service did not start: {e}")))?;
+        service.start::<&str>(&[]).map_err(|e| AppError::Launch(format!("the Kage helper service did not start: {}", describe(&e))))?;
     }
     let started = Instant::now();
     while state(&service) != ServiceState::Running {
@@ -70,6 +70,15 @@ pub fn ensure_running() -> Result<()> {
         std::thread::sleep(Duration::from_millis(200));
     }
     Ok(())
+}
+
+/// The error with the Windows reason behind it: `windows-service` itself only says "IO error in
+/// winapi call", and the code and text after it are what say what went wrong.
+fn describe(error: &windows_service::Error) -> String {
+    match std::error::Error::source(error) {
+        Some(source) => format!("{error}: {source}"),
+        None => error.to_string(),
+    }
 }
 
 fn open_service(access: ServiceAccess) -> windows_service::Result<windows_service::service::Service> {

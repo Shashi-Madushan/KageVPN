@@ -6,8 +6,8 @@ use crate::app_config::CoreSpec;
 use crate::error::{AppError, Result};
 
 const MAX_RESULTS: usize = 12;
-/// The release listing is a few hundred kilobytes; this stops a server from filling memory.
-const MAX_LISTING_BYTES: usize = 8 * 1024 * 1024;
+/// The release listing is about 5 MB (every release carries its notes and a long asset list); this stops a server from filling memory.
+const MAX_LISTING_BYTES: usize = 16 * 1024 * 1024;
 const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Deserialize)]

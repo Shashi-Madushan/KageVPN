@@ -2,6 +2,7 @@ import { listen } from '@tauri-apps/api/event';
 import { app } from './app.svelte';
 import { coreApi, downloadsApi, type Channel, type CoreStatus, type DownloadFinished, type DownloadProgress, type Release, type UpdatePolicy, type UpdateAvailable } from './api';
 import { downloads } from './downloads.svelte';
+import { platform } from './platform.svelte';
 import { compareVersions } from './version';
 
 
@@ -15,6 +16,8 @@ class CoreStore {
 	/** Newer version reported by the daily background check. */
 	announced = $state<string | null>(null);
 	failure = $state<string | null>(null);
+	/** Why the last "Check for updates" gave nothing: an error, or an empty list. */
+	checkError = $state<string | null>(null);
 	promptInstall = $state(false);
 
 	coreName = $derived(this.status?.core.name ?? 'Engine');
@@ -70,11 +73,22 @@ class CoreStore {
 
 	async check() {
 		this.checking = true;
-		const releases = await this.run(coreApi.check);
+		this.checkError = null;
+		let releases: Release[] | undefined;
+		try {
+			releases = await coreApi.check();
+		} catch (e) {
+			this.checkError = `Could not fetch the engine versions: ${String(e)}`;
+			app.notify(this.checkError);
+		}
 		this.checking = false;
 		if (releases) {
 			this.releases = releases;
 			this.checked = true;
+			if (releases.length === 0) {
+				this.checkError = `No ${this.coreName} versions were found for ${platform.osName}. Check the internet connection, or try the Pre-release channel.`;
+				app.notify(this.checkError);
+			}
 			await this.refresh();
 		}
 	}
