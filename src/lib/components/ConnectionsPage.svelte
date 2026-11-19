@@ -102,8 +102,8 @@
 	const columns: { key: SortKey; label: string; num: boolean }[] = [
 		{ key: 'name', label: 'App', num: false },
 		{ key: 'conns', label: 'Conns', num: true },
-		{ key: 'up', label: '↑ Upload', num: true },
-		{ key: 'down', label: '↓ Download', num: true },
+		{ key: 'up', label: '↑ Up', num: true },
+		{ key: 'down', label: '↓ Down', num: true },
 		{ key: 'sent', label: '↑ Sent', num: true },
 		{ key: 'received', label: '↓ Received', num: true }
 	];
@@ -314,8 +314,8 @@
 	}
 	.apps .head,
 	.apps .row {
-		grid-template-columns: minmax(140px, 2fr) 56px repeat(4, minmax(92px, 1fr)) 92px;
-		column-gap: 12px;
+		grid-template-columns: minmax(0, 2fr) 44px repeat(4, minmax(0, 1fr)) 84px;
+		column-gap: 8px;
 	}
 	.apps .head {
 		position: sticky;
@@ -333,6 +333,9 @@
 		text-align: left;
 		padding: 6px 0;
 		white-space: nowrap;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.th.num {
 		text-align: right;
