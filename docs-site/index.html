@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>Kage VPN Documentation</title>
-  <meta name="description" content="Guides, architecture and protocol reference for Kage VPN, a native macOS client for sing-box.">
+  <meta name="description" content="Guides, architecture and protocol reference for Kage VPN, a sing-box client for macOS and Windows.">
   <meta property="og:title" content="Kage VPN Documentation">
-  <meta property="og:description" content="Guides, architecture and protocol reference for Kage VPN, a native macOS client for sing-box.">
+  <meta property="og:description" content="Guides, architecture and protocol reference for Kage VPN, a sing-box client for macOS and Windows.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="assets/og-icon.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -20,6 +20,11 @@
         var t = localStorage.getItem('kage-docs-theme');
         if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}
+      // The platform the pages describe: the visitor's choice, or the OS they are browsing from.
+      var os = null;
+      try { os = localStorage.getItem('kage-docs-os'); } catch (e) {}
+      if (os !== 'macos' && os !== 'windows') os = /Windows/i.test(navigator.userAgent) ? 'windows' : 'macos';
+      document.documentElement.setAttribute('data-os', os);
     })();
   </script>
   <link rel="stylesheet" href="css/style.css">
@@ -43,6 +48,11 @@
       <span class="search-trigger-label">Search</span>
     </button>
 
+
+    <div class="os-switch" id="os-switch" role="radiogroup" aria-label="Show the docs for">
+      <button type="button" role="radio" data-os="macos">macOS</button>
+      <button type="button" role="radio" data-os="windows">Windows</button>
+    </div>
 
     <button class="icon-btn" id="theme-btn" aria-label="Toggle dark mode">
       <svg class="i-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>

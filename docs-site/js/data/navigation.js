@@ -14,9 +14,19 @@ window.DOCS_NAVIGATION = [
       },
       {
         slug: "getting-started/gatekeeper",
+        os: "macos",
+        counterpart: "getting-started/windows-install",
         title: "macOS Gatekeeper Bypass",
         badge: "Security",
         description: "How to fix 'Kage VPN cannot be opened' or 'damaged' quarantine errors on macOS."
+      },
+      {
+        slug: "getting-started/windows-install",
+        os: "windows",
+        counterpart: "getting-started/gatekeeper",
+        title: "Install on Windows",
+        badge: "Setup",
+        description: "Installing the Windows preview, the SmartScreen warning, and what works on Windows today."
       },
       {
         slug: "getting-started/first-run",
@@ -107,6 +117,12 @@ window.DOCS_NAVIGATION = [
         title: "TUN & macOS pfctl Routing",
         badge: "Kernel",
         description: "utun adapter creation, system default gateway overrides, and packet filter anchors."
+      },
+      {
+        slug: "architecture/windows-platform",
+        title: "Windows Platform Layer",
+        badge: "Platform",
+        description: "One module per area with a macOS and a Windows file, the platform flags, and the Windows system proxy."
       },
       {
         slug: "architecture/clash-ring-buffer",

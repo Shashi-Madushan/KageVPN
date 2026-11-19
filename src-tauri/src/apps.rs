@@ -86,6 +86,11 @@ fn stem(bundle: &Path) -> String {
 /// The icon file name an app's `Info.plist` names, with the `.icns` ending macOS leaves out.
 pub fn icon_file_name(info: &plist::Dictionary) -> Option<String> {
     let name = info.get("CFBundleIconFile").and_then(|v| v.as_string()).map(str::trim).filter(|n| !n.is_empty())?;
+    // The name comes from a file inside someone else's app and is joined onto its Resources folder,
+    // so it must be a plain file name and not a way to read a file elsewhere.
+    if name.contains(['/', '\\']) || name.contains("..") {
+        return None;
+    }
     Some(if name.to_lowercase().ends_with(".icns") { name.to_string() } else { format!("{name}.icns") })
 }
 

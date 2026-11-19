@@ -182,8 +182,10 @@ impl Store {
         self.data.profiles.iter().find(|p| p.id == id)
     }
 
+    /// The saved mode, or Proxy Only where this OS has no TUN mode (a Windows install that was set
+    /// to TUN by a restored backup, say).
     pub fn mode(&self) -> Mode {
-        self.data.mode
+        if crate::platform::CURRENT.tun { self.data.mode } else { Mode::Proxy }
     }
 
     pub fn settings(&self) -> Settings {
@@ -278,6 +280,15 @@ impl Store {
         }
         sift_profiles(&mut backup);
         let mut incoming: Data = serde_json::from_value(backup).map_err(|e| AppError::Invalid(format!("this backup cannot be read: {e}")))?;
+        // A backup is a file from anywhere, and the settings screens are not the only way into these
+        // values: they get the same checks the screens apply before they are saved.
+        crate::config::validate_dns(&incoming.routing.dns)?;
+        crate::config::validate_rules(&incoming.routing.rules)?;
+        crate::rulesets::validate_providers(&incoming.routing.custom_providers)?;
+        crate::sysproxy::bypass_list(&incoming.reliability.bypass)?;
+        for subscription in &incoming.subscriptions {
+            crate::subscriptions::validate_url(&subscription.url)?;
+        }
         if self.path.is_file() {
             fs::copy(&self.path, self.path.with_file_name("data.before-restore.json"))?;
         }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { untrack } from 'svelte';
 	import type { Subscription, SubscriptionOptions } from '$lib/api';
 	import { focusOnMount } from '$lib/actions';
@@ -8,6 +9,7 @@
 		subscription = null,
 		busy = false,
 		error = null,
+		initialUrl = '',
 		submitLabel,
 		onsubmit,
 		oncancel
@@ -16,6 +18,8 @@
 		subscription?: Subscription | null;
 		busy?: boolean;
 		error?: string | null;
+		/** Fills the address of a new subscription, for one read from a QR code. */
+		initialUrl?: string;
 		submitLabel: string;
 		onsubmit: (name: string, url: string, options: SubscriptionOptions) => void;
 		oncancel: () => void;
@@ -36,7 +40,7 @@
 	const preset = clients.some((c) => c.value === initialAgent && c.value !== 'custom');
 
 	let name = $state(initial?.name ?? '');
-	let url = $state(initial?.url ?? '');
+	let url = $state(initial?.url ?? untrack(() => initialUrl));
 	let client = $state(preset ? initialAgent : 'custom');
 	let customAgent = $state(preset ? '' : initialAgent);
 	let sendDeviceId = $state(initial?.sendDeviceId ?? false);
@@ -65,7 +69,7 @@
 				<input class="input mono" placeholder="Client name, such as v2rayNG/1.9.0" bind:value={customAgent} aria-label="Custom client name" spellcheck="false" maxlength="200" />
 			{/if}
 			<label class="option">
-				<span class="grow">Send device ID<small>For providers that limit how many devices can use a subscription. Sends a random ID made for this Mac, the macOS version and the Mac model.</small></span>
+				<span class="grow">Send device ID<small>For providers that limit how many devices can use a subscription. Sends a random ID made for this {platform.device}, the {platform.osName} version and the {platform.device} model.</small></span>
 				<input type="checkbox" bind:checked={sendDeviceId} />
 			</label>
 		</div>

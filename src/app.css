@@ -12,7 +12,7 @@
 	--warn: #f29d0e;
 	--danger: #e5453b;
 	--down: #0a84ff;
-	--up: #bf5af2;
+	--up: #7d8798;
 	--radius: 14px;
 	--radius-sm: 9px;
 	--shadow: 0 1px 2px rgb(0 0 0 / 0.06);
@@ -51,7 +51,7 @@
 	--warn: #ff9f0a;
 	--danger: #ff453a;
 	--down: #64d2ff;
-	--up: #da8fff;
+	--up: #a3adbd;
 	--shadow: none;
 	color-scheme: dark;
 }
@@ -71,7 +71,7 @@
 		--warn: #ff9f0a;
 		--danger: #ff453a;
 		--down: #64d2ff;
-		--up: #da8fff;
+		--up: #a3adbd;
 		--shadow: none;
 	}
 }
@@ -131,9 +131,7 @@ button:disabled {
 
 .caption {
 	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 0.05em;
-	text-transform: uppercase;
+	font-weight: 500;
 	color: var(--fg-muted);
 }
 

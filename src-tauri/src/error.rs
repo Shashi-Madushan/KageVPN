@@ -6,7 +6,8 @@ pub enum AppError {
     Invalid(String),
     #[error("profile not found")]
     ProfileNotFound,
-    #[error("sing-box not found, install it with `brew install sing-box`")]
+    #[cfg_attr(not(windows), error("sing-box not found, install it with `brew install sing-box`"))]
+    #[cfg_attr(windows, error("sing-box not found, install it on the Engine page"))]
     SingBoxMissing,
     #[error("already connecting or connected")]
     Busy,
@@ -16,6 +17,7 @@ pub enum AppError {
     #[error("config check failed: {0}")]
     ConfigCheck(String),
     #[error("administrator permission was denied")]
+    #[cfg_attr(windows, allow(dead_code))]
     PermissionDenied,
     #[error("{0}")]
     Launch(String),

@@ -5,7 +5,7 @@
 //! are rare by design (never one per connection), the file is capped, and a failure to write
 //! is ignored so logging can never take the app down.
 
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -27,7 +27,7 @@ static SINK: Mutex<Option<Sink>> = Mutex::new(None);
 pub fn init(dir: &Path) {
     let path = dir.join(FILE);
     let written = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-    if let Ok(file) = OpenOptions::new().create(true).append(true).open(&path) {
+    if let Ok(file) = crate::fsutil::open_private_append(&path) {
         *lock() = Some(Sink { path, file, written });
     }
 
@@ -35,7 +35,7 @@ pub fn init(dir: &Path) {
     if let Ok(previous) = fs::read_to_string(&marker) {
         warn(format!("previous run (pid {}) did not exit cleanly: crash, panic, or killed", previous.trim()));
     }
-    let _ = fs::write(&marker, std::process::id().to_string());
+    let _ = crate::fsutil::write_private_atomic(&marker, std::process::id().to_string().as_bytes());
 
     info(format!(
         "start v{} pid {} args {:?}",
@@ -84,7 +84,7 @@ fn write(level: &str, message: &str) {
 fn rotate(sink: &mut Sink) {
     let old = sink.path.with_extension("log.1");
     let _ = fs::rename(&sink.path, &old);
-    if let Ok(file) = OpenOptions::new().create(true).append(true).open(&sink.path) {
+    if let Ok(file) = crate::fsutil::open_private_append(&sink.path) {
         sink.file = file;
         sink.written = 0;
     }

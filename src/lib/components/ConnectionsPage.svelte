@@ -394,7 +394,7 @@
 		background: var(--hairline);
 		color: var(--fg-muted);
 		font-size: 12px;
-		font-weight: 700;
+		font-weight: 600;
 	}
 	.pill {
 		display: inline-block;
@@ -512,8 +512,6 @@
 	.head {
 		font-size: 11px;
 		color: var(--fg-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
 		border-bottom: 1px solid var(--hairline);
 	}
 	.row + .row {

@@ -239,6 +239,10 @@ fn rule_json(rule: &Rule) -> Option<Value> {
 /// traffic from helper processes deeper in the bundle, so matching the main executable's name
 /// alone would leave that traffic on the default route.
 pub(crate) fn app_path_pattern(bundle: &str) -> String {
+    // A Windows app is its install folder (`C:\Program Files\Slack`); Windows paths ignore case.
+    if bundle.contains('\\') {
+        return format!("(?i)^{}\\\\", quote_meta(bundle.trim_end_matches('\\')));
+    }
     format!("^{}/", quote_meta(bundle.trim_end_matches('/')))
 }
 
@@ -333,9 +337,9 @@ pub fn custom_dns_server(text: &str) -> Option<Value> {
 /// Whether a rule names this app or the engine. Blocking either would cut the app's own health
 /// checks, downloads and local proxy traffic, so it is refused rather than saved.
 fn names_the_app_itself(rule: &Rule) -> bool {
-    let value = rule.value.trim().trim_end_matches('/');
-    let name = value.rsplit('/').next().unwrap_or(value);
-    let name = name.strip_suffix(".app").unwrap_or(name).to_lowercase();
+    let value = rule.value.trim().trim_end_matches(['/', '\\']);
+    let name = value.rsplit(['/', '\\']).next().unwrap_or(value).to_lowercase();
+    let name = name.strip_suffix(".app").or_else(|| name.strip_suffix(".exe")).unwrap_or(&name).to_string();
     let own = [crate::app_config::APP_NAME.to_lowercase(), "kage vpn".into(), "kage-vpn".into(), "kage".into(), "sing-box".into()];
     match rule.kind {
         RuleKind::ProcessName => own.contains(&name),
@@ -350,7 +354,7 @@ fn names_the_app_itself(rule: &Rule) -> bool {
 /// Refuses an enabled block rule for this app or the engine.
 pub fn validate_rules(rules: &[Rule]) -> Result<()> {
     if let Some(rule) = rules.iter().find(|r| r.enabled && r.action == Action::Block && names_the_app_itself(r)) {
-        let label = rule.value.rsplit('/').next().unwrap_or(&rule.value).trim_end_matches(".app");
+        let label = rule.value.rsplit(['/', '\\']).next().unwrap_or(&rule.value).trim_end_matches(".app").trim_end_matches(".exe");
         return Err(AppError::Invalid(format!(
             "{label} cannot be blocked: this app and its engine need the network for the VPN itself, health checks and downloads"
         )));

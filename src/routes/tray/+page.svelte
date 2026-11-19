@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { onMount } from 'svelte';
+	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 	import { api } from '$lib/api';
 	import { app } from '$lib/app.svelte';
 	import { formatBytes, formatDuration, formatRate, latencyLabel, latencyTone, planSummary, profileFlag } from '$lib/format';
@@ -14,10 +16,13 @@
 	import Sparkline from '$lib/components/Sparkline.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 
-	const modes = [
-		{ value: 'tun' as const, label: 'Full System' },
-		{ value: 'proxy' as const, label: 'Proxy Only' }
-	];
+	const WIDTH = 272;
+	const modes = $derived(
+		[
+			{ value: 'tun' as const, label: 'Full System' },
+			{ value: 'proxy' as const, label: 'Proxy Only' }
+		].filter((m) => m.value !== 'tun' || platform.info.tun)
+	);
 	const tone = $derived(app.disconnecting ? 'checking' : app.tunnelDown ? 'down' : app.verifying ? 'checking' : app.protectedNow ? 'ok' : 'off');
 	const via = $derived(app.connected ? 'tunnel' : 'server');
 	const check = $derived(
@@ -26,6 +31,15 @@
 	const pinging = $derived(!!check && 'pending' in check);
 
 	let now = $state(Math.floor(Date.now() / 1000));
+	let popover: HTMLDivElement;
+
+	/** The window follows the content, so the popover never shows an empty band or clips. */
+	function fitWindow() {
+		const height = Math.ceil(popover.getBoundingClientRect().height);
+		if (height && Math.abs(height - window.innerHeight) > 1) {
+			getCurrentWindow().setSize(new LogicalSize(WIDTH, height)).catch(() => {});
+		}
+	}
 
 	onMount(() => {
 		// The popover opens first; data fills in afterwards so the open itself never stalls.
@@ -36,10 +50,13 @@
 			if (e.key === 'Escape') api.hideTray();
 		};
 		window.addEventListener('keydown', handleKey);
+		const observer = new ResizeObserver(fitWindow);
+		observer.observe(popover);
 
 		return () => {
 			clearInterval(timer);
 			window.removeEventListener('keydown', handleKey);
+			observer.disconnect();
 		};
 	});
 
@@ -69,7 +86,7 @@
 					? 'Add a server to get started'
 					: app.connected
 						? null
-						: 'Press the button to connect'
+						: null
 	);
 	const elapsed = $derived(app.status.since ? formatDuration(Math.max(0, now - app.status.since)) : null);
 	/** What the active server's provider reports: data left and days left, when it reports either. */
@@ -78,32 +95,38 @@
 		const info = app.subscriptions.find((s) => s.id === subId)?.userInfo;
 		return info ? planSummary(info, now) : null;
 	});
+	const statusText = $derived(
+		app.disconnecting ? 'Disconnecting…' : app.tunnelDown ? 'No internet' : app.verifying ? 'Checking…' : app.protectedNow ? 'Protected' : isConnecting ? 'Connecting…' : 'Not connected'
+	);
 	const activeName = $derived(
 		app.auto.enabled ? 'Auto (fastest)' : (app.activeProfile?.name.replace(/^\p{RI}{2}\s*/u, '') ?? null)
 	);
 </script>
 
-<div class="popover">
-	<button class="icon-btn close" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)">✕</button>
+<div class="popover" bind:this={popover}>
+	<button class="icon-btn close" onclick={() => api.hideTray()} aria-label="Close" title="Close (Esc)"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" /></svg></button>
 
 	{#if !app.loaded}
 		<div class="skeleton" aria-hidden="true">
-			<div class="center"><Skeleton width="112px" height="112px" radius="50%" /></div>
+			<div class="center"><Skeleton width="88px" height="88px" radius="50%" /></div>
 			<div class="center"><Skeleton width="170px" height="22px" radius="8px" /></div>
-			<Skeleton height="48px" radius="12px" />
-			<Skeleton height="56px" radius="12px" />
-			<Skeleton height="128px" radius="12px" />
+			<div class="center"><Skeleton width="80px" height="26px" radius="999px" /></div>
+			<Skeleton height="38px" radius="10px" />
+			<Skeleton height="38px" radius="12px" />
+			<Skeleton height="132px" radius="12px" />
 			<Skeleton height="34px" radius="10px" />
 		</div>
 	{:else}
-		<section class="hero">
-			<MascotButton size={120} />
+		<section class="hero {tone}">
+			<MascotButton size={76} />
 			<h1 class="headline {tone}">{headline}</h1>
-			{#if sub}<p class="sub">{sub}</p>{/if}
-			{#if app.profiles.length}
-				<button class="pill {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
-					<Icon name="bolt" size={13} />{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test latency'}
+			{#if sub}<p class="sub">{sub}{#if isConnecting} · tap to cancel{/if}</p>{/if}
+			{#if app.activeProfile || app.auto.enabled}
+				<button class="ping {latencyTone(check)}" onclick={() => app.checkServer()} disabled={pinging || !app.activeProfile} title={app.connected ? 'Check that traffic flows through the tunnel' : 'Check that the server answers'}>
+					<Icon name="bolt" size={13} /><span class="tabular">{check ? (pinging ? 'Pinging…' : latencyLabel(check)) : 'Test latency'}</span>
 				</button>
+			{:else if !sub && app.profiles.length}
+				<p class="sub">Tap the mascot to connect</p>
 			{/if}
 		</section>
 
@@ -115,46 +138,40 @@
 				<!-- While connected the server changes in place; only the mode needs a disconnect. -->
 				<div class="pick" title={app.connected ? 'Switch server without disconnecting' : undefined}>{@render serverPicker()}</div>
 			{/if}
-			{#if app.locked}
-				<div class="strip" class:compact={app.connected} aria-label="Connection details">
-					{#if !app.connected}
-						<span class="cell grow" title={activeName ?? ''}>
-							<span class="flag">{app.activeProfile ? profileFlag(app.activeProfile.name, app.activeProfile.server) : '↯'}</span>
-							<span class="two"><small>Server</small><strong>{activeName ?? '—'}</strong></span>
-						</span>
-					{/if}
-					<span class="cell"><strong class="tabular">{elapsed ?? '—'}</strong></span>
-					<span class="cell ip">
-						{#if app.exitIp}
-							<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
-							<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
-						{:else if app.tunnelDown}
-							<small>No IP</small>
-						{:else}
-							<Skeleton width="84px" height="14px" />
-						{/if}
-					</span>
-				</div>
-			{/if}
 
-			<section class="card usage" class:with-plan={plan} aria-label="Data usage">
-				<span class="label">Data usage</span>
-				<div class="rates">
-					<span class="down tabular">↓ {formatRate(app.traffic.down)}</span>
-					<span class="up tabular">↑ {formatRate(app.traffic.up)}</span>
-					<span class="today tabular">
-						Today: {#if usage.todayLoading}<Skeleton width="36px" height="11px" />{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}
-					</span>
+			<section class="card info" aria-label="Connection">
+				<span class="elapsed tabular" title="Time connected">{elapsed && app.connected ? elapsed : '--:--:--'}</span>
+				<span class="ip" title="Exit IP">
+					{#if !app.connected}
+						<span class="none">Not connected</span>
+					{:else if app.exitIp}
+						<span class="ip-text"><Sensitive id={privacyKey.exitIp}><span class="mono tabular">{app.exitIp}</span></Sensitive></span>
+						<PrivacyToggle id={privacyKey.exitIp} label="IP address" />
+					{:else if app.tunnelDown}
+						<span class="none">No IP</span>
+					{:else}
+						<Skeleton width="84px" height="14px" />
+					{/if}
+				</span>
+			</section>
+
+			<section class="card usage" aria-label="Data usage">
+				<div class="head">
+					<h2 class="title">Data usage</h2>
+					<span class="today tabular" title="Total used today">Today: {#if usage.todayLoading}…{:else}{usage.today ? formatBytes(usage.today.up + usage.today.down) : '—'}{/if}</span>
 				</div>
-				{#if plan}<span class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</span>{/if}
+				<div class="speeds">
+					<strong class="rate down tabular" title="Download">↓ {formatRate(app.traffic.down)}</strong>
+					<strong class="rate up tabular" title="Upload">↑ {formatRate(app.traffic.up)}</strong>
+				</div>
+				{#if plan}<p class="plan" class:low={plan.low} title="What your provider reports for this server's subscription">{plan.text}</p>{/if}
 				<div class="graph">
-					<Sparkline samples={app.history} height={72} fill />
-					{#if !app.connected}<span class="graph-empty">Connect to see live traffic</span>{/if}
+					<Sparkline samples={app.history} height={52} fill />
 				</div>
 			</section>
 
-			<div title={app.connected ? 'Disconnect to change mode' : undefined}>
-				<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />
+			<div class="mode" title={app.connected ? 'Disconnect to change mode' : undefined}>
+				{#if modes.length > 1}<Segmented options={modes} value={app.mode} label="Mode" disabled={app.locked} onchange={(m) => app.setMode(m)} />{/if}
 			</div>
 			{#if app.busy}<p class="lock">Disconnect to change server or mode</p>{/if}
 		{:else}
@@ -174,11 +191,10 @@
 	}
 	.popover {
 		position: relative;
-		height: 100vh;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding: 14px 12px 6px;
+		padding: 8px 10px 4px;
 		background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
 		backdrop-filter: blur(24px);
 		-webkit-backdrop-filter: blur(24px);
@@ -200,13 +216,20 @@
 	}
 	.icon-btn.close {
 		position: absolute;
-		top: 8px;
-		right: 8px;
+		top: 4px;
+		right: 6px;
 		z-index: 1;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
 	}
 	.icon-btn:hover {
 		background: var(--hairline);
 		color: var(--fg);
+	}
+	.icon-btn:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 1px;
 	}
 	.popover > :global(*) {
 		flex-shrink: 0;
@@ -219,15 +242,17 @@
 		display: grid;
 		gap: 10px;
 	}
+	/* The mascot leads, its state is the headline under it, and the latency pill closes the header. */
 	.hero {
-		display: grid;
-		justify-items: center;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 		gap: 4px;
-		padding-top: 6px;
+		text-align: center;
 	}
 	.headline {
-		margin: 8px 0 0;
-		font-size: 17px;
+		margin: 0;
+		font-size: 14px;
 		font-weight: 800;
 		letter-spacing: 0.03em;
 		text-transform: uppercase;
@@ -242,76 +267,39 @@
 		color: var(--danger);
 	}
 	.sub {
-		margin: 0;
+		margin: -2px 0 0;
 		max-width: 100%;
-		text-align: center;
 		font-size: 12px;
-		color: var(--fg-muted);
-	}
-	.strip {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.1fr);
-		align-items: stretch;
-		overflow: hidden;
-		border: 1px solid var(--hairline);
-		border-radius: 12px;
-		background: var(--surface);
-		font-size: 12px;
-	}
-	.cell {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 7px 8px;
-		min-width: 0;
-	}
-	.cell:nth-child(2) strong {
-		font-size: 11.5px;
-	}
-	.cell + .cell {
-		border-left: 1px solid var(--hairline);
-	}
-	.cell.grow {
-		overflow: hidden;
-	}
-	.two {
-		display: grid;
-		min-width: 0;
-		line-height: 1.25;
-	}
-	.two small {
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--fg-muted);
-	}
-	.two strong {
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-		overflow-wrap: break-word;
-		font-size: 12px;
-	}
-	.flag {
-		font-size: 20px;
-	}
-	.ip {
-		font-size: 10px;
-		gap: 0;
-		justify-content: space-between;
-		color: var(--fg-muted);
-		user-select: text;
-	}
-	.ip-text {
-		min-width: 0;
+		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		white-space: nowrap;
+		color: var(--fg-muted);
 	}
-	.ip :global(button) {
-		flex: none;
+	.ping {
+		--c: var(--fg-muted);
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		min-height: 24px;
+		padding: 0 12px;
+		border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--c) 12%, transparent);
+		color: var(--c);
+		font-size: 11.5px;
+		font-weight: 700;
+	}
+	.ping.ok {
+		--c: var(--ok-text);
+	}
+	.ping.warn {
+		--c: var(--warn);
+	}
+	.ping.bad {
+		--c: var(--danger);
+	}
+	.ping:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--c) 20%, transparent);
 	}
 	.pick {
 		display: flex;
@@ -320,64 +308,93 @@
 		border: 1px solid var(--hairline);
 		border-radius: 12px;
 		background: var(--surface);
-		padding: 8px 12px;
 	}
-	.label {
-		font-size: 10.5px;
-		font-weight: 700;
-		letter-spacing: 0.07em;
-		text-transform: uppercase;
-	}
-	.pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-		min-height: 26px;
-		margin-top: 6px;
-		padding: 3px 12px;
-		border: 1px solid var(--hairline);
-		border-radius: 999px;
-		background: var(--surface);
-		color: var(--fg);
-		font-size: 12.5px;
-		font-weight: 700;
-	}
-	.pill:hover:not(:disabled) {
-		border-color: var(--accent);
-	}
-	.pill.ok {
-		border-color: color-mix(in srgb, var(--ok) 45%, transparent);
-		background: color-mix(in srgb, var(--ok) 12%, var(--surface));
-		color: var(--ok-text);
-	}
-	.pill.warn {
-		border-color: color-mix(in srgb, var(--warn) 55%, transparent);
-		background: color-mix(in srgb, var(--warn) 14%, var(--surface));
-		color: var(--warn);
-	}
-	.pill.bad {
-		border-color: color-mix(in srgb, var(--danger) 50%, transparent);
-		background: color-mix(in srgb, var(--danger) 10%, var(--surface));
-		color: var(--danger);
-	}
-	.usage {
-		/* Takes the space left over, and gives it back when the rows above need it. */
-		flex: 1 1 auto;
-		min-height: 0;
+	/* Time on the left, exit IP on the right, split by a hairline. */
+	.info {
 		display: grid;
-		grid-template-rows: auto auto minmax(56px, 1fr);
-		gap: 8px;
-		justify-items: center;
-		padding-bottom: 10px;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: center;
+		min-height: 34px;
 	}
-	.rates {
+	.elapsed {
+		padding: 0 10px;
+		border-right: 1px solid var(--hairline);
+		line-height: 34px;
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--fg);
+	}
+	.ip {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 8px;
-		width: 100%;
-		font-size: 14px;
+		gap: 6px;
+		min-width: 0;
+		padding: 0 6px 0 10px;
+		font-size: 12px;
+		color: var(--fg);
+		user-select: text;
+	}
+	.ip .none {
+		color: var(--fg-muted);
+	}
+	.ip-text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.usage {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 8px 10px;
+	}
+	.head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 6px;
+	}
+	.title {
+		margin: 0;
+		font-size: 10px;
 		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--fg);
+	}
+	.speeds {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 6px;
+		white-space: nowrap;
+	}
+	.rate {
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.today {
+		flex: none;
+		padding: 2px 8px;
+		border-radius: 999px;
+		background: var(--accent);
+		color: #fff;
+		font-size: 11px;
+		font-weight: 700;
+	}
+	.plan {
+		margin: 0;
+		text-align: center;
+		font-size: 11px;
+		color: var(--fg-muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.plan.low {
+		color: var(--warn);
+		font-weight: 600;
 	}
 	.down {
 		color: var(--down);
@@ -385,38 +402,10 @@
 	.up {
 		color: var(--up);
 	}
-	.today {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		padding: 2px 9px;
-		border-radius: 999px;
-		background: var(--accent);
-		color: #fff;
-		font-size: 11px;
-		font-weight: 600;
-	}
-	.usage.with-plan {
-		grid-template-rows: auto auto auto minmax(48px, 1fr);
-	}
-	.plan {
-		width: 100%;
-		margin-top: -4px;
-		font-size: 11px;
-		text-align: center;
-		color: var(--fg-muted);
-	}
-	.plan.low {
-		color: var(--warn);
-		font-weight: 600;
-	}
-	.strip.compact {
-		grid-template-columns: auto minmax(0, 1fr);
-	}
 	.graph {
 		position: relative;
 		width: 100%;
-		min-height: 0;
+		height: 52px;
 	}
 	/* Sized by the row, not by the chart's own aspect ratio. */
 	.graph :global(svg) {
@@ -425,19 +414,12 @@
 		width: 100%;
 		height: 100%;
 	}
-	.graph-empty {
-		position: absolute;
-		inset: 0;
-		display: grid;
-		place-items: center;
-		font-size: 11px;
-		color: var(--fg-muted);
+	.mode {
+		font-size: 12px;
 	}
 	.lock {
-		margin: -4px 0 0;
-		font-size: 10.5px;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
+		margin: -2px 0 0;
+		font-size: 11px;
 		color: var(--fg-muted);
 		text-align: center;
 	}
@@ -445,14 +427,13 @@
 		min-height: 34px;
 	}
 	footer {
-		margin-top: auto;
 		display: flex;
 		justify-content: space-between;
 		border-top: 1px solid var(--hairline);
 		padding-top: 4px;
 	}
 	.foot-btn {
-		min-height: 26px;
+		min-height: 24px;
 		border: 0;
 		background: none;
 		padding: 3px 8px;

@@ -3,6 +3,7 @@ mod app_config;
 mod applog;
 mod app_update;
 mod appnap;
+#[cfg_attr(windows, path = "apps_windows.rs")]
 mod apps;
 mod backup;
 mod clash;
@@ -10,6 +11,7 @@ mod commands;
 mod config;
 mod core;
 mod crashlog;
+mod deeplink;
 mod device;
 mod diagnostics;
 mod diagnostics_bundle;
@@ -24,10 +26,14 @@ mod network_watch;
 mod networks;
 mod notify;
 mod paths;
+mod platform;
+#[cfg(any(windows, test))]
+mod pngenc;
 mod profile;
 mod reliability;
 mod repair;
 mod rulesets;
+#[cfg_attr(windows, path = "runner_windows/mod.rs")]
 mod runner;
 mod sampler;
 mod session;
@@ -37,12 +43,19 @@ mod speed_icon;
 mod state;
 mod store;
 mod subscriptions;
+#[cfg_attr(windows, path = "sysproxy_windows.rs")]
 mod sysproxy;
 mod tray;
 mod traffic;
 mod usage;
+#[cfg(any(windows, test))]
+mod winapps;
+#[cfg(windows)]
+mod winnet;
+#[cfg(any(windows, test))]
+mod wininet;
 
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -62,8 +75,23 @@ fn updater_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry, tauri_plugin_updat
 }
 
 pub fn run() {
+    // The guard that puts the Windows proxy settings back if the app dies runs as this same program.
+    #[cfg(windows)]
+    if sysproxy::run_guard_if_asked() {
+        return;
+    }
+    let builder = tauri::Builder::default();
+    // On Windows a link or a second launch starts another copy of the program; this hands its
+    // `kagevpn://` link to the copy already running (the deep-link feature) and shows its window.
+    // It has to be the first plugin.
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        if !argv.iter().any(|arg| arg.starts_with("kagevpn:")) {
+            tray::show_main_window(app);
+        }
+    }));
     #[allow(unused_mut)]
-    let mut app = tauri::Builder::default()
+    let mut app = builder
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_deep_link::init())
@@ -122,6 +150,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            platform::platform,
             app_update::app_update_check,
             app_update::app_update_install,
             app_update::app_update_settings,
@@ -258,46 +287,15 @@ fn auto_connect(app: &tauri::AppHandle) {
 }
 
 fn register_deep_links(app: &tauri::AppHandle) {
+    // The installer registers the scheme on Windows; a development build registers it itself.
+    #[cfg(all(windows, debug_assertions))]
+    let _ = app.deep_link().register_all();
     let handle = app.clone();
     app.deep_link().on_open_url(move |event| {
         for url in event.urls() {
-            handle_deep_link(&handle, url.as_str());
+            deeplink::handle(&handle, url.as_str());
         }
     });
-}
-
-/// `kagevpn://connect|disconnect|toggle` act directly; `import?url=` only asks
-/// the UI to confirm, so a link can never add a profile silently.
-fn handle_deep_link(app: &tauri::AppHandle, raw: &str) {
-    let Ok(url) = url::Url::parse(raw) else { return };
-    match url.host_str().unwrap_or_default() {
-        "connect" => {
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                reliability::user_took_over(&app);
-                if let Err(error) = session::connect(&app).await {
-                    if !error.is_cancelled() {
-                        notify::send(&app, "Connection failed", &error.to_string());
-                    }
-                }
-            });
-        }
-        "disconnect" => {
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                reliability::user_took_over(&app);
-                let _ = session::disconnect(&app).await;
-            });
-        }
-        "toggle" => tray::toggle_connection(app),
-        "import" => {
-            if let Some((_, value)) = url.query_pairs().find(|(key, _)| key == "url") {
-                tray::show_main_window(app);
-                let _ = app.emit("import-request", value.into_owned());
-            }
-        }
-        _ => {}
-    }
 }
 
 /// Tells the user when the saved servers could not be read and were set aside.

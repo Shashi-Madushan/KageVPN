@@ -40,8 +40,8 @@ impl TrafficState {
         self.current = Traffic {
             up: sample.up,
             down: sample.down,
-            total_up: self.current.total_up + sample.up,
-            total_down: self.current.total_down + sample.down,
+            total_up: self.current.total_up.saturating_add(sample.up),
+            total_down: self.current.total_down.saturating_add(sample.down),
         };
         self.history.push_back(sample);
         if self.history.len() > HISTORY_LEN {

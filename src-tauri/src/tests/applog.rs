@@ -1,4 +1,5 @@
 use super::*;
+use std::fs::OpenOptions;
 
 fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("kage-applog-{name}-{}", std::process::id()));

@@ -1,7 +1,6 @@
 //! Notices when the Mac wakes from sleep or switches networks, and restarts the tunnel if it
 //! stopped working. No extra processes or system frameworks: one cheap check every few seconds.
 
-use std::ffi::CStr;
 use std::time::{Duration, Instant, SystemTime};
 
 use tauri::{AppHandle, Manager};
@@ -64,7 +63,9 @@ pub fn detect(wall: Duration, monotonic: Duration, before: &[String], now: &[Str
     }
 }
 
+#[cfg(unix)]
 fn current_fingerprint() -> Vec<String> {
+    use std::ffi::CStr;
     let mut entries = Vec::new();
     // SAFETY: getifaddrs fills a list we only read and always release with freeifaddrs.
     unsafe {
@@ -98,6 +99,20 @@ fn current_fingerprint() -> Vec<String> {
         }
         libc::freeifaddrs(list);
     }
+    fingerprint(entries)
+}
+
+/// The Windows version: every adapter that is up, with its addresses (link-local ones skipped).
+#[cfg(windows)]
+fn current_fingerprint() -> Vec<String> {
+    let entries = crate::winnet::adapters().into_iter().flat_map(|adapter| {
+        let name = format!("if{}", adapter.index);
+        adapter
+            .addresses
+            .into_iter()
+            .filter(|ip| !matches!(ip, std::net::IpAddr::V6(v6) if (v6.segments()[0] & 0xffc0) == 0xfe80))
+            .map(move |ip| (name.clone(), ip.to_string()))
+    });
     fingerprint(entries)
 }
 

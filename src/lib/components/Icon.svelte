@@ -1,5 +1,5 @@
 <script lang="ts">
-	export type IconName = 'home' | 'profiles' | 'usage' | 'routing' | 'apps' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings' | 'shield' | 'bolt' | 'refresh' | 'sun' | 'moon' | 'monitor' | 'download' | 'eye' | 'eye-off';
+	export type IconName = 'home' | 'profiles' | 'usage' | 'routing' | 'apps' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings' | 'sparkle' | 'shield' | 'bolt' | 'refresh' | 'sun' | 'moon' | 'monitor' | 'download' | 'eye' | 'eye-off';
 
 	let { name, size = 16 }: { name: IconName; size?: number } = $props();
 
@@ -13,6 +13,7 @@
 		diagnostics: 'M3 12h4l2-6 4 12 2-6h6',
 		core: 'M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Zm0 9 8-4.5M12 12v9M12 12 4 7.5',
 		logs: 'M5 4h14v16H5zM9 9h6M9 13h6M9 17h3',
+		sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Zm7 11 .8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14Z',
 		shield: 'M12 3l7 2.6v5.6c0 4.4-3 7.6-7 9.8-4-2.2-7-5.4-7-9.8V5.6L12 3Zm-3 9 2.2 2.2L15.2 10',
 		bolt: 'M13 2 5 13.5h6L10 22l9-12h-6l0-8Z',
 		eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',

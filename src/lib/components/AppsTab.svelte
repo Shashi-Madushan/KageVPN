@@ -76,7 +76,7 @@
 		}
 	}
 
-	const labelOf = (kind: AppKind, value: string) => (kind === 'app' ? (apps.find((a) => a.path === value)?.name ?? value.replace(/\/+$/, '').split('/').pop()?.replace(/\.app$/i, '') ?? value) : value);
+	const labelOf = (kind: AppKind, value: string) => (kind === 'app' ? (apps.find((a) => a.path === value)?.name ?? value.replace(/[\\/]+$/, '').split(/[\\/]/).pop()?.replace(/\.app$/i, '') ?? value) : value);
 </script>
 
 <div class="panel" role="tabpanel">

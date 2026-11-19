@@ -14,6 +14,12 @@ const CAPACITY: usize = 2000;
 /// A sing-box log past this size is set aside and restarted. At debug level it grows by several
 /// megabytes an hour, and nothing else shrinks it while a connection stays up.
 const MAX_LOG_BYTES: u64 = 20 * 1024 * 1024;
+/// The most of the file read in one poll. After a restart, or a burst, the log can hold tens of
+/// megabytes; turning all of it into lines at once would spike memory, and only the newest lines
+/// are shown anyway.
+const MAX_READ_PER_POLL: u64 = 2 * 1024 * 1024;
+/// A line longer than this without an end is not a log line; it is dropped instead of kept growing.
+const MAX_PENDING_BYTES: usize = 256 * 1024;
 const POLL_INTERVAL: Duration = Duration::from_millis(400);
 /// At most this many lines go to the UI per poll; a traffic burst can log thousands.
 const MAX_LINES_PER_POLL: usize = 300;
@@ -198,8 +204,16 @@ fn read_new_lines(path: &std::path::Path, offset: &mut u64, pending: &mut String
         return Vec::new();
     }
 
+    // Older lines than the newest `MAX_READ_PER_POLL` bytes are skipped.
+    if len - *offset > MAX_READ_PER_POLL {
+        *offset = len - MAX_READ_PER_POLL;
+        pending.clear();
+        if file.seek(SeekFrom::Start(*offset)).is_err() {
+            return Vec::new();
+        }
+    }
     let mut bytes = Vec::new();
-    if file.read_to_end(&mut bytes).is_err() {
+    if file.take(MAX_READ_PER_POLL).read_to_end(&mut bytes).is_err() {
         return Vec::new();
     }
     *offset += bytes.len() as u64;
@@ -212,6 +226,9 @@ fn read_new_lines(path: &std::path::Path, offset: &mut u64, pending: &mut String
         if !line.is_empty() {
             lines.push(LogLine::parse(line));
         }
+    }
+    if pending.len() > MAX_PENDING_BYTES {
+        pending.clear();
     }
     lines
 }

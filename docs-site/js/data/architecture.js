@@ -431,3 +431,63 @@ window.DOCS_PAGES["architecture/privacy-redaction"] = {
     </div>
   `
 };
+
+window.DOCS_PAGES["architecture/windows-platform"] = {
+  category: "Architecture",
+  title: "Windows Platform Layer",
+  featureBadge: "Cross-platform",
+  lead: "How one code base runs on macOS and Windows: one module name per area, one file per OS, chosen at compile time, and a platform description the interface reads.",
+  toc: [
+    { id: "pattern", label: "One Module, One File per OS" },
+    { id: "areas", label: "What Differs per OS" },
+    { id: "platform-flags", label: "What the Interface Is Told" },
+    { id: "system-proxy-win", label: "System Proxy on Windows" },
+    { id: "phases", label: "What Comes Next" }
+  ],
+  contentHtml: `
+    <div class="docs-prose">
+      <h2 id="pattern">One Module, One File per OS</h2>
+      <p>Callers such as <code>session.rs</code> keep calling <code>crate::runner::start</code> or <code>crate::sysproxy::restore_now</code>. In <code>lib.rs</code> each module that differs points at a Windows file with the same public functions:</p>
+    </div>
+    <div class="code-block-container">
+      <div class="code-header"><span class="code-lang-label">rust</span></div>
+      <pre><code>#[cfg_attr(windows, path = "runner_windows/mod.rs")]
+mod runner;
+#[cfg_attr(windows, path = "sysproxy_windows.rs")]
+mod sysproxy;
+#[cfg_attr(windows, path = "apps_windows.rs")]
+mod apps;</code></pre>
+    </div>
+    <div class="docs-prose">
+      <p>Where only a function or two differ (the network watcher, the gateway lookup, process stats, device info) the file has a <code>#[cfg(windows)]</code> and a <code>#[cfg(not(windows))]</code> version side by side. Pure rules that only Windows uses, such as turning the bypass list into WinINet patterns (<code>wininet.rs</code>), reading uninstall entries (<code>winapps.rs</code>) and writing PNG icons (<code>pngenc.rs</code>), are also built in tests on every OS, so a Mac runs their tests too.</p>
+
+      <h2 id="areas">What Differs per OS</h2>
+      <div class="docs-table-wrapper">
+        <table class="docs-table">
+          <thead><tr><th>Area</th><th>macOS</th><th>Windows</th></tr></thead>
+          <tbody>
+            <tr><td>Running sing-box (Proxy Only)</td><td><code>supervisor.sh</code> watches the app and the stop file</td><td>Hidden child in a Job Object that dies with the app; a watcher thread handles the stop file</td></tr>
+            <tr><td>TUN mode</td><td>Root helper or launchd service, <code>utun</code></td><td>Not yet (phase 2: a helper service over a named pipe, Wintun)</td></tr>
+            <tr><td>Kill switch</td><td><code>pfctl</code> anchor</td><td>Not yet (phase 3: WFP filters)</td></tr>
+            <tr><td>System proxy</td><td><code>networksetup</code> per network service</td><td>Per-user WinINet registry values</td></tr>
+            <tr><td>Engine archive</td><td><code>darwin-*.tar.gz</code>, <code>sing-box</code></td><td><code>windows-amd64.zip</code>, <code>sing-box.exe</code></td></tr>
+            <tr><td>Network changes, gateway</td><td><code>getifaddrs</code>, <code>netstat</code>, <code>arp</code></td><td><code>GetAdaptersAddresses</code>, <code>ResolveIpNetEntry2</code></td></tr>
+            <tr><td>Installed apps</td><td><code>.app</code> bundles, <code>sips</code> icons</td><td>Uninstall registry entries, icons from the <code>.exe</code>; an app is its program's folder</td></tr>
+            <tr><td>Window</td><td>Overlay title bar with the traffic lights, vibrancy</td><td>No title bar; the app draws minimize, maximize and close; Mica (<code>tauri.windows.conf.json</code>)</td></tr>
+            <tr><td>Tray</td><td>Template icon recoloured by macOS, popover below the menu bar</td><td>Icon tinted for the taskbar theme, popover above the taskbar</td></tr>
+            <tr><td>Second launch, links</td><td>Handled by macOS</td><td><code>tauri-plugin-single-instance</code> forwards <code>kagevpn://</code> links</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="platform-flags">What the Interface Is Told</h2>
+      <p>The <code>platform()</code> command returns the OS and what works there (<code>tun</code>, <code>killSwitch</code>, <code>rootService</code>, <code>systemProxy</code>, <code>appNap</code>, <code>speedInTray</code>). The front end keeps it in <code>platform.svelte.ts</code>, which also gives the words to use (<em>Mac</em> or <em>PC</em>, <em>menu bar</em> or <em>system tray</em>, <kbd>⌘</kbd> or <kbd>Ctrl</kbd>). Controls for missing features are hidden rather than shown broken, and the backend agrees: <code>Store::mode()</code> answers Proxy Only where there is no TUN mode, so a restored backup set to TUN still connects.</p>
+
+      <h2 id="system-proxy-win">System Proxy on Windows</h2>
+      <p>Kage saves <code>ProxyEnable</code>, <code>ProxyServer</code>, <code>ProxyOverride</code> and <code>AutoConfigURL</code> from <code>HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings</code>, writes its own, and tells running programs with <code>InternetSetOptionW</code>. They are put back on disconnect; by the runner's watcher if sing-box dies; by a guard process (the same program started with <code>--restore-proxy-after</code>) if the app itself dies; and at the next launch otherwise. Only values that still point at Kage are put back.</p>
+
+      <h2 id="phases">What Comes Next</h2>
+      <p>Phase 2 adds TUN mode through a helper service installed once with UAC. The app talks to it over a named pipe only the installing user can open; the service runs a checked copy of the engine from a folder only administrators can write, and validates the configuration it is sent. Phase 3 adds a WFP kill switch owned by that service.</p>
+    </div>
+  `
+};

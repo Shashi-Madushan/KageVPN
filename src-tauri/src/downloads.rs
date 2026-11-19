@@ -54,6 +54,42 @@ pub async fn read_body(
     }
 }
 
+/// Follows redirects only while they stay on https, and at most five of them. A downgrade to http
+/// would let anyone on the network swap the file that a verified https address promised.
+pub fn https_only_redirects() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.url().scheme() != "https" {
+            attempt.error("the server redirected to an address that is not https")
+        } else if attempt.previous().len() >= 5 {
+            attempt.error("too many redirects")
+        } else {
+            attempt.follow()
+        }
+    })
+}
+
+/// Reads a whole response body into memory, refusing one larger than `max` bytes.
+///
+/// A server can promise a small body and send an endless one, or promise a huge one. Reading it with
+/// `Response::bytes` would allocate all of it, and a release build aborts when memory runs out,
+/// taking the VPN down with the app. The promised length is checked first, then the bytes actually
+/// received as they arrive.
+pub async fn read_limited(mut response: reqwest::Response, max: usize) -> Result<Vec<u8>> {
+    let too_large = || AppError::Invalid("the response is larger than this app accepts".into());
+    if response.content_length().is_some_and(|promised| promised > max as u64) {
+        return Err(too_large());
+    }
+    let mut body = Vec::new();
+    // The address is left out of a failure: subscription links carry the account's token.
+    while let Some(chunk) = response.chunk().await.map_err(reqwest::Error::without_url)? {
+        if body.len() + chunk.len() > max {
+            return Err(too_large());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
+}
+
 /// What to do once a newer version is found.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

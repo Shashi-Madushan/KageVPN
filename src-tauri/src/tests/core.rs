@@ -78,7 +78,7 @@ fn old_download_folders_move_under_the_core_id_and_keep_working() {
     let paths = AppPaths::new(dir.clone()).unwrap();
     let old = paths.core_dir().join("1.12.4");
     std::fs::create_dir_all(&old).unwrap();
-    std::fs::write(old.join("sing-box"), b"x").unwrap();
+    std::fs::write(old.join(SING_BOX.binary_name), b"x").unwrap();
 
     migrate_layout(&paths, &SING_BOX);
 
@@ -104,6 +104,13 @@ fn every_core_spec_is_well_formed() {
     }
     assert!(core_spec("missing").is_none());
     assert_eq!(default_core().id, CORES[0].id);
+}
+
+#[test]
+fn each_os_downloads_its_own_engine_archive() {
+    use crate::app_config::sing_box_asset;
+    assert_eq!(sing_box_asset("darwin", "1.14.2", "arm64"), "sing-box-1.14.2-darwin-arm64.tar.gz");
+    assert_eq!(sing_box_asset("windows", "1.14.2", "amd64"), "sing-box-1.14.2-windows-amd64.zip");
 }
 
 fn fake_versions(name: &str, versions: &[&str]) -> (AppPaths, std::path::PathBuf) {

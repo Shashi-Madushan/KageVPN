@@ -223,11 +223,13 @@ pub fn is_rule_set(bytes: &[u8]) -> bool {
 }
 
 async fn fetch_one(client: &reqwest::Client, url: &str) -> Result<Vec<u8>> {
-    let bytes = client.get(url).send().await?.error_for_status()?.bytes().await?;
-    if bytes.len() > MAX_BYTES || !is_rule_set(&bytes) {
-        return Err(AppError::Invalid(format!("{url} did not return a rule-set file")));
+    let response = client.get(url).send().await?.error_for_status()?;
+    let not_a_list = || AppError::Invalid(format!("{url} did not return a rule-set file"));
+    let bytes = crate::downloads::read_limited(response, MAX_BYTES).await.map_err(|_| not_a_list())?;
+    if !is_rule_set(&bytes) {
+        return Err(not_a_list());
     }
-    Ok(bytes.to_vec())
+    Ok(bytes)
 }
 
 /// Downloads one list from the first source that answers and replaces the file atomically, so a
@@ -235,7 +237,11 @@ async fn fetch_one(client: &reqwest::Client, url: &str) -> Result<Vec<u8>> {
 /// tried through it first, then directly.
 pub async fn download(dir: &Path, item: &Wanted, sources: &[String], proxy: Option<&str>) -> Result<()> {
     let builder = || {
-        reqwest::Client::builder().user_agent(crate::app_config::user_agent()).connect_timeout(CONNECT_TIMEOUT).timeout(SOURCE_TIMEOUT)
+        reqwest::Client::builder()
+            .user_agent(crate::app_config::user_agent())
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(SOURCE_TIMEOUT)
+            .redirect(crate::downloads::https_only_redirects())
     };
     let mut clients = Vec::new();
     if let Some(proxy) = proxy {

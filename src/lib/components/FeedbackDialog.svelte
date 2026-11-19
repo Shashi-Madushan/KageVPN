@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { feedbackApi, type FeedbackKind } from '$lib/api';
 	import { feedback } from '$lib/feedback.svelte';
 	import Dialog from './Dialog.svelte';
@@ -65,7 +66,7 @@
 				<input type="checkbox" bind:checked={feedback.includeDiagnostics} />
 				<span>
 					Include diagnostics
-					<small>App, engine and macOS versions, connection state and recent logs. Server addresses, IDs and keys are removed.</small>
+					<small>App, engine and {platform.osName} versions, connection state and recent logs. Server addresses, IDs and keys are removed.</small>
 				</span>
 			</label>
 

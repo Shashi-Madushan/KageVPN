@@ -13,6 +13,9 @@ export interface DownloadItem {
 	state: DownloadState;
 	/** 0–100, or null when the size is unknown. */
 	percent: number | null;
+	/** Bytes so far and in total while downloading; null when not known. */
+	received: number | null;
+	total: number | null;
 	error: string | null;
 	/** Starts the same download again after it failed or was cancelled. */
 	retry?: () => void;
@@ -67,8 +70,8 @@ class Downloads {
 		}
 		const sized = p.stage === 'download' && p.total > 0;
 		const percent = sized ? Math.min(100, (p.received / p.total) * 100) : p.stage === 'download' ? null : 100;
-		const detail = sized ? `${STAGES.download} ${Math.round(percent ?? 0)}%` : STAGES[p.stage];
-		this.update(p.id, { title: `${p.title} ${p.version}`, detail, percent });
+		const bytes = p.stage === 'download' ? { received: p.received, total: p.total > 0 ? p.total : null } : { received: null, total: null };
+		this.update(p.id, { title: `${p.title} ${p.version}`, detail: STAGES[p.stage], percent, ...bytes });
 	}
 
 	start(item: Pick<DownloadItem, 'id' | 'title' | 'detail'> & Partial<Pick<DownloadItem, 'kind' | 'version' | 'retry' | 'cancel'>>) {
@@ -82,12 +85,14 @@ class Downloads {
 			...item,
 			state: 'active',
 			percent: null,
+			received: null,
+			total: null,
 			error: null
 		};
 		this.items = [fresh, ...this.items.filter((i) => i.id !== item.id)];
 	}
 
-	update(id: string, patch: Partial<Pick<DownloadItem, 'detail' | 'percent' | 'title'>>) {
+	update(id: string, patch: Partial<Pick<DownloadItem, 'detail' | 'percent' | 'title' | 'received' | 'total'>>) {
 		const item = this.find(id);
 		if (item?.state === 'active') Object.assign(item, patch);
 	}

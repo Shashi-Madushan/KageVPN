@@ -23,3 +23,12 @@ fn prerelease_sorts_before_its_release() {
     assert!(v("1.15.0-alpha.10") > v("1.15.0-alpha.9"));
     assert!(v("1.15.0-alpha.1") > v("1.14.2"));
 }
+
+#[test]
+fn a_version_cannot_be_a_path() {
+    for bad in ["1.0.0-../../x", "1.0.0-a/b", "1.0.0./etc", "1.2.3.4", "1.0.0-", "1.0.0-a b", "1.0.0-.."] {
+        assert!(Version::parse(bad).is_none(), "{bad} parsed");
+    }
+    assert!(Version::parse("1.15.0-alpha.9").is_some());
+    assert!(Version::parse("1.15.0-rc-2").is_some());
+}

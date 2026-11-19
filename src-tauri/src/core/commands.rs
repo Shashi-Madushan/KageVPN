@@ -109,6 +109,10 @@ pub fn core_install_background(app: AppHandle, version: Option<String>, allow_un
 pub fn core_use(state: State<AppState>, version: Option<String>) -> Result<()> {
     let (spec, _) = active_core(&state);
     if let Some(version) = &version {
+        // The version names a folder; only a plain version number may.
+        if Version::parse(version).is_none() {
+            return Err(AppError::Invalid("invalid version".into()));
+        }
         if !super::managed_binary(&state.paths, spec, version).is_file() {
             return Err(AppError::Invalid(format!("version {version} is not installed")));
         }

@@ -659,6 +659,243 @@ mod helper {
         wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
         let _ = fs::remove_dir_all(dir);
     }
+
+    // ── What the helper does not trust in the user's folder ─────────────────
+
+    /// Starts the helper the way the root service runs, kept apart from the user's folder: its own
+    /// files go to `run_dir`, and the configuration is copied and checked before it is used.
+    fn start_isolated(dir: &Path, run_dir: &Path, core: &Path, config: &Path, stub_bin: Option<&Path>) -> Child {
+        let script = dir.join("helper.sh");
+        fs::write(&script, super::super::HELPER).unwrap();
+        let path = match stub_bin {
+            Some(bin) => format!("{}:/usr/bin:/bin:/usr/sbin:/sbin", bin.display()),
+            None => "/usr/bin:/bin:/usr/sbin:/sbin".to_string(),
+        };
+        Command::new("/bin/sh")
+            .args([script.to_str().unwrap(), core.to_str().unwrap(), config.to_str().unwrap(), dir.to_str().unwrap(), &std::process::id().to_string()])
+            .env("PATH", path)
+            .env("KAGE_ISOLATE", "1")
+            .env("KAGE_RUN_DIR", run_dir)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap()
+    }
+
+    /// A configuration shaped like the app's, logging where the helper expects.
+    fn app_config(dir: &Path, extra: &str) -> PathBuf {
+        let path = dir.join("config.json");
+        let text = format!(
+            r#"{{"log":{{"level":"info","output":"{log}"}},"inbounds":[{{"type":"mixed","listen":"127.0.0.1","listen_port":28080}}],"outbounds":[{{"type":"direct","tag":"direct"}}]{extra}}}"#,
+            log = dir.join("sing-box.log").display(),
+        );
+        fs::write(&path, text).unwrap();
+        path
+    }
+
+    fn stop_helper(dir: &Path, helper: &mut Child) {
+        fs::write(dir.join("stop"), "").unwrap();
+        fs::write(dir.join("helper.quit"), "").unwrap();
+        wait_for("the helper to exit", || helper.try_wait().unwrap().is_some());
+    }
+
+    /// A refusal shows up as a line in the helper's own log and no pid.
+    fn refused(run_dir: &Path, dir: &Path) -> bool {
+        fs::read_to_string(run_dir.join("sing-box.stderr.log")).unwrap_or_default().contains("refused to start") && child_pid(dir).is_none()
+    }
+
+    #[test]
+    fn a_configuration_the_app_wrote_runs_from_a_copy_only_root_can_change() {
+        let dir = scratch("iso-good");
+        let run_dir = dir.join("root-owned");
+        let core = fake_core(&dir);
+        let config = app_config(&dir, "");
+        let mut helper = start_isolated(&dir, &run_dir, &core, &config, None);
+
+        request_run(&dir);
+        wait_for("a run", || child_pid(&dir).is_some());
+        let copy = fs::read_to_string(run_dir.join("config.json")).expect("the checked copy sits in the helper's own folder");
+        assert!(copy.contains("28080"));
+        // Changing the original now changes nothing about what runs.
+        fs::write(&config, "{}").unwrap();
+        assert!(fs::read_to_string(run_dir.join("config.json")).unwrap().contains("28080"));
+
+        stop_helper(&dir, &mut helper);
+        assert!(!run_dir.join("config.json").exists(), "the copy is removed when the helper ends");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_configuration_that_logs_somewhere_else_is_refused() {
+        // The log path is how a program running as the user could make root write a file anywhere.
+        let dir = scratch("iso-log");
+        let run_dir = dir.join("root-owned");
+        let core = fake_core(&dir);
+        let config = dir.join("config.json");
+        fs::write(&config, r#"{"log":{"output":"/etc/hosts"},"outbounds":[{"type":"direct","tag":"direct"}]}"#).unwrap();
+        let mut helper = start_isolated(&dir, &run_dir, &core, &config, None);
+
+        request_run(&dir);
+        wait_for("the refusal", || refused(&run_dir, &dir));
+        assert!(!run_dir.join("config.json").exists());
+
+        stop_helper(&dir, &mut helper);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn options_that_read_or_write_other_files_are_refused() {
+        for (name, extra) in [
+            ("cache", r#","experimental":{"cache_file":{"enabled":true,"path":"/etc/cache.db"}}"#),
+            ("ui", r#","experimental":{"clash_api":{"external_ui":"/etc/ui","external_controller":"127.0.0.1:1"}}"#),
+            ("cert", r#","dns":{"servers":[{"type":"tls","tag":"t","server":"x","tls":{"certificate_path":"/etc/master.passwd"}}]}"#),
+            ("ruleset", r#","route":{"rule_set":[{"type":"local","tag":"x","format":"binary","path":"/etc/master.passwd"}]}"#),
+        ] {
+            let dir = scratch(&format!("iso-{name}"));
+            let run_dir = dir.join("root-owned");
+            let core = fake_core(&dir);
+            let config = app_config(&dir, extra);
+            let mut helper = start_isolated(&dir, &run_dir, &core, &config, None);
+
+            request_run(&dir);
+            wait_for(&format!("the refusal of {name}"), || refused(&run_dir, &dir));
+
+            stop_helper(&dir, &mut helper);
+            let _ = fs::remove_dir_all(dir);
+        }
+    }
+
+    #[test]
+    fn the_downloaded_lists_in_the_apps_folder_are_allowed() {
+        let dir = scratch("iso-lists");
+        let run_dir = dir.join("root-owned");
+        let core = fake_core(&dir);
+        let list = format!(r#","route":{{"rule_set":[{{"type":"local","tag":"geoip-cn","format":"binary","path":"{}"}}]}}"#, dir.join("rule-sets/geoip-cn.srs").display());
+        let config = app_config(&dir, &list);
+        let mut helper = start_isolated(&dir, &run_dir, &core, &config, None);
+
+        request_run(&dir);
+        wait_for("a run", || child_pid(&dir).is_some());
+
+        stop_helper(&dir, &mut helper);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_missing_configuration_is_refused_not_run_from_wherever_it_appears_next() {
+        let dir = scratch("iso-missing");
+        let run_dir = dir.join("root-owned");
+        let core = fake_core(&dir);
+        let mut helper = start_isolated(&dir, &run_dir, &core, &dir.join("config.json"), None);
+
+        request_run(&dir);
+        wait_for("the refusal", || refused(&run_dir, &dir));
+
+        stop_helper(&dir, &mut helper);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_link_in_the_users_folder_is_not_followed_when_the_helper_writes_its_marker() {
+        // `blocked` and `child.pid.tmp` are written by root inside a folder the user controls. A link
+        // there must not turn that write into overwriting another file.
+        let dir = scratch("iso-links");
+        let run_dir = dir.join("root-owned");
+        let victim = dir.join("victim.txt");
+        fs::write(&victim, "precious").unwrap();
+        std::os::unix::fs::symlink(&victim, dir.join("blocked")).unwrap();
+        std::os::unix::fs::symlink(&victim, dir.join("child.pid.tmp")).unwrap();
+        let core = fake_core(&dir);
+        let config = app_config(&dir, "");
+        let (bin, log) = stub_pfctl(&dir);
+        let mut helper = start_isolated(&dir, &run_dir, &core, &config, Some(&bin));
+
+        request_run_with_ips(&dir, "192.0.2.1");
+        wait_for("a run", || child_pid(&dir).is_some());
+        fs::write(dir.join("block"), "").unwrap();
+        wait_for("the block", || blocked(&log));
+
+        assert_eq!(fs::read_to_string(&victim).unwrap(), "precious", "nothing was written through a link");
+        assert!(!fs::symlink_metadata(dir.join("blocked")).unwrap().file_type().is_symlink(), "the link was replaced by the marker itself");
+
+        stop_helper(&dir, &mut helper);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_link_where_the_helper_keeps_its_log_is_replaced_not_appended_through() {
+        let dir = scratch("iso-errlog");
+        let run_dir = dir.join("root-owned");
+        fs::create_dir_all(&run_dir).unwrap();
+        let victim = dir.join("victim.txt");
+        fs::write(&victim, "precious").unwrap();
+        std::os::unix::fs::symlink(&victim, run_dir.join("sing-box.stderr.log")).unwrap();
+        std::os::unix::fs::symlink(&victim, dir.join("sing-box.log")).unwrap();
+        let core = fake_core(&dir);
+        let config = app_config(&dir, "");
+        let mut helper = start_isolated(&dir, &run_dir, &core, &config, None);
+
+        request_run(&dir);
+        wait_for("a run", || child_pid(&dir).is_some());
+        let child = child_pid(&dir).unwrap();
+        Command::new("kill").args(["-9", &child.to_string()]).status().unwrap();
+        wait_for("the exit to be noted", || fs::read_to_string(run_dir.join("sing-box.stderr.log")).unwrap_or_default().contains("exited with status"));
+
+        assert_eq!(fs::read_to_string(&victim).unwrap(), "precious");
+        stop_helper(&dir, &mut helper);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    // ── Starting the helper and installing the service ──────────────────────
+
+    #[test]
+    fn a_verified_copy_keeps_the_engine_only_when_it_matches_what_the_app_saw() {
+        let dir = scratch("verified");
+        let source = dir.join("engine");
+        fs::write(&source, b"engine bytes").unwrap();
+        let digest = crate::core::installer::sha256_file(&source).unwrap();
+        let staged = dir.join("engine.new");
+        let run = |digest: &str| {
+            let command = super::super::verified_copy(&source, &staged.display().to_string(), digest);
+            Command::new("/bin/sh").args(["-c", &command]).stderr(Stdio::null()).status().unwrap()
+        };
+
+        assert!(run(&digest).success());
+        assert_eq!(fs::read(&staged).unwrap(), b"engine bytes");
+        assert_eq!(fs::metadata(&staged).unwrap().modified().unwrap(), fs::metadata(&source).unwrap().modified().unwrap(), "the modification time is kept");
+
+        let _ = fs::remove_file(&staged);
+        // The file was replaced after the app looked at it.
+        assert!(!run(&"0".repeat(64)).success());
+        assert!(!staged.exists(), "a copy that does not match is removed");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_helper_is_started_from_root_owned_copies_not_from_the_users_folder() {
+        let dir = scratch("launch");
+        let paths = paths_in(&dir);
+        let engine = dir.join("core/sing-box");
+        let command = super::super::launch_command(&paths, &engine, &"a".repeat(64), 4242);
+        let run_dir = crate::paths::ROOT_RUN_DIR;
+        assert!(command.contains(&format!("/bin/sh '{run_dir}/launch.sh' '{run_dir}/sing-box'")), "{command}");
+        assert!(!command.contains(&format!("/bin/sh '{}", dir.display())), "root never runs a script from the user's folder");
+        let verify = command.find("shasum").expect("the copy is checked");
+        let launch = command.find("/bin/sh '/var/run").expect("and then used");
+        assert!(verify < launch, "the check comes before anything runs");
+        assert!(command.ends_with("echo $!"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_service_install_checks_the_engine_before_touching_the_running_service() {
+        let commands = super::super::daemon::install_commands("<plist/>", Path::new("/Users/x/core/sing-box"), &"b".repeat(64));
+        let at = |needle: &str| commands.iter().position(|c| c.contains(needle)).unwrap_or_else(|| panic!("no step with {needle}"));
+        assert!(at("shasum") < at("launchctl bootout"), "a failed check must leave the service as it was");
+        assert!(at("shasum") < at("mv -f"), "and nothing is moved into place unchecked");
+        assert!(at("chown root:wheel") < at("shasum") || commands[at("shasum")].contains("cp "), "the copy is root's own");
+        assert_eq!(commands[0], "set -e");
+    }
 }
 
 mod supervisor_restore {

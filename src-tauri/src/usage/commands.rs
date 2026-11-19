@@ -18,17 +18,20 @@ fn with_db<T>(state: &AppState, action: impl FnOnce(&Db) -> Result<T>) -> Result
 #[tauri::command]
 pub fn usage_report(state: State<AppState>, args: ReportArgs) -> Result<Report> {
     state.usage.flush();
+    let args = args.clamped();
     with_db(&state, |db| query::report(db, &args))
 }
 
 #[tauri::command]
 pub fn usage_top(state: State<AppState>, args: TopArgs) -> Result<Vec<TopRow>> {
     state.usage.flush();
+    let args = args.clamped();
     with_db(&state, |db| query::top(db, &args))
 }
 
 #[tauri::command]
 pub fn usage_export(app: AppHandle, state: State<AppState>, args: ReportArgs) -> Result<String> {
+    let args = args.clamped();
     state.usage.flush();
     let csv = with_db(&state, |db| query::export_csv(db, &args))?;
     let directory = app.path().download_dir().map_err(|e| AppError::Launch(e.to_string()))?;
@@ -38,7 +41,7 @@ pub fn usage_export(app: AppHandle, state: State<AppState>, args: ReportArgs) ->
         query::local_time(args.to - 1).format("%Y%m%d")
     );
     let path = directory.join(name);
-    std::fs::write(&path, csv)?;
+    crate::fsutil::write_private_atomic(&path, csv.as_bytes())?;
     Ok(path.display().to_string())
 }
 

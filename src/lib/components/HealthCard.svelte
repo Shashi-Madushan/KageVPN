@@ -25,14 +25,15 @@
 
 {#if app.connected}
 	<section class="card health" aria-label="Connection health">
-		<span class="caption">Connection health</span>
-		{#each rows as row}
-			<div class="row">
-				<i class={row.tone}></i>
-				<span>{row.label}</span>
-				{#if row.tone === 'pending'}<Skeleton width="70px" height="12px" />{:else}<small class={row.tone}>{row.note}</small>{/if}
-			</div>
-		{/each}
+		<span class="caption">Health</span>
+		<div class="chips">
+			{#each rows as row}
+				<span class="chip {row.tone}" title="{row.label}: {row.note}">
+					<i></i>{row.label === 'Internet through tunnel' ? 'Internet' : row.label}
+					{#if row.tone === 'pending'}<Skeleton width="34px" height="10px" />{:else if row.tone === 'bad'}<small>{row.note}</small>{/if}
+				</span>
+			{/each}
+		</div>
 	</section>
 {/if}
 
@@ -40,36 +41,38 @@
 	.health {
 		display: grid;
 		gap: 8px;
-		padding: 12px 14px;
+		padding: 12px 16px;
 	}
-	.row {
+	.chips {
 		display: flex;
-		align-items: center;
-		gap: 8px;
-		font-size: 12.5px;
+		flex-wrap: wrap;
+		gap: 6px;
 	}
-	.row small {
-		margin-left: auto;
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 3px 10px;
+		border-radius: 999px;
+		font-size: 12px;
+		background: color-mix(in srgb, var(--ok) 14%, transparent);
+		color: var(--ok-text);
+	}
+	.chip.bad {
+		background: color-mix(in srgb, var(--danger) 14%, transparent);
+		color: var(--danger);
+	}
+	.chip.pending {
+		background: color-mix(in srgb, var(--warn) 14%, transparent);
+		color: var(--warn);
+	}
+	.chip small {
+		font-size: 11px;
 	}
 	i {
-		width: 8px;
-		height: 8px;
+		width: 7px;
+		height: 7px;
 		border-radius: 50%;
-		background: var(--fg-muted);
-	}
-	i.ok {
-		background: var(--ok);
-	}
-	i.bad {
-		background: var(--danger);
-	}
-	i.pending {
-		background: var(--warn);
-	}
-	small.ok {
-		color: var(--fg-muted);
-	}
-	small.bad {
-		color: var(--danger);
+		background: currentColor;
 	}
 </style>

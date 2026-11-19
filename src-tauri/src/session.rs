@@ -588,9 +588,21 @@ fn finish(app: &AppHandle, pid: u32) {
     }
 }
 
-/// The last `count` lines of a text file, or a note when it cannot be read.
+/// The last `count` lines of a text file, or a note when it cannot be read. Only the end of the
+/// file is read: the sing-box log can be many megabytes and this runs at the moment something has
+/// already gone wrong.
 fn tail_of(path: &std::path::Path, count: usize) -> String {
-    match std::fs::read_to_string(path) {
+    use std::io::{Read, Seek, SeekFrom};
+    const WINDOW: u64 = 256 * 1024;
+    let read = || -> std::io::Result<String> {
+        let mut file = std::fs::File::open(path)?;
+        let len = file.metadata()?.len();
+        file.seek(SeekFrom::Start(len.saturating_sub(WINDOW)))?;
+        let mut bytes = Vec::new();
+        file.take(WINDOW).read_to_end(&mut bytes)?;
+        Ok(String::from_utf8_lossy(&bytes).into_owned())
+    };
+    match read() {
         Ok(text) => {
             let lines: Vec<&str> = text.lines().collect();
             lines[lines.len().saturating_sub(count)..].join("\n")

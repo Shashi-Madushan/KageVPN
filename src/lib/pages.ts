@@ -1,6 +1,6 @@
-// The pages of the main window, in sidebar order, and the keyboard shortcuts that open them.
+// The pages of the main window (What's new is reached from the Home header, not the sidebar), in sidebar order, and the keyboard shortcuts that open them.
 
-export type Page = 'home' | 'profiles' | 'usage' | 'routing' | 'apps' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings';
+export type Page = 'home' | 'profiles' | 'usage' | 'routing' | 'apps' | 'connections' | 'diagnostics' | 'core' | 'logs' | 'settings' | 'whatsnew';
 
 export const pageOrder: Page[] = ['home', 'profiles', 'usage', 'routing', 'diagnostics', 'apps', 'connections', 'core', 'logs', 'settings'];
 

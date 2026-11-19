@@ -7,7 +7,7 @@ window.DOCS_PAGES["developer-guide/local-setup"] = {
   category: "Developer Guide",
   title: "Local Development Setup",
   featureBadge: "Environment",
-  lead: "Set up your macOS development workstation to compile, run, debug, and package Kage VPN from source code.",
+  lead: "Set up your <span class='os-mac'>macOS</span><span class='os-win'>Windows</span> development workstation to compile, run, debug, and package Kage VPN from source code.",
   toc: [
     { id: "prerequisites", label: "Prerequisites & Toolchain" },
     { id: "clone-repo", label: "Cloning & Installing Dependencies" },
@@ -18,13 +18,15 @@ window.DOCS_PAGES["developer-guide/local-setup"] = {
     <div class="docs-prose">
       <h2 id="prerequisites">Prerequisites & Toolchain</h2>
       <p>
-        Building Kage VPN requires macOS (Intel or Apple Silicon) with the following developer dependencies:
+        Building Kage VPN requires <span class="os-mac">macOS (Intel or Apple Silicon)</span><span class="os-win">Windows 10 or 11 (x64)</span> with the following developer dependencies:
       </p>
       <ul>
-        <li><strong>Xcode Command Line Tools:</strong> <code>xcode-select --install</code></li>
+        <li class="os-mac"><strong>Xcode Command Line Tools:</strong> <code>xcode-select --install</code></li>
+        <li class="os-win"><strong>Visual Studio Build Tools</strong> with the <em>Desktop development with C++</em> workload (MSVC and the Windows SDK), and the <strong>WebView2 Runtime</strong> (built into Windows 11).</li>
         <li><strong>Node.js:</strong> Version 20 LTS or later (with <code>npm</code>)</li>
         <li><strong>Rust:</strong> 1.78 or newer via <code>rustup</code> (<code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh</code>)</li>
-        <li><strong>sing-box:</strong> Recommended installed via <code>brew install sing-box</code> for local development testing.</li>
+        <li class="os-mac"><strong>sing-box:</strong> Recommended installed via <code>brew install sing-box</code> for local development testing.</li>
+        <li class="os-win"><strong>sing-box:</strong> the app downloads it on first run (Engine page).</li>
       </ul>
 
       <h2 id="clone-repo">Cloning & Installing Dependencies</h2>
@@ -65,20 +67,31 @@ npm install</code></pre>
 
       <h2 id="building-dmg">Building Release Artifacts</h2>
       <p>
-        To produce a standalone production <code>.dmg</code> installer:
+        To produce a standalone unsigned build for your own machine:
       </p>
     </div>
 
-    <div class="code-block-container">
+    <div class="code-block-container os-mac">
       <div class="code-header">
         <span class="code-lang-label">bash</span>
-        <button class="btn-copy-code" data-code="npm run tauri build">Copy</button>
+        <button class="btn-copy-code" data-code="npm run build:app">Copy</button>
       </div>
-      <pre><code>npm run tauri build</code></pre>
+      <pre><code>npm run build:app</code></pre>
+    </div>
+
+    <div class="code-block-container os-win">
+      <div class="code-header">
+        <span class="code-lang-label">powershell</span>
+        <button class="btn-copy-code" data-code="npm run tauri build -- --bundles nsis --config '{\&quot;bundle\&quot;:{\&quot;createUpdaterArtifacts\&quot;:false}}'">Copy</button>
+      </div>
+      <pre><code>npm run tauri build -- --bundles nsis --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'</code></pre>
     </div>
 
     <div class="docs-prose">
-      <p>The compiled macOS bundle is placed in <code>src-tauri/target/release/bundle/dmg/</code>.</p>
+      <p class="os-mac">The app is placed in <code>src-tauri/target/release/bundle/macos/</code>. Releases are built as one universal app (Apple Silicon and Intel) by <code>npm run release</code>; see <a href="#/developer-guide/releasing">Releasing &amp; Signing</a>.</p>
+      <p class="os-win">The installer is <code>src-tauri\\target\\release\\bundle\\nsis\\Kage_&lt;version&gt;_x64-setup.exe</code>. The full test checklist for Windows is in <code>docs/WINDOWS.md</code>.</p>
+      <h3>Checking Windows code from a Mac</h3>
+      <p>The Windows files compile on a Mac with the GNU toolchain, which catches type and <code>cfg</code> mistakes without a Windows PC (nothing runs): <code>brew install mingw-w64</code>, <code>rustup target add x86_64-pc-windows-gnu</code>, then <code>npm run check:windows</code>.</p>
     </div>
   `
 };
@@ -297,8 +310,11 @@ npm run release -- --version 0.2.0 --github shashimadushan/singbox-gui --notes "
     <div class="docs-prose">
       <h2 id="github-actions">GitHub Releases Automation</h2>
       <p>
-        The script verifies that git working tree is clean, checks public key parity, signs the <code>.dmg</code> and tarballs, writes <code>latest.json</code> manifest, and creates the GitHub release via <code>gh release create</code>.
+        The script verifies that git working tree is clean, checks public key parity, signs the update file, writes <code>latest.json</code> manifest, and creates the GitHub release via <code>gh release create</code>.
       </p>
+      <p class="os-mac">On a Mac it builds one universal app (<code>--target universal-apple-darwin</code>; run <code>rustup target add aarch64-apple-darwin x86_64-apple-darwin</code> once) and lists it in <code>latest.json</code> under both <code>darwin-aarch64</code> and <code>darwin-x86_64</code>.</p>
+      <p class="os-win">On Windows it builds the NSIS installer, signs it, stages <code>kage-vpn_&lt;version&gt;_windows-x86_64.setup.exe</code> and adds a <code>windows-x86_64</code> entry. There is no Keychain, so set <code>TAURI_SIGNING_PRIVATE_KEY_PASSWORD</code> first.</p>
+      <p>Whichever OS releases a version second downloads the published <code>latest.json</code> first and keeps the other OS's entries, so one release serves Macs and PCs.</p>
     </div>
   `
 };

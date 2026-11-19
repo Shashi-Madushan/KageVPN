@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import { onMount } from 'svelte';
 	import { usage } from '$lib/usage.svelte';
 	import Select from './Select.svelte';
@@ -40,11 +41,11 @@
 	<span class="caption">Usage privacy</span>
 	<div class="settings card">
 		<label>
-			<span><strong>Track apps</strong><small>See which apps used your data. Estimated, and stored only on this Mac.</small></span>
+			<span><strong>Track apps</strong><small>See which apps used your data. Estimated, and stored only on this {platform.device}.</small></span>
 			<input type="checkbox" checked={s.recordApps} onchange={(e) => saveToggle(e, (on) => usage.saveSettings({ recordApps: on }))} />
 		</label>
 		<label>
-			<span><strong>Track websites</strong><small>See which sites used your data. Stored only on this Mac. Off by default.</small></span>
+			<span><strong>Track websites</strong><small>See which sites used your data. Stored only on this {platform.device}. Off by default.</small></span>
 			<input type="checkbox" checked={s.recordDomains} onchange={(e) => saveToggle(e, (on) => usage.saveSettings({ recordDomains: on }))} />
 		</label>
 		<label>

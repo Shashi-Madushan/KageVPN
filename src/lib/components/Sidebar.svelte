@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import Icon, { type IconName } from './Icon.svelte';
 	import { shortcutFor, type Page } from '$lib/pages';
 
@@ -61,7 +62,7 @@
 		<div class="section-group">
 			<span class="section-title">{section.title}</span>
 			{#each section.items as item (item.page)}
-				<button class:active={page === item.page} title={shortcutFor(item.page) ? `${item.label} (⌘${shortcutFor(item.page)})` : item.label} aria-label={item.label} aria-current={page === item.page ? 'page' : undefined} onclick={() => onselect(item.page)}>
+				<button class:active={page === item.page} title={shortcutFor(item.page) ? `${item.label} (${platform.modKey}${shortcutFor(item.page)})` : item.label} aria-label={item.label} aria-current={page === item.page ? 'page' : undefined} onclick={() => onselect(item.page)}>
 					<Icon name={item.icon} />
 					<span>{item.label}</span>
 					{#if badges[item.page]}<em>{badges[item.page]}</em>{/if}
@@ -83,9 +84,7 @@
 	}
 	.section-title {
 		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
+		font-weight: 500;
 		color: var(--fg-muted);
 		padding: 0 10px 4px;
 	}
@@ -142,7 +141,7 @@
 		margin-left: auto;
 		font-style: normal;
 		font-size: 11px;
-		font-weight: 700;
+		font-weight: 600;
 		padding: 1px 6px;
 		border-radius: 999px;
 		background: var(--accent);

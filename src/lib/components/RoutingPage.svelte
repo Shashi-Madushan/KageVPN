@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { platform } from '$lib/platform.svelte';
 	import Select from './Select.svelte';
 	import Icon, { type IconName } from './Icon.svelte';
 	import AppPicker, { appLabel } from './AppPicker.svelte';
@@ -328,7 +329,7 @@
 								{/each}
 							</div>
 						{/if}
-						{#if kind === 'app' || draft.rules.some((r) => r.kind === 'app')}
+						{#if platform.isMac && (kind === 'app' || draft.rules.some((r) => r.kind === 'app'))}
 							<p class="note">Safari and apps built on its engine send their traffic from a shared system process, so they cannot be routed by app. Use a website rule for them.</p>
 						{/if}
 					</div>

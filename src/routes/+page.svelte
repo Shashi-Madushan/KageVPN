@@ -1,4 +1,6 @@
 <script lang="ts">
+	import WindowControls from '$lib/components/WindowControls.svelte';
+	import { platform } from '$lib/platform.svelte';
 	import { onMount } from 'svelte';
 	import { app } from '$lib/app.svelte';
 	import { importMessage } from '$lib/format';
@@ -27,6 +29,8 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import AppsPage from '$lib/components/AppsPage.svelte';
 	import { pageForKey, type Page } from '$lib/pages';
+	import WhatsNewPage from '$lib/components/WhatsNewPage.svelte';
+	import { whatsNew } from '$lib/whatsNew.svelte';
 	import UsagePage from '$lib/components/UsagePage.svelte';
 
 	const titles: Record<Page, string> = {
@@ -39,7 +43,8 @@
 		diagnostics: 'Diagnostics',
 		core: 'Engine',
 		logs: 'Logs',
-		settings: 'Settings'
+		settings: 'Settings',
+		whatsnew: "What's new"
 	};
 
 	const subtitles: Record<Page, string> = {
@@ -52,13 +57,15 @@
 		diagnostics: 'Speed, leak and connectivity checks',
 		core: 'The sing-box engine that powers the tunnel',
 		logs: 'Technical output for troubleshooting',
-		settings: 'Startup, reliability, data limit and shortcuts'
+		settings: 'Startup, reliability, data limit and shortcuts',
+		whatsnew: 'Recent changes and new features'
 	};
 
 	let page = $state<Page>('home');
 
 	function onkeydown(e: KeyboardEvent) {
-		if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+		// Cmd on a Mac, Ctrl on Windows (where Cmd does not exist and the Windows key belongs to the system).
+		if (!(platform.isMac ? e.metaKey || e.ctrlKey : e.ctrlKey) || e.altKey || e.shiftKey) return;
 		const next = pageForKey(e.key);
 		if (next) {
 			e.preventDefault();
@@ -94,14 +101,19 @@
 		else if (error) app.notify(error);
 	}
 
-	const badges = $derived<Partial<Record<Page, string>>>(core.updateAvailable ? { core: '1' } : {});
+	const badges = $derived<Partial<Record<Page, string>>>((core.updateAvailable ? { core: '1' } : {}));
+
+	$effect(() => {
+		if (page === 'whatsnew') whatsNew.markSeen();
+	});
 </script>
 
 <svelte:window {onkeydown} />
 
-<div class="app">
+<div class="app" class:windows={platform.isWindows}>
 	<!-- The window has no native title bar, so this strip is what drags it and zooms it on double-click. -->
-	<div class="titlebar" data-tauri-drag-region></div>
+	<div class="titlebar" data-tauri-drag-region>{#if platform.isWindows}<span class="app-name">{app.info.name}</span>{/if}</div>
+	{#if platform.isWindows}<WindowControls />{/if}
 	<aside data-tauri-drag-region>
 		<Sidebar {page} {badges} onselect={(p) => (page = p)} />
 		<div class="aside-foot">
@@ -113,6 +125,11 @@
 	<section class="content">
 		<header data-tauri-drag-region><div class="titles"><h1>{titles[page]}</h1>{#if subtitles[page]}<p>{subtitles[page]}</p>{/if}</div>
 			<div class="actions">
+				{#if page === 'home'}
+					<button class="whatsnew" class:unread={whatsNew.unread} onclick={() => (page = 'whatsnew')}>
+						What's new
+					</button>
+				{/if}
 				{#if header.actions}{@render header.actions()}{/if}
 				<DownloadsMenu />
 			</div>
@@ -144,6 +161,8 @@
 				<CorePage />
 			{:else if page === 'logs'}
 				<LogView />
+			{:else if page === 'whatsnew'}
+				<WhatsNewPage onnavigate={(p) => (page = p)} />
 			{:else}
 				<SettingsView />
 			{/if}
@@ -179,6 +198,27 @@
 		inset: 0 0 auto 0;
 		height: 44px;
 		z-index: 1;
+	}
+	/* Windows: the app's name sits at the left of the title strip, as in other Windows apps. */
+	.app-name {
+		position: absolute;
+		left: 14px;
+		top: 0;
+		line-height: 32px;
+		font-size: 12px;
+		color: var(--fg-muted);
+		pointer-events: none;
+	}
+	/* Windows: no window buttons on the left, but the strip is still there; and the header's buttons
+	   keep clear of minimize, maximize and close on the right. */
+	.windows .titlebar {
+		height: 32px;
+	}
+	.windows aside {
+		padding-top: 40px;
+	}
+	.windows header {
+		padding-top: 36px;
 	}
 	/* Let presses on the title text fall through to the drag strip beneath it. */
 	.titles {
@@ -233,6 +273,21 @@
 		justify-content: space-between;
 		gap: 12px;
 		flex-wrap: wrap;
+	}
+	.whatsnew {
+		padding: 0;
+		border: 0;
+		background: none;
+		font-size: var(--text-sm);
+		color: var(--fg-muted);
+	}
+	.whatsnew:hover {
+		color: var(--fg);
+		text-decoration: underline;
+	}
+	.whatsnew.unread {
+		color: var(--accent);
+		font-weight: 600;
 	}
 	.actions {
 		display: flex;

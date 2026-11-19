@@ -15,8 +15,16 @@ impl Version {
         };
         let mut parts = core.split('.').map(|p| p.parse::<u32>().ok());
         let numbers = [parts.next()??, parts.next()??, parts.next()??];
+        // A version names a folder, so it cannot carry path separators or climb out with `..`.
+        if parts.next().is_some() || pre.as_deref().is_some_and(|pre| !is_plain_prerelease(pre)) {
+            return None;
+        }
         Some(Self { numbers, pre })
     }
+}
+
+fn is_plain_prerelease(pre: &str) -> bool {
+    !pre.is_empty() && !pre.contains("..") && pre.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
 }
 
 impl Ord for Version {

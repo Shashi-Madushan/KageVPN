@@ -2,7 +2,7 @@
 //! folder): when, why, sing-box's exit status, and the last errors it printed. Entries are rare,
 //! and the file is cut down to its newest half when it grows past `MAX_BYTES`.
 
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::Write;
 use std::path::Path;
 
@@ -53,10 +53,10 @@ pub fn record(dir: &Path, kind: &str, reason: &str, details: &str) {
         if let Ok(text) = fs::read_to_string(&path) {
             let keep = boundary_at_or_after(&text, text.len() / 2);
             let cut = text[keep..].find("==== ").map_or(text.len(), |i| keep + i);
-            let _ = fs::write(&path, &text[cut..]);
+            let _ = crate::fsutil::write_private_atomic(&path, &text.as_bytes()[cut..]);
         }
     }
-    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
+    if let Ok(mut file) = crate::fsutil::open_private_append(&path) {
         let _ = file.write_all(entry.as_bytes());
     }
 }

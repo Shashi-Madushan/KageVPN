@@ -64,6 +64,8 @@ fn the_icon_file_name_gets_its_ending() {
     assert_eq!(icon_file_name(&dict("AppIcon.icns")).as_deref(), Some("AppIcon.icns"));
     assert_eq!(icon_file_name(&dict("Logo.ICNS")).as_deref(), Some("Logo.ICNS"));
     assert_eq!(icon_file_name(&dict("  ")), None);
+    assert_eq!(icon_file_name(&dict("../../../../etc/hosts")), None, "a name cannot point outside Resources");
+    assert_eq!(icon_file_name(&dict("sub/Icon")), None);
     assert_eq!(icon_file_name(&plist::Dictionary::new()), None);
 }
 
